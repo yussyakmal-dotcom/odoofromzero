@@ -35,7 +35,7 @@ def main():
         "Expense Account": "property_account_expense_categ_id",
         "Stock Valuation Account": "property_stock_valuation_account_id",
     }
-    needed_fields = ["property_cost_method", "property_valuation", "parent_id", "removal_strategy_id"] + list(field_map.values())
+    needed_fields = ["property_cost_method", "property_valuation", "parent_id"] + list(field_map.values())
     missing_fields = [key for key in needed_fields if key not in cats._fields]
     if missing_fields:
         raise RuntimeError("Field Odoo yang diperlukan tidak ada: %s" % missing_fields)
@@ -43,13 +43,6 @@ def main():
     by_code = {str(a.code): a for a in accounts.search([])}
     if len(by_code) != accounts.search_count([]):
         raise RuntimeError("Ada kode COA duplikat")
-    strategies = odoo_env["stock.removal.strategy"].sudo()
-    by_method = {}
-    for method in ("fifo", "fefo"):
-        found = strategies.search([("method", "=", method)]) if "method" in strategies._fields else strategies.browse([])
-        if len(found) == 1:
-            by_method[method] = found
-
     all_cats = cats.search([])
     roots = all_cats.filtered(lambda c: c.name == "All" and not c.parent_id)
     roots_ya = roots.filtered(lambda c: any(ch.name == "Bahan Baku" for ch in c.child_id)
@@ -101,22 +94,12 @@ def main():
                 if code not in by_code:
                     raise RuntimeError("Akun %s tidak ditemukan pada %s" % (code, path))
                 vals[field] = by_code[code].id
-        strategy_label = row["Force Removal Strategy"].strip()
-        method_by_label = {
-            "First In First Out (FIFO)": "fifo",
-            "First Expiry First Out (FEFO)": "fefo",
-        }
-        if strategy_label:
-            method = method_by_label.get(strategy_label)
-            if not method or method not in by_method:
-                raise RuntimeError("Strategi %r belum tersedia di Odoo untuk %s; aktifkan Lots/Serial & Expiration Dates terlebih dahulu" % (strategy_label, path))
-            vals["removal_strategy_id"] = by_method[method].id
+        # Atas keputusan Feri, kolom Force Removal Strategy sengaja diabaikan.
+        # FIFO/FEFO akan dibahas setelah seluruh master kategori dan gudang siap.
         parsed.append((path, parent, vals))
 
     expected = {p for p, _, _ in parsed}
     additions = [(p, parent, vals) for p, parent, vals in parsed if p not in existing]
-    strategy_updates = [(p, vals["removal_strategy_id"]) for p, _, vals in parsed
-                        if p in existing and "removal_strategy_id" in vals and existing[p].removal_strategy_id.id != vals["removal_strategy_id"]]
     retained = ["All / Produk Jadi / " + name for name in ("Cake Loyang Sudirman", "Roti Sudirman", "Dahlia 5")]
     if not all(p in existing and p not in expected for p in retained):
         raise RuntimeError("Tiga kategori lama yang harus ditahan tidak sesuai kondisi sebelumnya")
@@ -135,9 +118,7 @@ def main():
     print("MODE:", "APPLY" if apply_mode else "PREVIEW (tanpa perubahan)")
     print("SUMBER:", source)
     print("KATEGORI BARU:", len(additions), "(29 subkategori Bahan Baku + 16 kategori lain)")
-    print("STRATEGI KATEGORI LAMA DIPERBARUI:", len(strategy_updates))
-    for path, _ in strategy_updates:
-        print("  STRATEGI:", path)
+    print("FIFO/FEFO: dilewati; tidak ada pengaturan removal strategy yang diubah")
     print("KATEGORI LAMA DITAHAN (tidak dihapus):", ", ".join(retained))
     print("AKUN VARIASI STOK:", variation.code if variation else "tidak ada field")
     print("FIELD STOCK INPUT: tidak dipetakan (Odoo 19)")
@@ -154,14 +135,12 @@ def main():
                 vals["account_stock_variation_id"] = variation.id
             created = cats.create(vals)
             existing[path] = created
-        for path, strategy_id in strategy_updates:
-            existing[path].write({"removal_strategy_id": strategy_id})
         odoo_env.flush_all()
         for path in expected:
             if path not in existing:
                 raise RuntimeError("Kategori belum terbentuk: " + path)
         odoo_env.cr.commit()
-        print("KATEGORI_V2_IMPORT_SUCCESS: %s kategori ditambah, %s strategi lama diperbarui; tidak ada penghapusan." % (len(additions), len(strategy_updates)))
+        print("KATEGORI_V2_IMPORT_SUCCESS: %s kategori ditambah; FIFO/FEFO tidak diubah; tidak ada penghapusan." % len(additions))
     except Exception:
         odoo_env.cr.rollback()
         print("KATEGORI_V2_IMPORT_FAILED: seluruh perubahan dibatalkan.")
