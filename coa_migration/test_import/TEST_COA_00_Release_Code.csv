@@ -1,0 +1,2 @@
+﻿External ID,Code,Account Name,Type,Allow Reconciliation
+account.1_account_journal_payment_credit_account_id,11120005,Pembayaran Tertunda (Outstanding Payments),asset_current,TRUE
