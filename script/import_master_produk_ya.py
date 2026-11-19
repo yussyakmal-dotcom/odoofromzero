@@ -1,7 +1,7 @@
 """Import 2.543 produk YA dalam satu transaksi Odoo 19.
 
-PREVIEW default; PRODUK_APPLY=YES untuk simpan. File sumber PRIVAT:
-PRODUCT_STAGING_PRIVATE.csv pada root repository server (jangan unggah ke GitHub publik).
+PREVIEW default; PRODUK_APPLY=YES untuk simpan. File sumber PRIVAT ditentukan
+oleh env PRODUK_YA_FILE (letakkan di luar repository publik).
 
 Semua produk menggunakan UoM Units sementara. Penjualan/pembelian dinonaktifkan
 dan tidak ada stok awal atau transaksi stok yang dibuat oleh skrip ini.
@@ -79,7 +79,10 @@ def main():
 
     walk(root, "All")
 
-    input_path = Path(os.environ.get("PRODUK_YA_FILE", "PRODUCT_STAGING_PRIVATE.csv"))
+    input_file = os.environ.get("PRODUK_YA_FILE", "")
+    if not input_file:
+        raise RuntimeError("Set PRODUK_YA_FILE ke path file staging privat di luar repository")
+    input_path = Path(input_file)
     with input_path.open(encoding="utf-8-sig", newline="") as file_obj:
         rows = list(csv.DictReader(file_obj))
     if len(rows) != 2543:
