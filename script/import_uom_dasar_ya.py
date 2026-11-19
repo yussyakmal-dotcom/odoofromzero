@@ -117,6 +117,27 @@ def main():
         else:
             create_names.append(label)
 
+    # Nama Excel tetap dipertahankan, sedangkan konversi fisik universal
+    # tersambung ke pohon UoM resmi Odoo. Kemasan per SKU belum dibuat.
+    reference_rules = {
+        "Gram": (15, "g", 1.0),
+        "Liter": (13, "L", 1.0),
+        "Meter": (9, "m", 1.0),
+        "Cc": (12, "ml", 1.0),
+        "Pcs": (1, "Units", 1.0),
+    }
+    if "relative_uom_id" not in Uom._fields:
+        raise RuntimeError("Field relative_uom_id tidak tersedia")
+    for label, (ref_id, ref_name, multiplier) in reference_rules.items():
+        if label not in create_names:
+            raise RuntimeError("Aturan referensi harus ditinjau karena UoM '%s' sudah ada" % label)
+        ref = Uom.browse(ref_id).exists()
+        if not ref or not ref.active or ref.name != ref_name or multiplier <= 0:
+            raise RuntimeError("UoM referensi berubah: " + label)
+    if set(archived) != {"Cm"} or archived["Cm"].id != 8 or \
+            archived["Cm"].relative_uom_id.id != 7 or archived["Cm"].relative_factor != 10:
+        raise RuntimeError("Daftar/struktur UoM arsip tidak sesuai audit terakhir")
+
     print("DATABASE:", env19.cr.dbname)
     print("MODE:", "APPLY" if applying else "PREVIEW (tanpa perubahan)")
     print("SUMBER: XLSX privat UOM_YA_FILE")
@@ -127,16 +148,15 @@ def main():
          archived[name].relative_uom_id.name if "relative_uom_id" in Uom._fields and archived[name].relative_uom_id else "-")
         for name in sorted(archived)])
     print("UOM BARU:", create_names)
+    print("UOM BARU DENGAN REFERENSI:", [
+        "%s -> %s x %s" % (label, rule[1], rule[2])
+        for label, rule in sorted(reference_rules.items())])
+    print("ARSIP YANG DIAKTIFKAN SAAT APPLY: Cm (id=8, referensi mm x10)")
     print("RENCANA: buat %s UoM dasar mandiri; review %s UoM arsip; perbarui 2543 produk" %
           (len(create_names), len(archived)))
     print("TETAP: nama, SKU, kategori, harga jual, standard_price, status jual/beli, stock=0")
-    print("ROUNDING: UoM baru=1.0; UoM bawaan Kg/ML tidak diubah")
+    print("ROUNDING: UoM baru=1.0; UoM bawaan termasuk Kg/ML/Cm tidak diubah")
     print("CATATAN: validasi quantity bilangan bulat pada PO/BoM adalah tahap modul berikutnya")
-    if archived:
-        print("UOM_DASAR_REVIEW_REQUIRED: satuan arsip ditemukan; database tidak diubah")
-        if applying:
-            raise RuntimeError("APPLY ditolak: review UoM arsip sebelum melanjutkan")
-        return
     if not applying:
         print("UOM_DASAR_PREVIEW_OK: database tidak diubah")
         return
@@ -147,9 +167,14 @@ def main():
               for sku, p in by_sku.items()}
     try:
         mapped = dict(existing)
+        archived["Cm"].write({"active": True})
+        mapped["Cm"] = archived["Cm"]
         for label in create_names:
-            # Tidak ada relative_uom_id: UoM baru sebagai satuan dasar independen.
-            mapped[label] = Uom.create({"name": label, "relative_factor": 1.0, "rounding": 1.0})
+            values = {"name": label, "relative_factor": 1.0, "rounding": 1.0}
+            if label in reference_rules:
+                values["relative_uom_id"] = reference_rules[label][0]
+                values["relative_factor"] = reference_rules[label][2]
+            mapped[label] = Uom.create(values)
         for label in unit_count:
             group_ids = [by_sku[sku].id for sku, (_, u) in mappings.items() if u == label]
             Product.browse(group_ids).write({"uom_id": mapped[label].id})
@@ -165,6 +190,12 @@ def main():
                 raise RuntimeError("Harga atau kebijakan produk berubah saat migrasi UoM")
         if env19["stock.move"].sudo().search_count([]) or env19["stock.quant"].sudo().search_count([("quantity", "!=", 0)]):
             raise RuntimeError("Stok/transaksi berubah saat migrasi")
+        for label, (ref_id, _, multiplier) in reference_rules.items():
+            u = mapped[label]
+            if u.relative_uom_id.id != ref_id or abs(u.relative_factor - multiplier) > 0.0000001:
+                raise RuntimeError("Referensi konversi berubah: " + label)
+        if not mapped["Cm"].active:
+            raise RuntimeError("Cm gagal diaktifkan")
         env19.cr.commit()
         print("UOM_DASAR_IMPORT_SUCCESS: 2543 produk dipetakan ke 26 satuan dasar; %s UoM baru dibuat" % len(create_names))
         print("COMMIT selesai. Belum ada aturan konversi pembelian atau aktivasi transaksi")
