@@ -12,15 +12,16 @@ Contoh: Dus untuk SKU A = 100 Pcs, Dus untuk SKU B = 120 Pcs.
 - **Belum ada importer APPLY** untuk 608 kandidat.
 - Master XLSX, nama produk, dan data konversi tetap di server privat.
 
-## Instalasi di database DUPLIKAT saja
+## Pemeriksaan pada database utama (setelah persetujuan pemilik)
 
-1. Pastikan path `~/odoofromzero/addons` tercantum pada `addons_path` server Odoo 19.
+1. Pastikan path `~/odoofromzero/addons` ditambahkan pada `addons_path` Odoo 19.
    Jangan menimpa path addon lain. Tinjau konfigurasi terlebih dahulu.
-2. Perbarui daftar aplikasi dan install `ya_purchase_multi_uom` pada **database duplikat**
-   lewat UI Odoo, bukan `erp-yussyakmal`.
-3. Jalankan `script/test_multi_uom_rules_ya.py` terhadap database duplikat.
-   Skrip menjalankan uji dengan savepoint dan rollback eksplisit; tidak perlu transaksi bisnis.
-4. Tinjau hasil sebelum membuat integrasi PO/receipts dan importer data.
+2. Setelah modul diperiksa, instal `ya_purchase_multi_uom` di database yang
+   disetujui pemilik. Instalasi membuat **tabel kosong** untuk aturan per SKU.
+3. Jalankan `script/test_multi_uom_rules_ya.py` pada `erp-yussyakmal`.
+   Skrip memakai `Model.new()` tanpa menyimpan record dan tanpa COMMIT.
+4. Pengujian constraint duplikat saat `CREATE` dan integrasi PO/receipts tetap
+   memerlukan database uji sebelum transaksi bisnis diaktifkan.
 
 ## Poin penting
 
