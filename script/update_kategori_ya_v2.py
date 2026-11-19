@@ -73,6 +73,7 @@ def main():
 
     parsed = []
     paths = set()
+    valuation_selection = dict(cats._fields["property_valuation"]._description_selection(odoo_env))
     for line, row in enumerate(rows, start=2):
         name = row["Name"].strip()
         parent = row["Parent Category"].strip()
@@ -83,10 +84,14 @@ def main():
         costing = row["Costing Method"].strip()
         valuation = row["Inventory Valuation"].strip()
         valid_costs = {"Average Cost (AVCO)": "average", "Standard Price": "standard", "First In First Out (FIFO)": "fifo"}
-        valid_valuations = {"Automated": "real_time", "Manual": "manual_periodic"}
+        # Odoo 19 mengganti key manual_periodic dari versi sebelumnya menjadi periodic.
+        valid_valuations = {"Automated": "real_time", "Manual": "periodic"}
         if costing not in valid_costs or valuation not in valid_valuations:
             raise RuntimeError("Metode costing/valuation tidak dikenal: " + path)
         vals = {"name": name, "property_cost_method": valid_costs[costing], "property_valuation": valid_valuations[valuation]}
+        if vals["property_valuation"] not in valuation_selection:
+            raise RuntimeError("Odoo tidak menyediakan nilai valuation %r untuk %s; pilihan: %s" %
+                               (vals["property_valuation"], path, valuation_selection))
         for col, field in field_map.items():
             label = row[col].strip()
             if label:
@@ -118,6 +123,7 @@ def main():
     print("MODE:", "APPLY" if apply_mode else "PREVIEW (tanpa perubahan)")
     print("SUMBER:", source)
     print("KATEGORI BARU:", len(additions), "(29 subkategori Bahan Baku + 16 kategori lain)")
+    print("VALUATION ODOO:", {key: valuation_selection[key] for key in ("real_time", "periodic") if key in valuation_selection})
     print("FIFO/FEFO: dilewati; tidak ada pengaturan removal strategy yang diubah")
     print("KATEGORI LAMA DITAHAN (tidak dihapus):", ", ".join(retained))
     print("AKUN VARIASI STOK:", variation.code if variation else "tidak ada field")
