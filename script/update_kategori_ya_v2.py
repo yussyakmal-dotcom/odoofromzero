@@ -21,8 +21,8 @@ def main():
     company = companies[0]
     cats = odoo_env["product.category"].sudo().with_company(company)
     accounts = odoo_env["account.account"].sudo().with_company(company)
-    if accounts.search_count([]) != 486:
-        raise RuntimeError("Jumlah akun COA tidak sesuai dengan tahap sebelumnya (486)")
+    if accounts.search_count([]) != 489:
+        raise RuntimeError("COA belum lengkap: jalankan script/tambah_3_akun_bop.py dahulu (diharapkan 489 akun)")
 
     source = Path(os.environ.get("KATEGORI_V2_FILE", "MASTER CONFIG/C_Kategori_Produk_Import.csv"))
     with source.open(encoding="utf-8-sig", newline="") as fh:
