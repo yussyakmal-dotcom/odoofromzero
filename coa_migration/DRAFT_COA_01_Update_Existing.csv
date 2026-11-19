@@ -1,0 +1,16 @@
+﻿External ID,Code,Account Name,Type,Allow Reconciliation
+account.1_l10n_id_21100020,21100020,Setoran Pemegang Saham (Shareholder Deposit),liability_current,FALSE
+account.1_l10n_id_21100030,21100030,Titipan Pihak Ketiga (Third-Party Deposit),liability_current,FALSE
+account.1_l10n_id_21100040,21100040,Utang Gaji (Salary Deposit),liability_current,FALSE
+account.1_l10n_id_22110020,22110020,Leasing Deposit,liability_current,FALSE
+account.1_l10n_id_28110010,28110010,Uang Muka Penjualan (Advance Sales / DP Pelanggan),liability_current,FALSE
+account.1_l10n_id_31100030,31100030,Modal Belum Disetor (Unpaid Capital),equity,FALSE
+account.1_l10n_id_31210010,31210010,Cadangan Modal (Capital Reserves),equity,FALSE
+account.1_l10n_id_39000000,39000000,Historical Balance,equity,FALSE
+account.1_l10n_id_41000010,41000010,Sales,income,FALSE
+account.1_l10n_id_63110100,63110100,Beban Penelitian dan Pengembangan (RnD dan Trial),expense,FALSE
+account.1_l10n_id_81100030,81100030,Laba Selisih Kurs,income_other,FALSE
+account.1_l10n_id_91100020,91100020,Rugi Selisih Kurs,expense,FALSE
+account.1_l10n_id_99900001,99900001,Selisih Kas - Rugi,expense,FALSE
+account.1_l10n_id_99900003,99900003,Diskon Tunai - Rugi,expense,FALSE
+account.1_l10n_id_99900004,99900004,Diskon Tunai - Laba,income_other,FALSE

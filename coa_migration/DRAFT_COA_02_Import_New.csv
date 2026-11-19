@@ -1,0 +1,367 @@
+﻿Code,Account Name,Type,Allow Reconciliation
+1101010,Kas Besar,asset_cash,FALSE
+1101011,Kas Kecil,asset_cash,FALSE
+1101012,Kas Outlet,asset_cash,FALSE
+1101013,Kas Konsinyasi,asset_cash,FALSE
+1101014,Kas Bank Transfer,asset_cash,FALSE
+1101015,Kas Tabungan Pajak,asset_cash,FALSE
+1101016,Kas Tabungan Dahlia 13,asset_cash,FALSE
+1101017,Kas Tabungan THR,asset_cash,FALSE
+1101090,Kas Tabungan Lainnya,asset_cash,TRUE
+1101091,Grab Food Sudirman,asset_cash,TRUE
+1101092,Go Food Sudirman,asset_cash,TRUE
+1101093,Go Pay Sudirman,asset_cash,TRUE
+1101094,Shopee Pay Sudirman,asset_cash,TRUE
+1101095,Grab Food Kedaton,asset_cash,TRUE
+1101096,Go Food Kedaton,asset_cash,TRUE
+1101097,Go Pay Kedaton,asset_cash,TRUE
+1101098,Shopee Pay Kedaton,asset_cash,TRUE
+1101099,Grab Food Metro,asset_cash,TRUE
+1101100,Go Food Metro,asset_cash,TRUE
+1101101,Go Pay Metro,asset_cash,TRUE
+1101102,Shopee Pay Metro,asset_cash,TRUE
+1101103,Grab Food Unila,asset_cash,TRUE
+1101104,Go Food Unila,asset_cash,TRUE
+1101105,Go Pay Unila,asset_cash,TRUE
+1101106,Shopee Pay Unila,asset_cash,TRUE
+1101107,Grab Food RSAM,asset_cash,TRUE
+1101108,Go Food RSAM,asset_cash,TRUE
+1101109,Go Pay RSAM,asset_cash,TRUE
+1101110,Shopee Pay RSAM,asset_cash,TRUE
+1101115,Grab Food Bandara,asset_cash,TRUE
+1101116,Go Food Bandara,asset_cash,TRUE
+1101117,Go Pay Bandara,asset_cash,TRUE
+1101118,Shopee Pay Bandara,asset_cash,TRUE
+1101119,Grab Food La Visione Dahlia,asset_cash,TRUE
+1101120,Go Food La Visione Dahlia,asset_cash,TRUE
+1101121,Go Pay La Visione Dahlia,asset_cash,TRUE
+1101122,Shopee Pay La Visione Dahlia,asset_cash,TRUE
+1101123,Grab Food La Visione RSAM,asset_cash,TRUE
+1101124,Go Food La Visione RSAM,asset_cash,TRUE
+1101125,Go Pay La Visione RSAM,asset_cash,TRUE
+1101126,Shopee Pay La Visione RSAM,asset_cash,TRUE
+1101127,Grab Food RS AIRAN,asset_cash,TRUE
+1101128,Go Food RS AIRAN,asset_cash,TRUE
+1101129,Go Pay RS AIRAN,asset_cash,TRUE
+1101130,Shopee Pay RS AIRAN,asset_cash,TRUE
+1101200,Kas PoS Sudirman,asset_cash,TRUE
+1101201,Kas PoS Kedaton,asset_cash,TRUE
+1101202,Kas PoS Metro,asset_cash,TRUE
+1101203,Kas PoS UNILA,asset_cash,TRUE
+1101204,Kas PoS RSAM,asset_cash,TRUE
+1101206,Kas PoS Bandara,asset_cash,TRUE
+1101207,Kas PoS La Visione Dahlia,asset_cash,TRUE
+1101208,Kas PoS La Visione RSAM,asset_cash,TRUE
+1101209,Bank Mandiri 114-00-0030033-8,asset_cash,TRUE
+1101210,Bank Mandiri 114-00-6006699-3,asset_cash,TRUE
+1101211,Bank Mandiri 114-00-6688600-6,asset_cash,TRUE
+1101212,BCA 0205716888,asset_cash,TRUE
+1101213,BCA 0201275333,asset_cash,TRUE
+1101214,BRI 009801004081304,asset_cash,TRUE
+1101215,BRI 013001004037303,asset_cash,TRUE
+1101216,BNI 7799008873,asset_cash,TRUE
+1101217,BSI 5533553372,asset_cash,TRUE
+1101218,Bank Mandiri 114-00-1231233-9,asset_cash,TRUE
+1101219,Kas PoS RS AIRAN,asset_cash,TRUE
+1120011,Piutang Karyawan,asset_current,TRUE
+1120090,Piutang Lain-lain,asset_current,TRUE
+1130010,Persediaan Barang Dagang,asset_current,FALSE
+1130011,Persediaan Barang Dalam Proses,asset_current,FALSE
+1130012,Persediaan Bahan Baku,asset_current,FALSE
+1130013,Persediaan Bahan Pembantu,asset_current,FALSE
+1130014,Persediaan Barang Konsinyasi,asset_current,FALSE
+1130015,Goods In Transit,asset_current,TRUE
+1130017,Persediaan Barang Jadi,asset_current,FALSE
+1130018,Persediaan Premix,asset_current,FALSE
+1140010,Biaya Dibayar Di Muka - Sewa Toko,asset_prepayments,FALSE
+1140011,Biaya Dibayar Di Muka - Asuransi Aset,asset_prepayments,FALSE
+1140090,Biaya Dibayar Di Muka - Lain-Lain,asset_prepayments,FALSE
+1150010,Pajak Dibayar Dimuka-PPN,asset_prepayments,FALSE
+1150011,Pajak Dibayar Dimuka-PPh 22,asset_prepayments,FALSE
+1150012,Pajak Dibayar Dimuka-PPh 23,asset_prepayments,FALSE
+1150013,Pajak Dibayar Dimuka-PPh 25,asset_prepayments,FALSE
+11510050,Pajak Dibayar Dimuka - PPh 28A,asset_prepayments,FALSE
+11510060,Pajak Dibayar Dimuka - PPh 4 ayat 2,asset_prepayments,FALSE
+1160010,Uang Muka Pembelian Aset,asset_prepayments,FALSE
+1160011,Uang Muka Perjalanan Dinas,asset_prepayments,FALSE
+1160012,Uang Muka Karyawan,asset_prepayments,FALSE
+1160090,Uang Muka Lain-Lain,asset_prepayments,FALSE
+1210010,Aset Tetap - Hak Atas Tanah,asset_fixed,FALSE
+1210011,Aset Tetap - Bangunan dan Prasarana,asset_fixed,FALSE
+1210012,Akumulasi Penyusutan - Bangunan dan Prasarana,asset_fixed,FALSE
+1210013,Aset Tetap - Peralatan Penjualan,asset_fixed,FALSE
+1210014,Akumulasi Penyusutan - Peralatan Penjualan,asset_fixed,FALSE
+1210015,Aset Tetap - Peralatan Produksi,asset_fixed,FALSE
+1210016,Akumulasi Penyusutan - Peralatan Produksi,asset_fixed,FALSE
+1210017,Aset Tetap - Peralatan Kantor,asset_fixed,FALSE
+1210018,Akumulasi Penyusutan - Peralatan Kantor,asset_fixed,FALSE
+1210019,Aset Tetap - Kendaraan,asset_fixed,FALSE
+1210020,Akumulasi Penyusutan - Kendaraan,asset_fixed,FALSE
+1210110,Aset Tidak Berwujud - Software,asset_fixed,FALSE
+1210111,Akumulasi Amortisasi - Software,asset_fixed,FALSE
+1210310,Aktiva Pajak Tangguhan,asset_non_current,FALSE
+1999991,Transfer Likuiditas (Liquidity Transfer),asset_current,TRUE
+2110011,Utang Konsinyasi,liability_current,FALSE
+2110012,Pinjaman Jangka Pendek - Bank,liability_current,FALSE
+2110013,Pinjaman Jangka Pendek - Non Bank,liability_current,FALSE
+2120011,Utang Lain-Lain - Titipan Pembelian Pelanggan,liability_current,FALSE
+2120090,Utang Lain-Lain - Lainnya,liability_current,FALSE
+2130010,Utang Pajak PPN,liability_current,FALSE
+2130011,Utang Pajak PPh Pasal 21,liability_current,FALSE
+2130012,Utang Pajak PPh Pasal 23,liability_current,FALSE
+2130013,Utang Pajak PPh Pasal 4 ayat 2,liability_current,FALSE
+2130014,Utang Pajak PPh Pasal 25,liability_current,FALSE
+2130015,Utang Pajak PPh Pasal 29,liability_current,FALSE
+2130016,Utang Pajak PB1/PBJT Makanan dan Minuman,liability_current,FALSE
+2171010,Biaya YMH Dibayar - Komisi Jasa Perantara,liability_current,FALSE
+2171011,Biaya YMH Dibayar - Listrik dan Air,liability_current,FALSE
+2171012,Biaya YMH dibayar - Pemeliharaan dan Perbaikan Aset,liability_current,FALSE
+2171013,Biaya YMH Dibayar - Telepon dan Internet,liability_current,FALSE
+2171014,Biaya YMH Dibayar - Teknologi Informasi,liability_current,FALSE
+2171015,Biaya YMH Dibayar - Asuransi Aset,liability_current,FALSE
+2171016,Biaya YMH dibayar - Perijinan & Legal,liability_current,FALSE
+2171090,Biaya YMH dibayar - Lain-Lain,liability_current,FALSE
+3110010,Modal,equity,FALSE
+3110011,Saldo Laba (Rugi) Tahun Lalu,equity,FALSE
+3110012,Saldo Laba (Rugi) Tahun Berjalan,equity,FALSE
+3110013,Prive,equity,FALSE
+3120010,Ikhtisar Laba/(Rugi),equity,FALSE
+4101010,Penjualan Barang Dagang,income,FALSE
+4101011,Penjualan Konsinyasi,income,FALSE
+4101012,Penjualan Lain Lain,income,FALSE
+4101013,Penjualan Produk Bakery,income,FALSE
+4101014,Penjualan Barang Pembantu,income,FALSE
+4121010,Potongan Penjualan,income,FALSE
+4121011,Potongan Penjualan Konsinyasi,income,FALSE
+4131010,Retur Penjualan,income,FALSE
+4141010,Retur Penjualan Konsinyasi,income,FALSE
+5101010,Harga Pokok Penjualan - Barang Dagangan,expense_direct_cost,TRUE
+5101011,Harga Pokok Penjualan - Barang Konsinyasi,expense_direct_cost,TRUE
+5101012,Harga Pokok Produksi,expense_direct_cost,TRUE
+5101013,Harga Pokok Penjualan - Lain-Lain,expense_direct_cost,FALSE
+5101014,Harga Pokok Penjualan - Barang Pembantu,expense_direct_cost,FALSE
+5111010,Beban Produksi - Tenaga Kerja,expense_direct_cost,FALSE
+5111011,Beban Produksi - Tunjangan Jabatan Karyawan,expense_direct_cost,FALSE
+5111012,Beban Produksi - Tunjangan Lembur Karyawan,expense_direct_cost,FALSE
+5111013,Beban Produksi - Tunjangan Makan Karyawan,expense_direct_cost,FALSE
+5111014,Beban Produksi - Tunjangan Transportasi Karyawan,expense_direct_cost,FALSE
+5111015,Beban Produksi - Tunjangan Pajak Penghasilan Karyawan,expense_direct_cost,FALSE
+5111016,"Beban Produksi - Tunjangan BPJS JKK, JKM",expense_direct_cost,FALSE
+5111017,Beban Produksi - Tunjangan BPJS JHT,expense_direct_cost,FALSE
+5111018,Beban Produksi - Pesangon Karyawan,expense_direct_cost,FALSE
+5111019,Beban Produksi - Tunjangan Hari Raya (THR) Karyawan,expense_direct_cost,FALSE
+5111020,Beban Produksi - Bonus Karyawan,expense_direct_cost,FALSE
+5111021,Beban Produksi - Penghargaan Masa Kerja,expense_direct_cost,FALSE
+5111022,Beban Produksi - BPJS Kesehatan,expense_direct_cost,FALSE
+5111023,Beban Produksi - Seragam Karyawan,expense_direct_cost,FALSE
+5111024,Beban Produksi - Tunjangan Sewa Rumah Karyawan,expense_direct_cost,FALSE
+5111025,Beban Produksi - Perayaan dan Rekreasi Karyawan,expense_direct_cost,FALSE
+5111026,Beban Produksi - Rekrutmen Karyawan,expense_direct_cost,FALSE
+5111027,Beban Produksi - Pelatihan Karyawan,expense_direct_cost,FALSE
+5111028,Beban Produksi - Magang Karyawan,expense_direct_cost,FALSE
+5111029,Beban Produksi - Insentif,expense_direct_cost,FALSE
+5121010,BOP - Gaji Tenaga Kerja Tidak Langsung,expense_direct_cost,FALSE
+5121011,BOP - Tunjangan Jabatan Karyawan,expense_direct_cost,FALSE
+5121012,BOP - Tunjangan Lembur Karyawan,expense_direct_cost,FALSE
+5121013,BOP - Tunjangan Makan Karyawan,expense_direct_cost,FALSE
+5121014,BOP - Tunjangan Transportasi Karyawan,expense_direct_cost,FALSE
+5121015,BOP - Tunjangan Pajak Penghasilan Karyawan,expense_direct_cost,FALSE
+5121016,"BOP - Tunjangan BPJS JKK, JKM",expense_direct_cost,FALSE
+5121017,BOP - Tunjangan BPJS JHT,expense_direct_cost,FALSE
+5121018,BOP - Pesangon Karyawan,expense_direct_cost,FALSE
+5121019,BOP - Tunjangan Hari Raya (THR) Karyawan,expense_direct_cost,FALSE
+5121020,BOP - Bonus Karyawan,expense_direct_cost,FALSE
+5121021,BOP - Penghargaan Masa Kerja,expense_direct_cost,FALSE
+5121022,BOP - Tunjangan BPJS Kesehatan,expense_direct_cost,FALSE
+5121023,BOP - Seragam Karyawan,expense_direct_cost,FALSE
+5121024,BOP - Tunjangan Sewa Rumah Karyawan,expense_direct_cost,FALSE
+5121025,BOP - Perayaan dan Rekreasi Karyawan,expense_direct_cost,FALSE
+5121026,BOP - Rekrutmen Karyawan,expense_direct_cost,FALSE
+5121027,BOP - Pelatihan Karyawan,expense_direct_cost,FALSE
+5121028,BOP - Magang Karyawan,expense_direct_cost,FALSE
+5121029,BOP - Insentif,expense_direct_cost,FALSE
+5121030,BOP - Listrik,expense_direct_cost,FALSE
+5121031,BOP - Asuransi Peralatan Pabrik,expense_direct_cost,FALSE
+5121032,BOP - Penyusutan Gedung,expense_direct_cost,FALSE
+5121033,BOP - Penyusutan Peralatan Produksi,expense_direct_cost,FALSE
+5121034,BOP - Pemeliharaan & Perbaikan,expense_direct_cost,FALSE
+5121090,BOP - Lainnya,expense_direct_cost,FALSE
+5201010,Selisih Persediaan Barang Dagang,expense,FALSE
+5201011,Selisih Persediaan Barang Dalam Proses,expense,FALSE
+5201012,Selisih Persediaan Bahan Baku,expense,FALSE
+5201013,Selisih Persediaan Bahan Pembantu,expense,FALSE
+5201014,Selisih Persediaan Barang Konsinyasi,expense,FALSE
+5201015,Selisih Opname Persediaan (Inventory Adjustment),expense,FALSE
+5201016,Beban Scrap/Waste Persediaan (Inventory Scrap),expense,FALSE
+5201017,Selisih Hasil Produksi (Yield Variance),expense,FALSE
+5201018,Selisih Persediaan Barang Jadi,expense,FALSE
+5201019,Selisih Persediaan Premix,expense,FALSE
+6111010,Beban Penj. - Gaji Karyawan,expense,FALSE
+6111011,Beban Penj. - Tunjangan Jabatan Karyawan,expense,FALSE
+6111012,Beban Penj. - Tunjangan Lembur Karyawan,expense,FALSE
+6111013,Beban Penj. - Tunjangan Makan Karyawan,expense,FALSE
+6111014,Beban Penj. - Tunjangan Transportasi Karyawan,expense,FALSE
+6111015,Beban Penj. - Tunjangan Pajak Penghasilan Karyawan,expense,FALSE
+6111016,"Beban Penj. - Tunjangan BPJS JKK, JKM",expense,FALSE
+6111017,Beban Penj. - Tunjangan BPJS JHT,expense,FALSE
+6111018,Beban Penj. - Pesangon Karyawan,expense,FALSE
+6111019,Beban Penj. - Tunjangan Hari Raya (THR) Karyawan,expense,FALSE
+6111020,Beban Penj. - Bonus Karyawan,expense,FALSE
+6111021,Beban Penj. - Penghargaan Masa Kerja,expense,FALSE
+6111022,Beban Penj. - Tunjangan BPJS Kesehatan,expense,FALSE
+6111023,Beban Penj. - Seragam Karyawan,expense,FALSE
+6111025,Beban Penj. - Tunjangan Sewa Rumah Karyawan,expense,FALSE
+6111026,Beban Penj. - Perayaan dan Rekreasi Karyawan,expense,FALSE
+6111027,Beban Penj. - Rekrutmen Karyawan,expense,FALSE
+6111028,Beban Penj. - Pelatihan Karyawan,expense,FALSE
+6111029,Beban Penj. - Olahraga Karyawan,expense,FALSE
+6111030,Beban Penj. - Magang Karyawan,expense,FALSE
+6111031,Beban Penj. - Karyawan Lain-Lain,expense,FALSE
+6111032,Beban Penj. - Insentif,expense,FALSE
+6111034,Beban Penj. - Iklan dan Promosi,expense,FALSE
+6111041,Beban Penj. - Outsourcing,expense,FALSE
+6111048,Beban Penj. - Ongkos Angkut,expense,FALSE
+6111052,Beban Penj. - Sewa Tanah dan Bangunan,expense,FALSE
+6111054,Beban Penj. - Sewa Peralatan Kantor,expense,FALSE
+6111055,Beban Penj. - Sewa Kendaraan,expense,FALSE
+6111056,Beban Penj. - Listrik,expense,FALSE
+6111057,Beban Penj. - Air,expense,FALSE
+6111058,Beban Penj. - Utilitas Bahan Bakar Genset,expense,FALSE
+6111059,Beban Penj. - Pemeliharaan & Perb. aset Bangunan,expense,FALSE
+6111060,Beban Penj. - Pemeliharaan & Perb. aset Alat Kantor,expense,FALSE
+6111061,Beban Penj. - Pemeliharaan & Perb. aset Kendaraan,expense,FALSE
+6111062,Beban Penj. - Telepon Tetap,expense,FALSE
+6111063,Beban Penj. - Telepon Seluler (HP),expense,FALSE
+6111064,Beban Penj. - Internet,expense,FALSE
+6111065,Beban Penj. - Lisensi Software Teknologi Informasi,expense,FALSE
+6111066,Beban Penj. - Pemeliharaan Software Teknologi Informasi,expense,FALSE
+6111067,Beban Penj. - Perlengkapan Komputer,expense,FALSE
+6111068,Beban Penj. - Perjalanan Dinas Dalam Kota (BDL),expense,FALSE
+6111069,Beban Penj. - Perjalanan Dinas Luar Kota,expense,FALSE
+6111070,"Beban Penj. - Kendaraan Opr. (BBM, Parkir, Tol)",expense,FALSE
+6111071,Beban Penj. - Risiko Sendiri Klaim Asuransi,expense,FALSE
+6111072,Beban Penj. - Asuransi Aset Bangunan,expense,FALSE
+6111073,Beban Penj. - Asuransi Aset Peralatan Kantor,expense,FALSE
+6111074,Beban Penj. - Asuransi Aset Kendaraan,expense,FALSE
+6111075,Beban Penj. - Asuransi Aset Lainnya,expense,FALSE
+6111076,Beban Penj. - Alat Tulis Kantor dan Kertas,expense,FALSE
+6111077,Beban Penj. - Barang Cetakan,expense,FALSE
+6111078,Beban Penj. - Fotokopi Dokumen,expense,FALSE
+6111079,Beban Penj. - Materai,expense,FALSE
+6111082,Beban Penj. - Keperluan Kantor,expense,FALSE
+6111083,Beban Penj. - Keamanan,expense,FALSE
+6111084,Beban Penj. - Kebersihan,expense,FALSE
+6111085,Beban Penj. - Rapat dan Konferensi,expense,FALSE
+6111086,Beban Penj. - Perijinan dan Legal,expense,FALSE
+6111087,Beban Penj. - Pajak Bumi dan Bangunan (PBB),expense,FALSE
+6111088,Beban Penj. - Perpanjangan STNK,expense,FALSE
+6111089,Beban Penj. - Pajak Reklame & Retail Visual Iden.,expense,FALSE
+6111090,Beban Penj. - Pajak & Registrasi,expense,FALSE
+6111091,Beban Penj. - Entertainment,expense,FALSE
+6111092,Beban Penj. - Tanggung Jawab Sosial (CSR),expense,FALSE
+6111093,Beban Penj. - Konsultan Pemasaran & Penjualan,expense,FALSE
+6111094,Beban Penj. - Riset dan Survei,expense,FALSE
+6111095,Beban Penj. - Amenity Toko,expense,FALSE
+6111096,Beban Penj. - Perlengkapan Kantor,expense,FALSE
+6111097,Beban Penj. - Perlengkapan Toko,expense,FALSE
+6111098,Beban Penj. - Penghapusan Persediaan Usang,expense,FALSE
+6111099,Beban Penj. - Penyusutan Aset Bangunan dan Prasarana,expense,FALSE
+6111100,Beban Penj. - Penyusutan Aset Peralatan Penjualan,expense,FALSE
+6111101,Beban Penj. - Penyusutan Aset Peralatan Kantor,expense,FALSE
+6111102,Beban Penj. - Penyusutan Aset Kendaraan,expense,FALSE
+6111103,Beban Penj. - Amortisasi Software,expense,FALSE
+6111190,Beban Penj. - Lain-Lain,expense,FALSE
+6121010,Beban Umum & Adm - Gaji Karyawan,expense,FALSE
+6121011,Beban Umum & Adm - Tunjangan Jabatan Karyawan,expense,FALSE
+6121012,Beban Umum & Adm - Tunjangan Lembur Karyawan,expense,FALSE
+6121013,Beban Umum & Adm - Tunjangan Makan Karyawan,expense,FALSE
+6121014,Beban Umum & Adm - Tunjangan Transportasi Karyawan,expense,FALSE
+6121015,Beban Umum & Adm - Tunjangan Pajak Penghasilan Karyawan,expense,FALSE
+6121016,"Beban Umum & Adm - BPJS JKK, JKM",expense,FALSE
+6121017,Beban Umum & Adm - BPJS JHT,expense,FALSE
+6121018,Beban Umum & Adm - Pesangon Karyawan,expense,FALSE
+6121019,Beban Umum & Adm - Tunjangan Hari Raya (THR) Karyawan,expense,FALSE
+6121020,Beban Umum & Adm - Bonus Karyawan,expense,FALSE
+6121021,Beban Umum & Adm - Penghargaan Masa Kerja,expense,FALSE
+6121022,Beban Umum & Adm - Tunjangan BPJS Kesehatan,expense,FALSE
+6121023,Beban Umum & Adm - Seragam Karyawan,expense,FALSE
+6121024,Beban Umum & Adm - Tunjangan Sewa Rumah Karyawan,expense,FALSE
+6121025,Beban Umum & Adm - Perayaan dan Rekreasi,expense,FALSE
+6121026,Beban Umum & Adm - Rekrutmen Karyawan,expense,FALSE
+6121027,Beban Umum & Adm - Pelatihan Karyawan,expense,FALSE
+6121028,Beban Umum & Adm - Olahraga Karyawan,expense,FALSE
+6121029,Beban Umum & Adm - Magang Karyawan,expense,FALSE
+6121030,Beban Umum & Adm - Karyawan Lain-Lain,expense,FALSE
+6121031,Beban Umum & Adm - Insentif,expense,FALSE
+6121032,Beban Umum & Adm - Outsourcing,expense,FALSE
+6121039,Beban Umum & Adm - Sewa Tanah dan Bangunan,expense,FALSE
+6121040,Beban Umum & Adm - Sewa Peralatan Kantor,expense,FALSE
+6121041,Beban Umum & Adm - Sewa Kendaraan,expense,FALSE
+6121042,Beban Umum & Adm - Utilitas Listrik,expense,FALSE
+6121043,Beban Umum & Adm - Utilitas Air,expense,FALSE
+6121044,Beban Umum & Adm - Utilitas Bahan Bakar Genset,expense,FALSE
+6121045,Beban Umum & Adm - Pemeliharaan & Perb. aset Bangunan,expense,FALSE
+6121046,Beban Umum & Adm - Pemeliharaan & Perb. aset Alat Kantor,expense,FALSE
+6121047,Beban Umum & Adm - Pemeliharaan & Perb. aset Kendaraan,expense,FALSE
+6121048,Beban Umum & Adm - Telepon Tetap,expense,FALSE
+6121049,Beban Umum & Adm - Telepon Seluler (HP),expense,FALSE
+6121050,Beban Umum & Adm - Internet,expense,FALSE
+6121051,Beban Umum & Adm - Lisensi Software Teknologi Informasi,expense,FALSE
+6121052,Beban Umum & Adm - Pemeliharaan Software Teknologi Informasi,expense,FALSE
+6121053,Beban Umum & Adm - Perlengkapan Komputer,expense,FALSE
+6121054,Beban Umum & Adm - Perjalanan Dinas dan Transportasi Dalam Kota,expense,FALSE
+6121055,Beban Umum & Adm - Perjalanan Dinas Kota,expense,FALSE
+6121056,"Beban Umum & Adm - Kendaraan Opr. (BBM,Parkir,Tol)",expense,FALSE
+6121057,Beban Umum & Adm - Risiko Sendiri Klaim Asuransi,expense,FALSE
+6121058,Beban Umum & Adm - Asuransi Aset Bangunan,expense,FALSE
+6121059,Beban Umum & Adm - Asuransi Aset Peralatan Kantor,expense,FALSE
+6121060,Beban Umum & Adm - Asuransi Aset Kendaraan,expense,FALSE
+6121061,Beban Umum & Adm - Asuransi Aset Lainnya,expense,FALSE
+6121062,Beban Umum & Adm - Alat Tulis Kantor dan Kertas,expense,FALSE
+6121063,Beban Umum & Adm - Cetakan,expense,FALSE
+6121064,Beban Umum & Adm - Fotokopi Dokumen,expense,FALSE
+6121065,Beban Umum & Adm - Materai,expense,FALSE
+6121066,Beban Umum & Adm - Pengiriman Surat dan Paket,expense,FALSE
+6121067,Beban Umum & Adm - Langganan Koran dan Majalah,expense,FALSE
+6121068,Beban Umum & Adm - Keperluan Kantor,expense,FALSE
+6121069,Beban Umum & Adm - Iuran Keamanan dan Kebersihan,expense,FALSE
+6121070,Beban Umum & Adm - Rapat dan Konferensi,expense,FALSE
+6121071,Beban Umum & Adm - Perijinan dan Legal,expense,FALSE
+6121072,Beban Umum & Adm - PBB,expense,FALSE
+6121073,Beban Umum & Adm - Perpanjangan STNK,expense,FALSE
+6121074,Beban Umum & Adm - Pajak & Registrasi,expense,FALSE
+6121075,Beban Umum & Adm - Entertainment,expense,FALSE
+6121076,Beban Umum & Adm - Tanggung Jawab Sosial (CSR),expense,FALSE
+6121077,Beban Umum & Adm - Audit Eksternal,expense,FALSE
+6121078,Beban Umum & Adm - Konsultan Pajak,expense,FALSE
+6121079,Beban Umum & Adm - Konsultan Legal,expense,FALSE
+6121081,Beban Umum & Adm - Perlengkapan Kantor,expense,FALSE
+6121082,Beban Umum & Adm - Penyusutan Aset Bangunan dan Prasarana,expense,FALSE
+6121083,Beban Umum & Adm - Penyusutan Aset Peralatan Kantor,expense,FALSE
+6121084,Beban Umum & Adm - Penyusutan Aset Peralatan Komputer,expense,FALSE
+6121085,Beban Umum & Adm - Penyusutan Aset Kendaraan,expense,FALSE
+6121086,Beban Umum & Adm - Amortisasi Software,expense,FALSE
+6121090,Beban Umum & Adm - Konsultan lainnya,expense,FALSE
+6121190,Beban Umum & Adm - Lain-Lain,expense,FALSE
+7210010,Pendapatan Jasa Giro,income_other,FALSE
+7210020,Pendapatan Bunga Deposito,income_other,FALSE
+7512090,Pendapatan Insentif Lain-Lain,income_other,FALSE
+7580010,Laba (Rugi) Penjualan Aset Tanah,income_other,FALSE
+7580011,Laba (Rugi) Penjualan Aset Bangunan dan Prasarana,income_other,FALSE
+7580021,Laba (Rugi) Penjualan Aset Peralatan Produksi,income_other,FALSE
+7580030,Laba (Rugi) Penjualan Aset Peralatan Kantor,income_other,FALSE
+7580040,Laba (Rugi) Penjualan Aset Kendaraan,income_other,FALSE
+7599021,Pendapatan Imbalan Bunga Pajak,income_other,FALSE
+7599090,Pendapatan Lain-Lain,income_other,FALSE
+7601010,Beban Administrasi Bank,expense,FALSE
+7601011,Beban Administrasi Kartu Kredit,expense,FALSE
+7601012,Beban Administrasi E-Wallet,expense,FALSE
+7601090,Beban Provisi Bank,expense,FALSE
+7620020,Beban Bunga Pinjaman Bank,expense,FALSE
+7620090,Beban Bank Lain-Lain,expense,FALSE
+7630010,Beban Denda Bunga Pinjaman Bank,expense,FALSE
+7630020,Beban Bunga Pinjaman Non Bank,expense,FALSE
+7940010,Beban Denda Bunga Pinjaman Non Bank,expense,FALSE
+7940011,Beban Pajak,expense,FALSE
+7999090,Beban Lain-Lain,expense,FALSE
+99900005,Selisih Kas - Laba,income_other,FALSE

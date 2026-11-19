@@ -1,0 +1,11 @@
+﻿Target Code,YA Account Name,Odoo Source Code,Odoo External ID,Target Type,Status,Reason
+11120004,Penerimaan Tertunda (Outstanding Receipts),11120003,account.1_account_journal_payment_debit_account_id,asset_current,REVIEW,Incoming outstanding account; 11120004 currently belongs to outgoing payments
+11120005,Pembayaran Tertunda (Outstanding Payments),11120004,account.1_account_journal_payment_credit_account_id,asset_current,REVIEW,Outgoing outstanding account; first resolve code collision
+1112006,Rekening Suspense Bank (Bank Suspense Account),11120002,account.1_account_journal_suspense_account_id,asset_current,REVIEW,Bank suspense linked to bank and cash journals
+1120010,Piutang Usaha,11210010,account.1_l10n_id_11210010,asset_receivable,REVIEW,Receivable account may be a company/partner default
+1120012,Piutang Usaha (PoS),11210011,account.1_l10n_id_11210011,asset_receivable,REVIEW,PoS receivable is a company default
+1130019,Stock Interim (Delivered),,,asset_current,REVIEW,Stock interim delivered; verify valuation routing
+2110010,Utang Dagang,21100010,account.1_l10n_id_21100010,liability_payable,REVIEW,Payable account may be a company/partner default
+2171091,Penerimaan Barang Belum Difaktur (Stock Interim Received),29000000,account.1_l10n_id_29000000,liability_current,REVIEW,Stock interim received; verify stock accounting and category defaults
+22110010,Pinjaman Jangka Panjang - Bank (Bank Loan),22110010,account.1_l10n_id_22110010,liability_non_current,REVIEW,Bank loan: liability_current versus liability_non_current
+99999900,Laba (Rugi) Tahun Berjalan (Otomatis Odoo),99999900,account.1_l10n_id_999999,equity_unaffected,REVIEW,Keep Odoo 19 current-year-earnings record and type
