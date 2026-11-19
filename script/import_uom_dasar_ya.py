@@ -103,6 +103,7 @@ def main():
     for u in Uom.with_context(active_test=False).search([]):
         names.setdefault(u.name.strip().casefold(), []).append(u)
     existing = {}
+    archived = {}
     create_names = []
     for label in sorted(unit_count, key=str.casefold):
         same = names.get(label.casefold(), [])
@@ -110,8 +111,9 @@ def main():
             raise RuntimeError("Nama UoM ambigu: " + label)
         if same:
             if not same[0].active:
-                raise RuntimeError("UoM '%s' sudah ada tetapi nonaktif/arsip; tinjau terlebih dahulu" % label)
-            existing[label] = same[0]
+                archived[label] = same[0]
+            else:
+                existing[label] = same[0]
         else:
             create_names.append(label)
 
@@ -120,11 +122,21 @@ def main():
     print("SUMBER: XLSX privat UOM_YA_FILE")
     print("PRODUK:", len(products), "| SATUAN:", len(unit_count))
     print("UOM SUDAH ADA:", [(name, round(existing[name].rounding, 6)) for name in sorted(existing)])
+    print("UOM DIARSIPKAN (PERLU REVIEW):", [
+        (name, archived[name].id, round(archived[name].rounding, 6),
+         archived[name].relative_uom_id.name if "relative_uom_id" in Uom._fields and archived[name].relative_uom_id else "-")
+        for name in sorted(archived)])
     print("UOM BARU:", create_names)
-    print("RENCANA: buat %s UoM dasar mandiri; perbarui 2543 product.template.uom_id" % len(create_names))
+    print("RENCANA: buat %s UoM dasar mandiri; review %s UoM arsip; perbarui 2543 produk" %
+          (len(create_names), len(archived)))
     print("TETAP: nama, SKU, kategori, harga jual, standard_price, status jual/beli, stock=0")
     print("ROUNDING: UoM baru=1.0; UoM bawaan Kg/ML tidak diubah")
     print("CATATAN: validasi quantity bilangan bulat pada PO/BoM adalah tahap modul berikutnya")
+    if archived:
+        print("UOM_DASAR_REVIEW_REQUIRED: satuan arsip ditemukan; database tidak diubah")
+        if applying:
+            raise RuntimeError("APPLY ditolak: review UoM arsip sebelum melanjutkan")
+        return
     if not applying:
         print("UOM_DASAR_PREVIEW_OK: database tidak diubah")
         return
