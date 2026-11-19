@@ -1,4 +1,4 @@
-"""PREVIEW/APPLY satuan dasar Gram untuk produk Filling di All / Premix.
+"""PREVIEW/APPLY satuan dasar Gram untuk Filling di Premix dan WIP Dapur.
 
 Tidak memakai file master privat. Set PREMIX_FILLING_APPLY=YES untuk APPLY.
 Hanya SKU tanpa PO, pergerakan stok, atau stok aktif yang bisa dikoreksi.
@@ -8,7 +8,7 @@ import os
 import traceback
 
 
-EXPECTED_PRODUCTS = 15  # Kontrol terhadap data master yang sudah direview.
+EXPECTED_BY_CATEGORY = {"Premix": 15, "WIP Dapur": 38}
 
 
 def main():
@@ -20,21 +20,28 @@ def main():
     if len(company) != 1:
         raise RuntimeError("Database harus memiliki tepat satu perusahaan")
 
-    categories = env19["product.category"].sudo().search([("name", "=", "Premix")])
-    premix = categories.filtered(
-        lambda category: category.parent_id and category.parent_id.name == "All"
-    )
-    if len(premix) != 1:
-        raise RuntimeError("Kategori All / Premix tidak ditemukan secara unik")
-
-    Products = env19["product.template"].sudo().with_company(company[0])
-    products = Products.search([("categ_id", "=", premix.id)])
-    matching = products.filtered(lambda product: "filling" in product.name.casefold())
-    if len(matching) != EXPECTED_PRODUCTS:
-        raise RuntimeError(
-            "Jumlah produk Filling berubah: aktual=%s, diharapkan=%s; audit dahulu"
-            % (len(matching), EXPECTED_PRODUCTS)
+    categories = env19["product.category"].sudo().search([
+        ("name", "in", list(EXPECTED_BY_CATEGORY))
+    ])
+    targets = {}
+    for category_name in EXPECTED_BY_CATEGORY:
+        found = categories.filtered(
+            lambda category: category.name == category_name
+            and category.parent_id and category.parent_id.name == "All"
         )
+        if len(found) != 1:
+            raise RuntimeError("Kategori All / %s tidak ditemukan secara unik" % category_name)
+        targets[category_name] = found.id
+    Products = env19["product.template"].sudo().with_company(company[0])
+    products = Products.search([("categ_id", "in", list(targets.values()))])
+    matching = products.filtered(lambda product: "filling" in product.name.casefold())
+    for category_name, expected_count in EXPECTED_BY_CATEGORY.items():
+        actual_count = len(matching.filtered(lambda product: product.categ_id.id == targets[category_name]))
+        if actual_count != expected_count:
+            raise RuntimeError(
+                "Jumlah Filling All / %s berubah: aktual=%s, diharapkan=%s; audit dahulu"
+                % (category_name, actual_count, expected_count)
+            )
 
     Uoms = env19["uom.uom"].sudo().with_context(active_test=False)
     grams = Uoms.search([("name", "=", "Gram")])
@@ -48,7 +55,7 @@ def main():
     changes = []
     print("DATABASE:", env19.cr.dbname)
     print("MODE:", "APPLY" if applying else "PREVIEW (tanpa perubahan)")
-    print("FILTER: All / Premix + nama mengandung filling (tanpa membedakan huruf)")
+    print("FILTER: All / Premix atau All / WIP Dapur + nama mengandung filling")
     for product in matching.sorted(key=lambda product: product.default_code or ""):
         sku = (product.default_code or "").strip()
         if not sku or len(Products.search([("default_code", "=", sku)])) != 1:
@@ -57,7 +64,8 @@ def main():
         if len(variants) != 1:
             raise RuntimeError("SKU %s bukan produk satu varian" % sku)
         previous = product.uom_id.name
-        if previous not in ("Resep", "Gram"):
+        expected_old = ("Resep", "Gram") if product.categ_id.id == targets["Premix"] else ("Pcs", "Gram")
+        if previous not in expected_old:
             raise RuntimeError("SKU %s memiliki UoM di luar ekspektasi: %s" % (sku, previous))
         action = "SUDAH BENAR" if product.uom_id.id == gram.id else "UBAH KE GRAM"
         if action == "UBAH KE GRAM":
@@ -68,7 +76,9 @@ def main():
             if po_lines.search_count([("product_id", "in", variants.ids)]):
                 raise RuntimeError("SKU %s sudah dipakai pada PO" % sku)
             changes.append(product)
-        print("SKU %s | %s | %s -> Gram | %s" % (sku, product.name, previous, action))
+        print("SKU %s | %s | %s | %s -> Gram | %s" % (
+            sku, product.categ_id.name, product.name, previous, action
+        ))
 
     print("TOTAL: %s produk | KOREKSI: %s | TETAP: %s" % (
         len(matching), len(changes), len(matching) - len(changes)
