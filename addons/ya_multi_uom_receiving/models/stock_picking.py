@@ -1,19 +1,11 @@
-"""Apply physical receiving quantities to stock moves explicitly before Validate."""
-from collections import defaultdict
-
-from odoo import fields, models, _
+"""Receive in the purchase unit directly on the standard Operations rows."""
+from odoo import models, _
 from odoo.exceptions import UserError
 from odoo.tools.float_utils import float_compare
 
 
 class StockPicking(models.Model):
     _inherit = "stock.picking"
-
-    ya_receipt_unit_line_ids = fields.One2many(
-        "ya.receipt.unit.line", "picking_id",
-        string="Penerimaan Satuan Fisik YA",
-        copy=False,
-    )
 
     def _ya_is_purchase_receipt(self):
         self.ensure_one()
@@ -22,68 +14,46 @@ class StockPicking(models.Model):
             and any(move.purchase_line_id for move in self.move_ids)
         )
 
-    def _ya_receipt_totals(self):
+    def _ya_apply_physical_quantities(self):
+        """Convert each existing Operations row; never require a second list."""
         self.ensure_one()
-        totals = defaultdict(int)
-        if not self.ya_receipt_unit_line_ids:
-            raise UserError(_("Fill the physical receiving lines before validation."))
-        for line in self.ya_receipt_unit_line_ids:
-            if line.move_id not in self.move_ids:
-                raise UserError(_("Physical entry refers to another receipt."))
-            if line.rule_id.product_id != line.move_id.product_id:
-                raise UserError(_("Unit rule does not belong to the selected SKU."))
-            if line.quantity_units <= 0 or line.factor_snapshot <= 0:
-                raise UserError(_("Physical quantities must be positive integers."))
-            totals[line.move_id.id] += line.base_quantity
         for move in self.move_ids:
             if move.state in ("done", "cancel"):
                 continue
+            if not move.purchase_line_id:
+                raise UserError(_("A receipt line has no PO line. Review this receipt."))
+            rule = move.ya_receipt_rule_id
+            if not rule or not rule.active or rule.product_id != move.product_id:
+                raise UserError(_("Choose a valid physical unit for every receipt line."))
             if move.product_uom != move.product_id.uom_id:
+                raise UserError(_("Stock move UoM must match the SKU base unit."))
+            if move.ya_receipt_qty_units < 0 or rule.factor < 1:
+                raise UserError(_("Received quantity must be a nonnegative integer."))
+            received_base = move.ya_receipt_qty_units * rule.factor
+            if float_compare(
+                received_base, move.product_uom_qty,
+                precision_rounding=move.product_uom.rounding,
+            ) > 0:
                 raise UserError(_(
-                    "A stock move does not use the SKU's base UoM; review before applying."
-                ))
-            base = totals[move.id]
-            if base > move.product_uom_qty:
-                raise UserError(_(
-                    "Receipt of %(sku)s exceeds ordered base units (%(received)s > %(ordered)s)."
+                    "Received quantity exceeds demand for %(sku)s: %(received)s > %(demand)s."
                 ) % {
                     "sku": move.product_id.default_code or move.product_id.display_name,
-                    "received": base, "ordered": move.product_uom_qty,
+                    "received": received_base,
+                    "demand": move.product_uom_qty,
                 })
-        return totals
-
-    def action_ya_apply_receipt_units(self):
-        """Explicitly transfer physical entries into editable stock.move.quantity."""
-        for picking in self:
-            if not picking._ya_is_purchase_receipt():
-                raise UserError(_("This action is only for incoming purchase receipts."))
-            if picking.state in ("done", "cancel"):
-                raise UserError(_("This receipt is already finished."))
-            totals = picking._ya_receipt_totals()
-            for move in picking.move_ids:
-                if move.state in ("done", "cancel"):
-                    continue
-                qty = totals[move.id]
-                # Odoo 19's editable computed quantity uses its inverse to
-                # synchronize detailed move lines. Do not create extra stock moves.
-                move.write({"quantity": float(qty)})
-                if float_compare(move.quantity, float(qty), precision_rounding=move.product_uom.rounding):
-                    raise UserError(_(
-                        "Stock quantity did not synchronize. Nothing was committed."
-                    ))
-                move.write({"picked": bool(qty)})
-                if move.move_line_ids:
-                    move.move_line_ids.write({"picked": bool(qty)})
-        return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": _("Penerimaan YA"),
-                "message": _("Physical units converted to base quantities. Review before Validate."),
-                "type": "success",
-                "sticky": False,
-            },
-        }
+            move.write({
+                "quantity": float(received_base),
+                "ya_received_unit_label": rule.purchase_label,
+                "ya_received_unit_qty": move.ya_receipt_qty_units,
+            })
+            if float_compare(
+                move.quantity, received_base,
+                precision_rounding=move.product_uom.rounding,
+            ):
+                raise UserError(_("Stock quantity did not synchronize; validation cancelled."))
+            move.write({"picked": bool(received_base)})
+            if move.move_line_ids:
+                move.move_line_ids.write({"picked": bool(received_base)})
 
     def button_validate(self):
         for picking in self:
@@ -91,18 +61,8 @@ class StockPicking(models.Model):
                 continue
             if picking.picking_type_id.create_backorder != "never":
                 raise UserError(_(
-                    "Set the receipt operation type's backorder policy to Never "
-                    "before using YA physical receiving."
+                    "Set the incoming operation type backorder policy to Never "
+                    "before validating YA multi-unit receipts."
                 ))
-            totals = picking._ya_receipt_totals()
-            for move in picking.move_ids:
-                if move.state in ("done", "cancel"):
-                    continue
-                expected = totals[move.id]
-                if float_compare(move.quantity, expected,
-                                 precision_rounding=move.product_uom.rounding):
-                    raise UserError(_(
-                        "Apply physical receiving units before validating; "
-                        "stock quantity differs from physical entry."
-                    ))
+            picking._ya_apply_physical_quantities()
         return super().button_validate()
