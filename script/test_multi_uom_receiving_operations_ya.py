@@ -29,6 +29,9 @@ try:
     print("PASS: demand shows purchased physical quantity + unit")
     large.write({"ya_receipt_rule_id": kg.id, "ya_receipt_qty_units": 26})
     small.write({"ya_receipt_rule_id": gram.id, "ya_receipt_qty_units": 500})
+    warning = large._onchange_ya_receipt_quantity_limit()
+    assert warning.get("warning"), "Expected immediate over-demand UI warning"
+    print("PASS: onchange warns immediately for 26 Kg > demand 25 Kg")
     try:
         with env.cr.savepoint():
             picking._ya_apply_physical_quantities()
@@ -37,6 +40,8 @@ try:
     else:
         raise AssertionError("Over-receipt was accepted")
     large.write({"ya_receipt_qty_units": 25})
+    assert not large._onchange_ya_receipt_quantity_limit().get("warning")
+    print("PASS: onchange accepts quantity equal to demand")
     picking._ya_apply_physical_quantities()
     assert large.quantity == 25000
     print("PASS: received 25 Kg = demand 25 Kg accepted")
