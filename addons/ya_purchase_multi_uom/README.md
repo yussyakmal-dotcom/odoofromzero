@@ -35,11 +35,12 @@ boleh dianggap lengkap hanya karena upgrade CLI berhasil.
 
 ## Pemeliharaan master lewat Excel (Odoo 19)
 
-Pada **Purchase → Configuration → Master Multi-UoM YA**, filter **Dapat Dibeli** aktif secara default.
-Daftar hanya menampilkan aturan milik produk yang `Can be Purchased` aktif. Filter dapat dihapus
-untuk memeriksa aturan lama. Saat membuat/mengubah aturan lewat form, pilihan produk juga
-terbatas pada produk yang dapat dibeli. Mengaktifkan pembelian produk baru tetap dilakukan
-di master produk, bukan secara otomatis dari aturan konversi.
+Pada **Purchase → Configuration → Master Multi-UoM YA**, daftar dapat **difilter atau dikelompokkan berdasarkan Kategori Produk**. Pilih kategori
+induk, misalnya Bahan Baku atau Packaging, untuk memeriksa aturan SKU terkait.
+Filter **Dapat Dibeli** tetap tersedia secara opsional, tetapi tidak aktif otomatis.
+**Tidak ada pembatasan SKU** pada form tambah/edit: produk dengan `purchase_ok=False`
+tetap boleh dipelihara aturan satuannya. Mengaktifkan pembelian tetap dilakukan
+melalui master produk, bukan otomatis oleh pengaturan Multi-UoM.
 
 **Ekspor / pembaruan massal:**
 
