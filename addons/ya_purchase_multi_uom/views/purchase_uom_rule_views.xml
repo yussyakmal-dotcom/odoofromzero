@@ -43,9 +43,8 @@
                 <filter name="purchaseable" string="Dapat Dibeli" domain="[('product_id.purchase_ok', '=', True)]"/>
                 <filter name="active_only" string="Aktif" domain="[('active','=',True)]"/>
                 <filter name="archived" string="Arsip" domain="[('active','=',False)]"/>
-                <group expand="0" string="Kelompokkan Berdasarkan">
-                    <filter name="group_category" string="Kategori Produk" context="{'group_by': 'product_categ_id'}"/>
-                </group>
+                <separator/>
+                <filter name="group_category" string="Kelompokkan per Kategori" context="{'group_by': 'product_categ_id'}"/>
             </search>
         </field>
     </record>
