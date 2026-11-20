@@ -47,6 +47,32 @@ class StockMove(models.Model):
                 ], limit=1) if move.product_id else Rule.browse()
             move.ya_receipt_rule_id = rule
 
+    @api.onchange("ya_receipt_qty_units", "ya_receipt_rule_id")
+    def _onchange_ya_receipt_quantity_limit(self):
+        """Warn as soon as an Operations quantity/unit is edited in the UI."""
+        for move in self:
+            if not move.purchase_line_id or not move.ya_receipt_rule_id:
+                continue
+            rule = move.ya_receipt_rule_id
+            if rule.product_id != move.product_id:
+                continue
+            received_base = move.ya_receipt_qty_units * rule.factor
+            if received_base > move.product_uom_qty:
+                return {
+                    "warning": {
+                        "title": _("Received quantity exceeds demand"),
+                        "message": _(
+                            "Received %(quantity)s %(unit)s exceeds the order demand "
+                            "of %(demand)s. Reduce the quantity or select another unit. "
+                            "The receipt cannot be validated while it exceeds demand.",
+                            quantity=move.ya_receipt_qty_units,
+                            unit=rule.purchase_label,
+                            demand=move.ya_demand_display,
+                        ),
+                    },
+                }
+        return {}
+
     @api.constrains("ya_receipt_rule_id", "product_id", "ya_receipt_qty_units")
     def _check_ya_physical_receipt(self):
         for move in self:
