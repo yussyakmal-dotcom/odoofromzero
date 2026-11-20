@@ -27,6 +27,7 @@ try:
     html = render("stock.report_picking", pick.ids)
     assert "Ringkasan Penerimaan Fisik" in html, "Receipt physical summary missing"
     assert "Kg" in html and "Gram" in html, "Receipt print physical units missing"
+    assert "24975" not in html, "Technical split line leaked into simple receipt print"
     print("PASS: Picking Operations QWeb HTML renders physical units")
     assert not po.invoice_ids, "Existing vendor bills: audit first"
     po.action_create_invoice()
