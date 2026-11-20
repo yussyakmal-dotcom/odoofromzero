@@ -18,7 +18,11 @@ def check_create_and_write(e, model, vals, field, initial, fractional, label):
     print("PASS: %s CREATE integer=%s" % (label, initial))
     try:
         with e.cr.savepoint():
-            model.create(dict(values, **{field: fractional}))
+            fractional_values = dict(values, **{field: fractional})
+            if model._name == "mrp.production":
+                # Odoo may reuse the same MO sequence within rollback test.
+                fractional_values["name"] = "YA-INT-MO-FRACTIONAL-TEST"
+            model.create(fractional_values)
     except ValidationError:
         print("PASS: %s CREATE desimal=%s ditolak" % (label, fractional))
     else:
@@ -77,6 +81,7 @@ def main():
 
             check_create_and_write(
                 e, e["mrp.production"].sudo(), {
+                    "name": "YA-INT-MO-INTEGER-TEST",
                     "product_id": finished.id,
                     "product_uom_id": finished.uom_id.id,
                     "bom_id": bom.id,
