@@ -6,12 +6,12 @@
 
 - Satu daftar barang: tab **Operations** stock.picking bawaan Odoo.
 - Baris PO/produk muncul otomatis; petugas **tidak memilih ulang SKU atau move**.
-- Setiap baris mempunyai input **Quantity** fisik (integer) dan **Unit** dari master konversi SKU.
+- **Demand** menampilkan kuantitas beserta satuan asli PO, misalnya **25 Kg** (bukan 25.000 tanpa label).\n- Setiap baris mempunyai input **Quantity** fisik (integer) dan **Unit** dari master konversi SKU.
 - Saat **Validate**, quantity fisik dikali faktor dan disimpan sebagai `stock.move.quantity` satuan dasar.
 - Unit fisik dan jumlah asli disalin ke `stock.move.ya_received_unit_label` dan `ya_received_unit_qty` untuk keperluan laporan.
 - Tidak ada tab penerimaan tambahan atau tombol Apply.
 - Dua unit berbeda untuk SKU sama dapat digunakan lewat dua baris PO/move yang berbeda. Contoh: 20 Kg + 500 Gram.
-- Penerimaan melebihi demand per baris ditolak; kekurangan diterima sebagai final tanpa backorder jika operation type Incoming CDC memakai `create_backorder=never`.
+- Qty diterima boleh kurang dari atau sama dengan Demand; pembatasan dibandingkan setelah semua satuan dikonversi ke satuan dasar. Penerimaan melebihi demand per baris ditolak; kekurangan diterima sebagai final tanpa backorder jika operation type Incoming CDC memakai `create_backorder=never`.
 - Jangan mengaktifkan kebijakan no-backorder permanen tanpa pengujian dan persetujuan; modul menolak Validate pada receipt PO jika setting masih bukan `never`.
 
 **Perhatian:** kolom `Unit` fisik YA bukan `product_uom` stok. UoM stok tetap Gram/Pcs/dll sesuai master. Qty awal input fisik diset 0 agar petugas memasukkan qty yang benar-benar datang, bukan otomatis menganggap seluruh pesanan sudah diterima.
