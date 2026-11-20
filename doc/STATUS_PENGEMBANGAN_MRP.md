@@ -1,0 +1,82 @@
+# ODOO FROM ZERO — Status Pengembangan dan Handoff Manufacturing
+
+**Pembaruan:** 20 November 2026  
+**Cakupan:** ringkasan teknis aman untuk repository publik. Detail lingkungan, daftar akun, identitas transaksi dan konfigurasi internal disimpan terpisah secara privat.
+
+> **Dokumen ini adalah acuan status terbaru.** Catatan handoff sebelumnya adalah riwayat pengerjaan dan dapat memuat status lama yang sudah diselesaikan.
+
+## Status tahapan
+
+| Area | Status | Catatan batasan |
+|---|---|---|
+| Master produk, kategori, dan vendor | Lulus audit pada lingkungan test | Replikasi ke lingkungan lain memerlukan pemeriksaan data terpisah |
+| Multi-UoM Purchasing | Lulus pengujian unit, ORM, dan UI | Harga antar satuan konsisten dalam satu dokumen, bukan lintas vendor |
+| Integer Quantity | Lulus pengujian modul utama | POS belum diuji secara operasional |
+| Diskon Purchase | Lulus pengujian | Diskon per baris atau global, tidak bersamaan; persen dan nilai tetap |
+| Penerimaan Multi-UoM | Lulus pengujian ORM, alur validasi dan uji pengguna | Input di baris Operations; kuantitas fisik dikonversi ke satuan dasar |
+| Integrasi Vendor Bill | Lulus | Kuantitas tagihan mengikuti barang diterima |
+| Laporan PO, Receipt, Vendor Bill | Lulus HTML/PDF dan tinjauan pengguna | Receipt ringkas untuk operasi biasa; detail pelacakan tetap dipertahankan bila diperlukan |
+| Jurnal Vendor Bill | Lulus audit saldo Debit/Kredit dan akun pajak | Belum membuktikan seluruh akuntansi produksi atau penutupan stok |
+| Routing gudang | Ditunda | Diselesaikan setelah master dan kebutuhan produksi matang |
+| POS | Ditunda | Aktivasi modul bukan berarti alur operasional siap |
+| Manufacturing | Tahap berikutnya | Audit master dan pengujian harus dilakukan pada salinan test khusus |
+
+## Modul kustom dalam scope
+
+- `ya_purchase_multi_uom`
+- `ya_integer_quantity`
+- `ya_purchase_discount`
+- `ya_partner_phone2`
+- `ya_multi_uom_receiving`
+- `ya_purchase_reports`
+
+Modul yang tersedia dalam kode repository **bukan** bukti bahwa modul atau data master sudah terpasang di setiap database. Status actual harus diperiksa dari registry dan database target.
+
+## Aturan proses yang disepakati
+
+1. Satuan dasar produk merupakan unit terkecil yang bermakna untuk SKU; konversi multi-unit dikendalikan **per SKU**.
+2. Quantity input operasional harus integer; angka stok dasar dapat merupakan hasil konversi unit.
+3. Pembelian boleh menggunakan beberapa baris berbeda satuan untuk SKU yang sama.
+4. Penerimaan dapat kurang atau sama dengan demand; **tidak boleh lebih**. Kekurangan dianggap selesai menurut kebijakan operasi yang telah disetujui; pengiriman berikutnya menggunakan PO baru.
+5. Vendor Bill mengikuti kuantitas diterima, bukan jumlah PO yang belum diterima.
+6. Uji perubahan harga lintas satuan dilakukan dalam satu PO; harga antar supplier boleh berbeda.
+7. Tidak melakukan transaksi operasional POS sebelum master dan alurnya siap.
+8. Tidak mengaktifkan rute gudang/Manufacturing otomatis sebelum pengujian lengkap.
+
+## Standar deployment yang WAJIB
+
+**Sumber kode Git dan direktori addons Odoo aktif adalah dua lokasi berbeda.** `git pull` **tidak otomatis** memasang perubahan kode ke Odoo.
+
+1. Catat Git commit untuk versi yang akan diuji.
+2. Salin **hanya addon yang dituju** ke direktori addons aktif dengan backup dan izin file yang sesuai.
+3. Bandingkan file sumber dan file aktif (hash atau `diff`); jika berbeda, **jangan** menganggap upgrade sebagai validasi kode baru.
+4. Upgrade modul **hanya** pada database test yang dipilih dan periksa kode keluar **serta** log.
+5. Perbarui proses web/registry bila perlu; cek hasil UI, QWeb, dan tes ORM.
+6. Simpan hasil uji dan keputusan; **tidak ada promosi ke database utama tanpa audit dan persetujuan eksplisit**.
+
+Peringatan dokumentasi/indentasi tidak selalu sama dengan kesalahan instalasi; cari traceback atau parse error bila kode keluar gagal.
+
+## Checkpoint Manufacturing
+
+Pemilik server mengonfirmasi **database duplikat khusus Manufacturing sudah dibuat**. Nama dan identitas teknis duplikat dicatat secara privat. Jangan membuat duplikat baru hanya karena memulai sesi/chat baru.
+
+**Sebelum perubahan apa pun:**
+
+1. Verifikasi database target yang benar dan bahwa salinan tidak mengaktifkan email/automasi eksternal.
+2. Audit read-only modul MRP, Work Center, Operations, BoM/komponen, MO, stock location, dan hubungan ke master sebelumnya.
+3. Bandingkan jumlah/status master dengan sumber migrasi yang tersedia; **jangan langsung mengimpor ulang**.
+4. Tetapkan skenario tes: satu MO untuk satu SKU, quantity integer, konsumsi bahan baku, WIP, output produk jadi, stok tidak boleh minus, dan kebijakan tanpa backorder yang telah disetujui.
+5. Jalankan tes ORM dengan rollback; setelah lulus, uji antarmuka dan output laporan.
+6. Audit penilaian persediaan dan HPP pada tahap integrasi produksi; jangan mengubah metode accounting hanya karena satu transaksi pembelian berhasil.
+
+## Area yang belum diselesaikan
+
+- Finalisasi data resmi perusahaan dan logo: ditunda sesuai keputusan pemilik.
+- Konfigurasi pajak: perhitungan contoh pembelian sudah diaudit; kesesuaian kebijakan akuntansi dan supplier tetap perlu validasi bisnis.
+- Seluruh siklus MRP, persediaan produk jadi, HPP, dan penutupan periode: **belum lulus tes**.
+- Promosi modul dan data ke database utama: **belum dilakukan** dalam fase ini.
+
+## Pesan handoff untuk chat berikutnya
+
+> Lanjutkan ODOO FROM ZERO dari dokumen `doc/STATUS_PENGEMBANGAN_MRP.md`. Purchasing, Receiving Multi-UoM, diskon, Vendor Bill, laporan PDF, dan audit jurnal pembelian sudah lulus pada lingkungan test; **jangan ulangi audit itu tanpa kebutuhan baru**. Database khusus Manufacturing sudah diduplikasi: verifikasi nama dan statusnya dari konteks privat/server, lalu mulai audit MRP read-only. Jangan sentuh database utama atau POS. Selalu sinkronkan addon Git ke direktori aktif sebelum upgrade modul.
+
