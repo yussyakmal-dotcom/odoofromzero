@@ -21,7 +21,7 @@ for key in targets:
     root = etree.fromstring(view.arch_db.encode())
     for node in root.iter():
         expression = " ".join([
-            node.get("t-field", ""), node.get("t-esc", ""), node.get("t-out", ""),
+            node.get("t-field") or "", node.get("t-esc") or "", node.get("t-out") or "",
         ])
         if any(token in expression for token in (
             "line.product_qty", "line.product_uom_id", "line.price_unit",
