@@ -1,0 +1,10 @@
+{
+    "name": "YA Purchase Discount",
+    "version": "19.0.1.0.0",
+    "category": "Purchases",
+    "summary": "Exclusive line/global PO discounts in percent or currency amount",
+    "depends": ["purchase", "ya_purchase_multi_uom"],
+    "data": ["views/purchase_discount_views.xml"],
+    "installable": True,
+    "license": "LGPL-3",
+}
