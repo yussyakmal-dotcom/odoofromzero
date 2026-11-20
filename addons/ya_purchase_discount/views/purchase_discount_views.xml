@@ -7,12 +7,14 @@
         <field name="priority">25</field>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='order_line']" position="after">
-                <group string="Diskon Pembelian" col="4">
-                    <field name="ya_discount_mode" string="Mode Diskon"/>
-                    <field name="ya_global_discount_type"
-                           string="Tipe" invisible="ya_discount_mode != 'global'"/>
-                    <field name="ya_global_discount_value"
-                           string="Diskon Global" invisible="ya_discount_mode != 'global'"/>
+                <group string="Diskon Pembelian" col="1">
+                    <field name="ya_discount_mode" string="Mode Diskon"
+                           widget="radio" options="{'horizontal': True}" nolabel="1"/>
+                    <group col="4" invisible="ya_discount_mode != 'global'">
+                        <field name="ya_global_discount_type" string="Tipe"
+                               widget="radio" options="{'horizontal': True}"/>
+                        <field name="ya_global_discount_value" string="Nilai Diskon"/>
+                    </group>
                 </group>
             </xpath>
             <xpath expr="//field[@name='order_line']//field[@name='ya_purchase_price']" position="after">
