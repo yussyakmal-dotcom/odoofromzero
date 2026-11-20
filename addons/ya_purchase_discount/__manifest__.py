@@ -4,7 +4,11 @@
     "category": "Purchases",
     "summary": "Exclusive line/global PO discounts in percent or currency amount",
     "depends": ["purchase", "ya_purchase_multi_uom"],
-    "data": ["wizard/purchase_discount_wizard_views.xml", "views/purchase_discount_views.xml"],
+    "data": [
+        "security/ir.model.access.csv",
+        "wizard/purchase_discount_wizard_views.xml",
+        "views/purchase_discount_views.xml",
+    ],
     "installable": True,
     "license": "LGPL-3",
 }
