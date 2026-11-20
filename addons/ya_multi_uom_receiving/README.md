@@ -11,7 +11,7 @@
 - Unit fisik dan jumlah asli disalin ke `stock.move.ya_received_unit_label` dan `ya_received_unit_qty` untuk keperluan laporan.
 - Tidak ada tab penerimaan tambahan atau tombol Apply.
 - Dua unit berbeda untuk SKU sama dapat digunakan lewat dua baris PO/move yang berbeda. Contoh: 20 Kg + 500 Gram.
-- Qty diterima boleh kurang dari atau sama dengan Demand; pembatasan dibandingkan setelah semua satuan dikonversi ke satuan dasar. Penerimaan melebihi demand per baris ditolak; kekurangan diterima sebagai final tanpa backorder jika operation type Incoming CDC memakai `create_backorder=never`.
+- Saat Quantity atau Unit diedit pada Operations, `@api.onchange` memberi **peringatan segera** jika hasil konversi melampaui Demand. Backend tetap menolak saat Validate; warning onchange bukan pengaman keamanan tunggal.\n- Qty diterima boleh kurang dari atau sama dengan Demand; pembatasan dibandingkan setelah semua satuan dikonversi ke satuan dasar. Penerimaan melebihi demand per baris ditolak; kekurangan diterima sebagai final tanpa backorder jika operation type Incoming CDC memakai `create_backorder=never`.
 - Jangan mengaktifkan kebijakan no-backorder permanen tanpa pengujian dan persetujuan; modul menolak Validate pada receipt PO jika setting masih bukan `never`.
 
 **Perhatian:** kolom `Unit` fisik YA bukan `product_uom` stok. UoM stok tetap Gram/Pcs/dll sesuai master. Qty awal input fisik diset 0 agar petugas memasukkan qty yang benar-benar datang, bukan otomatis menganggap seluruh pesanan sudah diterima.
