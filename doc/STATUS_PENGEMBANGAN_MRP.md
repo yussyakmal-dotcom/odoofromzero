@@ -80,3 +80,26 @@ Pemilik server mengonfirmasi **database duplikat khusus Manufacturing sudah dibu
 
 > Lanjutkan ODOO FROM ZERO dari dokumen `doc/STATUS_PENGEMBANGAN_MRP.md`. Purchasing, Receiving Multi-UoM, diskon, Vendor Bill, laporan PDF, dan audit jurnal pembelian sudah lulus pada lingkungan test; **jangan ulangi audit itu tanpa kebutuhan baru**. Database khusus Manufacturing sudah diduplikasi: verifikasi nama dan statusnya dari konteks privat/server, lalu mulai audit MRP read-only. Jangan sentuh database utama atau POS. Selalu sinkronkan addon Git ke direktori aktif sebelum upgrade modul.
 
+
+## Checkpoint 21 November 2026 — Master Work Center
+
+**Status: PASS berdasarkan log terminal yang diberikan pelaksana (belum audit ulang independen).**
+
+- Database khusus MRP telah dikonfirmasi dan dipakai untuk audit serta impor; database utama dan checkpoint Purchasing tidak menjadi target.
+- Audit struktur: modul MRP/stock dan validasi integer terpasang; sebelum impor tercatat **0 Work Center, 0 Operations, 0 BoM, 0 komponen BoM, dan 0 MO**.
+- Odoo 19 pada instalasi ini memiliki `mrp.workcenter.resource_id` required, `capacity_ids` melalui `mrp.workcenter.capacity` (kapasitas dapat spesifik produk), `resource_calendar_id`, `time_efficiency`, dan `costs_hour`. Tidak ditemukan field tunggal `capacity`.
+- Sumber data Work Center berasal dari CSV privat; **16 entri**, tidak ada kode/nama kosong atau duplikat menurut preview.
+- Script versi Git: `script/import_workcenter_ya.py`. Proses berjalan dengan mode PREVIEW (rencana create 16, skip 0), kemudian APPLY (log `IMPORT_OK committed created=16 total=16`). Script membuat Work Center melalui ORM, mengecek resource terkait, memverifikasi nama+kode, dan melakukan commit atau rollback.
+- **Jangan jalankan impor ulang tanpa kebutuhan**. Jika perlu rerun untuk verifikasi gunakan mode PREVIEW; hasil ideal berikutnya create 0, skip 16. Jangan membuat ulang Work Center yang sudah ada.
+- **Operations dan BoM belum diimpor** berdasarkan log terakhir. Jangan menyatakan sudah selesai.
+- Nama/kode master sumber dan CSV privat **tidak dimasukkan ke Git publik**.
+
+### Urutan berikutnya
+
+1. Gunakan Work Center yang sudah dibuat sebagai referensi; tidak perlu audit teknis berulang jika tidak ada perubahan.
+2. Siapkan sumber BoM dan hubungan Operations; Operations merupakan record `mrp.routing.workcenter` yang terkait BoM dan Work Center. Jangan buat daftar operasi lepas tanpa memperhatikan hubungan tersebut.
+3. Validasi pemetaan SKU hasil, komponen, satuan, jumlah integer, dan referensi Work Center. PREVIEW sebelum APPLY; cegah duplikasi.
+4. Uji sedikit data lebih dahulu dengan rollback di database MRP test, baru impor keseluruhan; kemudian cek UI dan hasil ORM.
+5. Dokumentasikan hasil serta SHA commit. Tidak ada promosi ke database utama tanpa persetujuan.
+
+**Catatan kesinambungan:** Dokumen handoff historis tanggal 20 November memiliki status awal yang telah kedaluwarsa. Untuk status operasional terbaru, gunakan **dokumen ini** dan log audit/commit terbaru, bukan bagian `BELUM SELESAI` pada handoff lama.
