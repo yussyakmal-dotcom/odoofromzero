@@ -12,7 +12,7 @@ for line in po.order_line.filtered(lambda x: not x.display_type):
           "| subtotal:", line.price_subtotal, "| tax:", line.price_tax)
     for tax in line.tax_ids:
         print(" TAX:", tax.id, repr(tax.name), "| amount:", tax.amount,
-              "| type:", tax.amount_type, "| price_include:", tax.price_include_override,
+              "| type:", tax.amount_type, "| price_include:", getattr(tax, "price_include_override", None),
               "| tax_group:", tax.tax_group_id.name)
         for child in tax.children_tax_ids:
             print("  CHILD:", child.id, child.name, "| amount:", child.amount,
