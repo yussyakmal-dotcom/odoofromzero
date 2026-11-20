@@ -14,13 +14,13 @@ class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
     ya_discount_mode = fields.Selection([
-        ("none", "No Discount"),
-        ("line", "Per Line"),
+        ("none", "Tanpa Diskon"),
+        ("line", "Per Baris"),
         ("global", "Global"),
     ], default="none", required=True, copy=False)
     ya_global_discount_type = fields.Selection([
-        ("percent", "Percent (%)"),
-        ("amount", "Amount (currency)"),
+        ("percent", "%"),
+        ("amount", "Rp"),
     ], default="percent", required=True, copy=False)
     ya_global_discount_value = fields.Monetary(
         string="Global Discount", currency_field="currency_id", default=0, copy=False)
@@ -59,8 +59,8 @@ class PurchaseOrderLine(models.Model):
     _inherit = "purchase.order.line"
 
     ya_line_discount_type = fields.Selection([
-        ("percent", "Percent (%)"),
-        ("amount", "Amount (currency)"),
+        ("percent", "%"),
+        ("amount", "Rp"),
     ], default="percent", required=True, copy=False)
     ya_line_discount_value = fields.Float(string="Line Discount", default=0, copy=False)
 
