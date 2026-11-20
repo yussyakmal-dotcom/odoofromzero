@@ -14,6 +14,11 @@ from pathlib import Path
 
 
 EXPECTED_HEADERS = ["Display Name", "Email", "Phone", "Contact Address Complete"]
+REVIEW_HEADERS = EXPECTED_HEADERS + [
+    "Telepon 1 (usulan)", "Telepon 2 (usulan)", "Nomor asli perlu review",
+    "Status telepon", "Status impor", "Alasan review", "Tag konsinyasi",
+    "Baris sumber CSV",
+]
 XML_MODULE = "ya_master_mitra"
 TAG_NAME = "YA / Konsinyasi (CS)"
 TEST_DATABASE = "erp-yussyakmal-integer-test"
@@ -69,8 +74,9 @@ def main():
 
     with source.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
-        if reader.fieldnames != EXPECTED_HEADERS:
+        if reader.fieldnames not in (EXPECTED_HEADERS, REVIEW_HEADERS):
             raise RuntimeError("Header CSV berbeda: %r" % reader.fieldnames)
+        reviewed_file = reader.fieldnames == REVIEW_HEADERS
         rows = list(reader)
     if not rows:
         raise RuntimeError("CSV kosong")
@@ -89,6 +95,7 @@ def main():
 
     planned, existing, review, invalid_phone = [], [], [], []
     two_phones = []
+    stale_review_labels = []
     for line_no, row in enumerate(rows, start=2):
         name = clean(row["Display Name"])
         key = key_of(name)
@@ -123,11 +130,26 @@ def main():
             review.append((line_no, name, "nama telah ada di Odoo; perlu mapping"))
             continue
 
-        phone, mobile, unresolved = parse_phones(row["Phone"])
+        if reviewed_file:
+            # Koreksi Feri di kolom hasil review lebih berwenang dari Phone asli.
+            phone = clean(row["Telepon 1 (usulan)"])
+            mobile = clean(row["Telepon 2 (usulan)"])
+            unresolved = clean(row["Nomor asli perlu review"])
+            if (phone and not phone_or_empty(phone)) or (mobile and not phone_or_empty(mobile)):
+                review.append((line_no, name, "nomor usulan belum valid; perbaiki CSV"))
+                continue
+            if mobile and not phone:
+                review.append((line_no, name, "Telepon 2 diisi tetapi Telepon 1 kosong"))
+                continue
+            if clean(row["Status impor"]) == "TAHAN DUPLIKAT":
+                stale_review_labels.append((line_no, name))
+        else:
+            phone, mobile, unresolved = parse_phones(row["Phone"])
+
         if mobile:
             two_phones.append((line_no, name))
         if unresolved:
-            invalid_phone.append((line_no, name, clean(row["Phone"])[:35]))
+            invalid_phone.append((line_no, name, unresolved[:35]))
         planned.append((line_no, name, key, clean(row["Email"]), phone, mobile,
                         clean(row["Contact Address Complete"]),
                         bool(re.search(r"\bCS\s*$", name, flags=re.I)),
@@ -135,12 +157,15 @@ def main():
 
     print("DATABASE:", e.cr.dbname)
     print("MODE:", "APPLY" if applying else "PREVIEW (tanpa perubahan)")
-    print("SUMBER: CSV privat MITRA_YA_FILE")
+    print("SUMBER:", "CSV REVIEW FERI (Telepon 1/2 manual)" if reviewed_file else "CSV vendor asli", "dari MITRA_YA_FILE")
     print("CSV:", len(rows), "kontak | TAMBAH:", len(planned),
           "SUDAH ADA:", len(existing), "REVIEW:", len(review))
     print("PENANDA CS:", sum(bool(p[-2]) for p in planned), "kontak baru")
     print("DUA NOMOR VALID (phone+ya_phone2):", len(two_phones))
     print("TELEPON TIDAK TERSTRUKTUR (disimpan di catatan):", len(invalid_phone))
+    if reviewed_file:
+        print("STATUS LAMA TAHAN DUPLIKAT TAPI NAMA KINI UNIK:", len(stale_review_labels))
+        print("PENTING: status lama diabaikan; yang menentukan adalah nama duplikat pada CSV terbaru")
     for item in review[:40]:
         print("REVIEW BARIS %s | %s | %s" % item)
     for item in invalid_phone[:20]:
