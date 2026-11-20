@@ -1,6 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="ya_picking_print_received_units" inherit_id="stock.report_picking">
+        <!-- Physical receipt summary is based on stock.move snapshots rather than
+             split stock.move.line details. The native technical table remains. -->
+        <xpath expr="//div[@t-field='o.name']" position="after">
+            <div t-if="o.picking_type_code == 'incoming' and any(m.ya_received_unit_label for m in o.move_ids)"
+                 class="mt-3 mb-3">
+                <strong>Ringkasan Penerimaan Fisik</strong>
+                <table class="table table-sm o_main_table">
+                    <thead>
+                        <tr>
+                            <th>Produk</th>
+                            <th class="text-end">Diterima</th>
+                            <th class="text-end">Stok Dasar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="o.move_ids" t-as="physical_move">
+                            <t t-if="physical_move.ya_received_unit_label">
+                                <td><span t-field="physical_move.product_id"/></td>
+                                <td class="text-end">
+                                    <span t-out="physical_move.ya_received_unit_qty"/>
+                                    <span t-out="physical_move.ya_received_unit_label"/>
+                                </td>
+                                <td class="text-end">
+                                    <span t-out="physical_move.quantity"/>
+                                    <span t-field="physical_move.product_uom"/>
+                                </td>
+                            </t>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </xpath>
         <!-- Use physical snapshots for aggregated rows, even if Odoo split the
              technical move lines during validation. -->
         <xpath expr="//span[@t-out='format_number(move.quantity)']" position="replace">
