@@ -1,6 +1,6 @@
 {
     "name": "YA Purchase Multi-UoM Rules",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.3.0",
     "category": "Purchases",
     "summary": "Per-SKU integer purchase rules and PO line conversion",
     "depends": ["purchase_stock"],
