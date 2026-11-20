@@ -6,22 +6,20 @@
         <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="priority">25</field>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='order_line']" position="before">
+                <field name="ya_discount_mode" invisible="1"/>
+                <field name="ya_global_discount_type" invisible="1"/>
+                <field name="ya_global_discount_value" invisible="1"/>
+            </xpath>
             <xpath expr="//field[@name='order_line']" position="after">
-                <group string="Diskon Pembelian" col="1">
-                    <field name="ya_discount_mode" string="Mode Diskon"
-                           widget="radio" options="{'horizontal': True}" nolabel="1"/>
-                    <group col="4" invisible="ya_discount_mode != 'global'">
-                        <field name="ya_global_discount_type" string="Tipe"
-                               widget="radio" options="{'horizontal': True}"/>
-                        <field name="ya_global_discount_value" string="Nilai Diskon"/>
-                    </group>
-                </group>
+                <div class="text-end mt-2 mb-2">
+                    <button type="object" name="action_open_ya_discount_wizard"
+                            string="Discount" class="btn btn-secondary"
+                            invisible="state not in ('draft', 'sent')"/>
+                </div>
             </xpath>
             <xpath expr="//field[@name='order_line']//field[@name='ya_purchase_price']" position="after">
-                <field name="ya_line_discount_type" string="Tipe" width="65px"
-                       column_invisible="parent.ya_discount_mode != 'line'"/>
-                <field name="ya_line_discount_value" string="Diskon" width="100px"
-                       column_invisible="parent.ya_discount_mode != 'line'"/>
+                <field name="discount" string="Disc.%" readonly="1" width="75px"/>
             </xpath>
         </field>
     </record>
