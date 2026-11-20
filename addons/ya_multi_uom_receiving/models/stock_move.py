@@ -6,6 +6,27 @@ from odoo.exceptions import ValidationError
 class StockMove(models.Model):
     _inherit = "stock.move"
 
+    ya_demand_display = fields.Char(
+        string="Demand", compute="_compute_ya_demand_display",
+    )
+
+    @api.depends(
+        "purchase_line_id.ya_purchase_qty",
+        "purchase_line_id.ya_purchase_rule_id.purchase_label",
+        "product_uom_qty", "product_uom",
+    )
+    def _compute_ya_demand_display(self):
+        for move in self:
+            line = move.purchase_line_id
+            if line and line.ya_purchase_rule_id:
+                qty = line.ya_purchase_qty
+                label = line.ya_purchase_rule_id.purchase_label
+            else:
+                qty = move.product_uom_qty
+                label = move.product_uom.name or ""
+            qty_text = ("%g" % qty) if qty is not False else "0"
+            move.ya_demand_display = "%s %s" % (qty_text, label)
+
     ya_receipt_rule_id = fields.Many2one(
         "ya.purchase.uom.rule", string="Unit", compute="_compute_ya_receipt_rule_id",
         store=True, readonly=False, copy=False,
