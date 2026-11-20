@@ -7,6 +7,14 @@
         <field name="arch" type="xml">
             <!-- Standard Operations rows are the only receiving-entry surface.
                  Keep the native stock quantities for other picking types. -->
+            <xpath expr="//field[@name='move_ids']//field[@name='product_uom_qty']" position="attributes">
+                <attribute name="column_invisible">parent.picking_type_code == 'incoming'</attribute>
+            </xpath>
+            <xpath expr="//field[@name='move_ids']//field[@name='product_uom_qty']" position="after">
+                <field name="ya_demand_display" string="Demand"
+                       readonly="1"
+                       column_invisible="parent.picking_type_code != 'incoming'"/>
+            </xpath>
             <xpath expr="//field[@name='move_ids']//field[@name='quantity']" position="attributes">
                 <attribute name="column_invisible">parent.picking_type_code == 'incoming'</attribute>
             </xpath>
