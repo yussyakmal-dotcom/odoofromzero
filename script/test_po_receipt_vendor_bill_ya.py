@@ -30,6 +30,9 @@ def main():
         for line in eligible:
             assert near(line.qty_to_invoice, line.qty_received - line.qty_invoiced, 0.000001)
         print("PASS: invoiceable PO quantities follow actual receipts")
+        # Snapshot before draft creation: Odoo counts draft invoice lines as
+        # invoiced and may immediately set qty_to_invoice to zero.
+        expected_qty_by_line = {line.id: line.qty_to_invoice for line in eligible}
         # Odoo 19 uses action_create_invoice(), returning an ir.actions dict,
         # NOT the account.move recordset (old _create_invoices() API).
         order.action_create_invoice()
@@ -49,9 +52,9 @@ def main():
             bill_lines = mapped.filtered(lambda x: x.purchase_line_id == line)
             assert bill_lines, "Missing invoice line for PO line %s" % line.id
             invoiced_qty = sum(bill_lines.mapped("quantity"))
-            assert near(invoiced_qty, line.qty_to_invoice, 0.000001), (
+            assert near(invoiced_qty, expected_qty_by_line[line.id], 0.000001), (
                 "Bill quantity differs from received quantity for PO line %s: %s != %s"
-                % (line.id, invoiced_qty, line.qty_to_invoice)
+                % (line.id, invoiced_qty, expected_qty_by_line[line.id])
             )
             for invoice_line in bill_lines:
                 assert near(invoice_line.price_unit, line.price_unit, 0.000001), (
