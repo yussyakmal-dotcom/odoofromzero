@@ -1,44 +1,30 @@
-# YA Multi-UoM Receiving — eksperimen khusus database test
+# YA Multi-UoM Receiving — Operations bawaan Odoo 19
 
-**STATUS: BELUM TERUJI pada ORM Odoo 19. JANGAN install pada erp-yussyakmal utama.**
+**STATUS: revisi UI menunggu upgrade dan uji ulang pada `erp-yussyakmal-integer-test`. JANGAN install pada `erp-yussyakmal` utama.**
 
-Fitur: tab `Penerimaan Multi-UoM YA` pada incoming picking. Tiap baris
-memilih salah satu stock.move milik receipt, unit per-SKU dari aturan
-`ya.purchase.uom.rule`, dan jumlah fisik integer. Beberapa baris boleh
-memakai SKU/move sama dengan unit berbeda. Faktor dan label disalin saat
-baris disimpan, agar laporan historis tidak berubah bila master berubah.
+## Alur UX yang disepakati Feri
 
-Tombol `Apply Satuan Fisik` menjumlahkan kuantitas dasar per move dan
-mengisi `stock.move.quantity`. Tidak membuat stock move tambahan.
-`Validate` akan memeriksa nilai tersebut telah sama dengan baris fisik,
-dan operation type harus `create_backorder=never`. Kekurangan PO tidak
-dibuatkan backorder; vendor bill mengikuti received quantity jika
-`purchase_method=receive`.
+- Satu daftar barang: tab **Operations** stock.picking bawaan Odoo.
+- Baris PO/produk muncul otomatis; petugas **tidak memilih ulang SKU atau move**.
+- Setiap baris mempunyai input **Quantity** fisik (integer) dan **Unit** dari master konversi SKU.
+- Saat **Validate**, quantity fisik dikali faktor dan disimpan sebagai `stock.move.quantity` satuan dasar.
+- Unit fisik dan jumlah asli disalin ke `stock.move.ya_received_unit_label` dan `ya_received_unit_qty` untuk keperluan laporan.
+- Tidak ada tab penerimaan tambahan atau tombol Apply.
+- Dua unit berbeda untuk SKU sama dapat digunakan lewat dua baris PO/move yang berbeda. Contoh: 20 Kg + 500 Gram.
+- Penerimaan melebihi demand per baris ditolak; kekurangan diterima sebagai final tanpa backorder jika operation type Incoming CDC memakai `create_backorder=never`.
+- Jangan mengaktifkan kebijakan no-backorder permanen tanpa pengujian dan persetujuan; modul menolak Validate pada receipt PO jika setting masih bukan `never`.
 
-**Batas versi pertama:**
-- Hanya incoming receipts terhubung PO; belum untuk transfer internal, retur,
-  POS, atau manufacturing.
-- Kuantitas penerimaan di atas demand ditolak, tidak otomatis membuat
-  penambahan PO.
-- Unit berasal dari aturan SKU. Jika receipt memiliki dua move untuk SKU sama,
-  pilih move tujuan yang benar pada masing-masing entri fisik.
-- Tidak otomatis menekan Validate; kontrol tetap di tangan petugas.
-- Sebelum menjalankan uji dengan record nyata, lakukan unit test, compile,
-  upgrade modul di test, serta rollback ORM integration test terlebih dahulu.
-- Pending: tes sinkronisasi `stock.move.quantity` dengan move lines dan
-  efek `picked` pada Odoo 19, partial receipt, no-backorder, vendor bill.
-  Jangan anggap berhasil hanya karena install exit 0.
+**Perhatian:** kolom `Unit` fisik YA bukan `product_uom` stok. UoM stok tetap Gram/Pcs/dll sesuai master. Qty awal input fisik diset 0 agar petugas memasukkan qty yang benar-benar datang, bukan otomatis menganggap seluruh pesanan sudah diterima.
 
-## Pengujian awal
+Model `ya.receipt.unit.line` lama tetap disertakan sementara untuk kompatibilitas data, tetapi tab input lamanya tidak lagi ditampilkan dan tidak digunakan pada validasi versi ini.
 
-```bash
-cd ~/odoofromzero
-python3 -m unittest discover -s addons/ya_multi_uom_receiving/tests -v
-sudo /opt/odoo19/venv/bin/python3 -m compileall -q addons/ya_multi_uom_receiving
-```
+## Tes khusus database duplikat
 
-Setelah lulus, pasang file addon ke custom-addons lalu install
-`-i ya_multi_uom_receiving` **hanya** pada
-`erp-yussyakmal-integer-test`, kemudian restart service.
-Jangan ubah konfigurasi backorder global otomatis: untuk CDC incoming
-set `Never` hanya setelah uji dan persetujuan.
+1. Pull repository, salin addon ke `/opt/odoo19/custom-addons/ya_multi_uom_receiving` dengan izin baca user `odoo19`.
+2. Compile dan jalankan unit test lokal.
+3. Upgrade hanya pada `erp-yussyakmal-integer-test`; periksa `UPGRADE_EXIT_CODE=0` **dan log Odoo**.
+4. Jalankan `script/test_multi_uom_receiving_operations_ya.py` melalui Odoo shell pada test DB; harus `OPERATIONS_RECEIVING_VALIDATE_OK` dan `ROLLBACK_COMPLETE`.
+5. Uji UI Operations dalam browser pada test DB; pastikan Unit aktif, data SKU otomatis, hitungan, dan tidak ada kolom duplikat.
+6. Baru uji vendor bill dan laporan unit fisik. Tidak ada perubahan pada main DB dalam tahap ini.
+
+Tes `test_multi_uom_receiving_validate_ya.py` adalah regresi **alur tab lama**, bukan tes valid untuk antarmuka Operations yang baru.
