@@ -3,7 +3,7 @@
     <template id="ya_picking_print_received_units" inherit_id="stock.report_picking">
         <!-- Physical receipt summary is based on stock.move snapshots rather than
              split stock.move.line details. The native technical table remains. -->
-        <xpath expr="//div[@t-field='o.name']" position="after">
+        <xpath expr="//div[hasclass('o_stock_report_header_row')]" position="after">
             <div t-if="o.picking_type_code == 'incoming' and any(m.ya_received_unit_label for m in o.move_ids)"
                  class="mt-3 mb-3">
                 <strong>Ringkasan Penerimaan Fisik</strong>
@@ -32,6 +32,13 @@
                     </tbody>
                 </table>
             </div>
+        </xpath>
+        <!-- For ordinary incoming YA receipts with complete physical snapshots,
+             show the physical summary instead of duplicated technical split rows.
+             Keep native stock detail for lot/serial-tracked receipts and for
+             partial/missing snapshot data. -->
+        <xpath expr="//table[hasclass('o_main_table')]" position="attributes">
+            <attribute name="t-if">o.move_line_ids and o.move_ids.move_line_ids.filtered(lambda ml: not ml.is_entire_pack) and not (o.picking_type_id.code == 'incoming' and all(m.ya_received_unit_label for m in o.move_ids.filtered(lambda m: m.quantity)) and not any(ml.lot_id or ml.lot_name for ml in o.move_line_ids))</attribute>
         </xpath>
         <!-- Use physical snapshots for aggregated rows, even if Odoo split the
              technical move lines during validation. -->
