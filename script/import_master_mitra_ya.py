@@ -79,7 +79,7 @@ def main():
     Partners = e["res.partner"].sudo().with_context(active_test=False)
     ModelData = e["ir.model.data"].sudo()
     Tag = e["res.partner.category"].sudo()
-    for field in ("name", "phone", "mobile", "email", "street", "supplier_rank", "category_id", "comment"):
+    for field in ("name", "phone", "ya_phone2", "email", "street", "supplier_rank", "category_id", "comment"):
         if field not in Partners._fields:
             raise RuntimeError("Field res.partner.%s tidak tersedia" % field)
 
@@ -139,7 +139,7 @@ def main():
     print("CSV:", len(rows), "kontak | TAMBAH:", len(planned),
           "SUDAH ADA:", len(existing), "REVIEW:", len(review))
     print("PENANDA CS:", sum(bool(p[-2]) for p in planned), "kontak baru")
-    print("DUA NOMOR VALID (phone+mobile):", len(two_phones))
+    print("DUA NOMOR VALID (phone+ya_phone2):", len(two_phones))
     print("TELEPON TIDAK TERSTRUKTUR (disimpan di catatan):", len(invalid_phone))
     for item in review[:40]:
         print("REVIEW BARIS %s | %s | %s" % item)
@@ -158,10 +158,10 @@ def main():
         tag = tag_matches[:1]
         if any(p[-2] for p in planned) and not tag:
             tag = Tag.create({"name": TAG_NAME})
-        for _line, name, key, email, phone, mobile, address, cs, raw_phone in planned:
+        for _line, name, key, email, phone, phone2, address, cs, raw_phone in planned:
             vals = {"name": name, "supplier_rank": 1,
                     "email": email or False, "phone": phone or False,
-                    "mobile": mobile or False,
+                    "ya_phone2": phone2 or False,
                     "street": address or False}
             if raw_phone:
                 vals["comment"] = "Telepon dari sumber CSV (perlu verifikasi): " + raw_phone
