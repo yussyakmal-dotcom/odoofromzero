@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_ya_receiving_units" model="ir.ui.view">
+        <field name="name">stock.picking.form.ya.receiving.units</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_ya_apply_receipt_units" type="object"
+                        string="Apply Satuan Fisik"
+                        class="btn-secondary"
+                        invisible="picking_type_code != 'incoming' or state in ('done', 'cancel')"/>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page name="ya_receipt_unit_page" string="Penerimaan Multi-UoM YA"
+                      invisible="picking_type_code != 'incoming'">
+                    <group>
+                        <label string="Isi jumlah kemasan yang diterima, lalu klik Apply Satuan Fisik sebelum Validate."/>
+                    </group>
+                    <field name="ya_receipt_unit_line_ids"
+                           readonly="state in ('done', 'cancel')">
+                        <list editable="bottom">
+                            <field name="move_id" string="Baris PO / Permintaan"
+                                   domain="[('picking_id', '=', parent.id)]"
+                                   options="{'no_create': True}"/>
+                            <field name="product_id" string="Produk" readonly="1"/>
+                            <field name="rule_id" string="Satuan Fisik"
+                                   domain="[('product_id', '=', product_id)]"
+                                   options="{'no_create': True}"/>
+                            <field name="quantity_units" string="Jumlah Fisik"/>
+                            <field name="unit_label_snapshot" optional="hide" readonly="1"/>
+                            <field name="factor_snapshot" string="Faktor" readonly="1"/>
+                            <field name="base_quantity" string="Jumlah Dasar" readonly="1"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
