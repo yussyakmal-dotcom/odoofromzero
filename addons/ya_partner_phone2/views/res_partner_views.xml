@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_partner_form_phone2_ya" model="ir.ui.view">
+        <field name="name">res.partner.form.phone2.ya</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[field[@name='phone'] and contains(@class, 'align-items-baseline')]" position="after">
+                <div class="d-flex align-items-baseline w-md-50">
+                    <i class="fa fa-fw me-1 fa-phone text-primary" title="Telepon 2"/>
+                    <field name="ya_phone2" class="w-100" widget="phone" placeholder="Telepon 2"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
