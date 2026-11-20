@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="ya_purchase_order_print_units"
+              inherit_id="purchase.report_purchaseorder_document">
+        <xpath expr="//span[@t-field='line.product_qty']" position="replace">
+            <span t-if="line.ya_purchase_rule_id" t-esc="line.ya_purchase_qty"/>
+            <span t-else="" t-field="line.product_qty"/>
+        </xpath>
+        <xpath expr="//span[@t-field='line.product_uom_id.name']" position="replace">
+            <span t-if="line.ya_purchase_rule_id" t-esc="line.ya_purchase_rule_id.purchase_label"/>
+            <span t-else="" t-field="line.product_uom_id.name" groups="uom.group_uom"/>
+        </xpath>
+        <xpath expr="//span[@t-field='line.price_unit']" position="replace">
+            <span t-if="line.ya_purchase_rule_id" t-out="line.ya_purchase_price"
+                  t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+            <span t-else="" t-field="line.price_unit"/>
+        </xpath>
+    </template>
+    <template id="ya_purchase_quotation_print_units"
+              inherit_id="purchase.report_purchasequotation_document">
+        <xpath expr="//span[@t-field='order_line.product_qty']" position="replace">
+            <span t-if="order_line.ya_purchase_rule_id" t-esc="order_line.ya_purchase_qty"/>
+            <span t-else="" t-field="order_line.product_qty"/>
+        </xpath>
+        <xpath expr="//span[@t-field='order_line.product_uom_id']" position="replace">
+            <span t-if="order_line.ya_purchase_rule_id"
+                  t-esc="order_line.ya_purchase_rule_id.purchase_label"/>
+            <span t-else="" t-field="order_line.product_uom_id" groups="uom.group_uom"/>
+        </xpath>
+    </template>
+</odoo>
