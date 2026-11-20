@@ -25,6 +25,7 @@ try:
     pick = po.picking_ids.filtered(lambda p: p.state == "done")[:1]
     assert pick, "No completed receipt linked to PO"
     html = render("stock.report_picking", pick.ids)
+    assert "Ringkasan Penerimaan Fisik" in html, "Receipt physical summary missing"
     assert "Kg" in html and "Gram" in html, "Receipt print physical units missing"
     print("PASS: Picking Operations QWeb HTML renders physical units")
     assert not po.invoice_ids, "Existing vendor bills: audit first"
