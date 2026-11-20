@@ -1,3 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_ya_receipt_unit_line_user,ya.receipt.unit.line.user,model_ya_receipt_unit_line,stock.group_stock_user,1,1,1,1
 access_ya_receipt_unit_line_manager,ya.receipt.unit.line.manager,model_ya_receipt_unit_line,stock.group_stock_manager,1,1,1,1
+access_ya_purchase_uom_rule_stock,ya.purchase.uom.rule.stock,ya_purchase_multi_uom.model_ya_purchase_uom_rule,stock.group_stock_user,1,0,0,0
