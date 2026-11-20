@@ -127,3 +127,11 @@ Audit hook `script/audit_receiving_hooks_ya.py` menunjukkan form `stock.view_pic
 `script/test_multi_uom_receiving_orm_ya.py` yang melakukan CREATE/APPLY hanya pada DB test lalu **ROLLBACK**. Addon menyimpan baris satuan fisik per stock.move dengan faktor/label snapshot, menyediakan tab di Receipt dan tombol `Apply Satuan Fisik`, memvalidasi sebelum tombol Validate; menuntut policy backorder `never` untuk PO receipts. Belum dipromosikan ke DB utama.
 
 Pemeriksaan sintaks Python/XML dan tes matematika awal di lingkungan pengembangan **lulus**, tetapi itu **belum membuktikan integrasi ORM**. Tahap berikut: Feri `git pull`, jalankan unittest, compile, salin addon, instal **hanya di `erp-yussyakmal-integer-test`**, jalankan rollback ORM test, kirim log. Jika install/test gagal, perbaiki modul sebelum uji UI dan sebelum Validate Receipt. Jangan ubah CDC backorder hingga uji dikonfirmasi.
+
+## I. Hasil tes integrasi Receiving — LULUS (20 November 2026)
+
+Feri menjalankan:
+- `script/test_multi_uom_receiving_orm_ya.py`: exit 0; 20 Kg + 500 Gram → 20.500 Gram; `stock.move.quantity` 20.000 + 500; **ROLLBACK** berhasil.
+- `script/test_multi_uom_receiving_validate_ya.py`: exit 0, database `erp-yussyakmal-integer-test`; backorder policy sementara `ask -> never` dalam transaksi uji; Receipt berhasil `DONE`, **0 backorders**, PO line 28 `qty_received=20000`, PO line 29 `qty_received=500`; seluruh perubahan **ROLLBACK**.
+
+**Belum selesai:** uji input tab `Penerimaan Multi-UoM YA` oleh pengguna di UI, konfirmasi perilaku refresh dan akses ACL, uji vendor bill hasil realisasi, laporan print yang memperlihatkan unit fisik, dan penerapan policy `create_backorder=never` secara permanen hanya pada incoming CDC setelah persetujuan. Jangan menyebut modul siap produksi atau upgrade ke utama sebelum seluruhnya lulus.
