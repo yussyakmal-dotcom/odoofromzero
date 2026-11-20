@@ -22,8 +22,10 @@ class PurchaseOrder(models.Model):
         ("percent", "%"),
         ("amount", "Rp"),
     ], default="percent", required=True, copy=False)
-    ya_global_discount_value = fields.Monetary(
-        string="Global Discount", currency_field="currency_id", default=0, copy=False)
+    # A monetary widget would incorrectly display "Rp" when the selected
+    # discount type is percent. Keep the numeric input currency-neutral.
+    ya_global_discount_value = fields.Float(
+        string="Global Discount", digits=(16, 2), default=0, copy=False)
 
     def _ya_gross_total(self):
         self.ensure_one()
