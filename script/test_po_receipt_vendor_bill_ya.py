@@ -30,8 +30,13 @@ def main():
         for line in eligible:
             assert near(line.qty_to_invoice, line.qty_received - line.qty_invoiced, 0.000001)
         print("PASS: invoiceable PO quantities follow actual receipts")
-        bills = order._create_invoices()
-        assert bills and all(b.move_type == "in_invoice" for b in bills), (
+        # Odoo 19 uses action_create_invoice(), returning an ir.actions dict,
+        # NOT the account.move recordset (old _create_invoices() API).
+        order.action_create_invoice()
+        e.invalidate_all()
+        bills = order.invoice_ids.filtered(lambda b: b.move_type == "in_invoice")
+        assert bills, "Expected newly created vendor bill linked to PO"
+        assert all(b.move_type == "in_invoice" for b in bills), (
             "Expected vendor bill drafts"
         )
         assert all(b.state == "draft" for b in bills), "No draft bills returned"
