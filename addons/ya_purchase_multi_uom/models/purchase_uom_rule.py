@@ -1,4 +1,4 @@
-"""Per-product purchase unit rules; no PO/stock overrides in this phase."""
+"""Per-product purchase unit rules with editable Odoo master data."""
 
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
@@ -8,6 +8,7 @@ class YaPurchaseUomRule(models.Model):
     _name = "ya.purchase.uom.rule"
     _description = "YA SKU Purchase UoM Conversion Rule"
     _order = "product_id, purchase_label"
+    _rec_name = "purchase_label"
 
     product_id = fields.Many2one("product.product", required=True, index=True, ondelete="cascade")
     purchase_label = fields.Char(required=True, index=True)
@@ -20,6 +21,35 @@ class YaPurchaseUomRule(models.Model):
     )
     active = fields.Boolean(default=True)
     company_id = fields.Many2one("res.company", default=lambda self: self.env.company)
+
+    @api.depends("purchase_label", "factor", "base_uom_id")
+    def _compute_display_name(self):
+        for rule in self:
+            if rule.purchase_label and rule.base_uom_id:
+                rule.display_name = "%s (1 = %s %s)" % (
+                    rule.purchase_label, rule.factor, rule.base_uom_id.name
+                )
+            else:
+                rule.display_name = rule.purchase_label or _("New purchase unit")
+
+    def _ya_assert_unreferenced(self):
+        used = self.env["purchase.order.line"].sudo().search([
+            ("ya_purchase_rule_id", "in", self.ids)
+        ], limit=1)
+        if used:
+            raise ValidationError(_(
+                "This purchase unit is already referenced by a PO. "
+                "Archive it and create a new rule instead of changing its identity or factor."
+            ))
+
+    def write(self, vals):
+        if {"product_id", "purchase_label", "factor"} & set(vals):
+            self._ya_assert_unreferenced()
+        return super().write(vals)
+
+    def unlink(self):
+        self._ya_assert_unreferenced()
+        return super().unlink()
 
     @api.constrains("factor", "purchase_label", "product_id")
     def _check_rule(self):
