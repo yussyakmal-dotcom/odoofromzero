@@ -24,6 +24,22 @@ try:
         ("active", "=", True)
     ], limit=1)
     assert kg and gram, "Missing SKU rules"
+    assert large.ya_demand_display == "25 Kg", large.ya_demand_display
+    assert small.ya_demand_display == "500 Gram", small.ya_demand_display
+    print("PASS: demand shows purchased physical quantity + unit")
+    large.write({"ya_receipt_rule_id": kg.id, "ya_receipt_qty_units": 26})
+    small.write({"ya_receipt_rule_id": gram.id, "ya_receipt_qty_units": 500})
+    try:
+        with env.cr.savepoint():
+            picking._ya_apply_physical_quantities()
+    except UserError:
+        print("PASS: received 26 Kg > demand 25 Kg rejected")
+    else:
+        raise AssertionError("Over-receipt was accepted")
+    large.write({"ya_receipt_qty_units": 25})
+    picking._ya_apply_physical_quantities()
+    assert large.quantity == 25000
+    print("PASS: received 25 Kg = demand 25 Kg accepted")
     large.write({"ya_receipt_rule_id": kg.id, "ya_receipt_qty_units": 20})
     small.write({"ya_receipt_rule_id": gram.id, "ya_receipt_qty_units": 500})
     assert large.ya_receipt_qty_units == 20 and small.ya_receipt_qty_units == 500
