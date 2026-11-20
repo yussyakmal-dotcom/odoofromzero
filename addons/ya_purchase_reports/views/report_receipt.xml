@@ -1,21 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <template id="ya_picking_print_received_units"
-              inherit_id="stock.report_picking">
+    <template id="ya_picking_print_received_units" inherit_id="stock.report_picking">
+        <!-- Use physical snapshots for aggregated rows, even if Odoo split the
+             technical move lines during validation. -->
         <xpath expr="//span[@t-out='format_number(move.quantity)']" position="replace">
-            <span t-if="move.ya_received_unit_label and len(move.move_line_ids) &lt;= 1"
-                  t-out="move.ya_received_unit_qty"/>
+            <span t-if="move.ya_received_unit_label" t-out="move.ya_received_unit_qty"/>
             <span t-else="" t-out="format_number(move.quantity)"/>
         </xpath>
         <xpath expr="//span[@t-field='move.product_uom']" position="replace">
-            <span t-if="move.ya_received_unit_label and len(move.move_line_ids) &lt;= 1"
-                  t-out="move.ya_received_unit_label"/>
+            <span t-if="move.ya_received_unit_label" t-out="move.ya_received_unit_label"/>
             <span t-else="" t-field="move.product_uom" groups="uom.group_uom"/>
         </xpath>
+        <!-- Detailed tracked or split lines retain their exact stock quantities.
+             The physical receipt total is annotated only once per move. -->
         <xpath expr="//span[@t-out='format_number(line.quantity)']" position="replace">
             <span t-if="line.move_id and line.move_id.ya_received_unit_label and len(line.move_id.move_line_ids) == 1 and abs(line.quantity - line.move_id.quantity) &lt; 0.0000001"
                   t-out="line.move_id.ya_received_unit_qty"/>
             <span t-else="" t-out="format_number(line.quantity)"/>
+            <span t-if="line.move_id and line.move_id.ya_received_unit_label and len(line.move_id.move_line_ids) &gt; 1 and line.id == min(line.move_id.move_line_ids.ids)"
+                  class="text-muted small">
+                (Total diterima: <span t-out="line.move_id.ya_received_unit_qty"/>
+                <span t-out="line.move_id.ya_received_unit_label"/>)
+            </span>
         </xpath>
         <xpath expr="//span[@t-field='line.product_uom_id']" position="replace">
             <span t-if="line.move_id and line.move_id.ya_received_unit_label and len(line.move_id.move_line_ids) == 1 and abs(line.quantity - line.move_id.quantity) &lt; 0.0000001"
