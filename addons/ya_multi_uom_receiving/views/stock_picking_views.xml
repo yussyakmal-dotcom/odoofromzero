@@ -15,7 +15,7 @@
                 <page name="ya_receipt_unit_page" string="Penerimaan Multi-UoM YA"
                       invisible="picking_type_code != 'incoming'">
                     <group>
-                        <label string="Isi jumlah kemasan yang diterima, lalu klik Apply Satuan Fisik sebelum Validate."/>
+                        <div class="text-muted">Isi jumlah kemasan yang diterima, lalu klik Apply Satuan Fisik sebelum Validate.</div>
                     </group>
                     <field name="ya_receipt_unit_line_ids"
                            readonly="state in ('done', 'cancel')">
