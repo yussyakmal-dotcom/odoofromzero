@@ -14,9 +14,17 @@ def main():
     apply = os.environ.get("YA_BASE_UOM_APPLY") == "YES"
     Products = e["product.product"].sudo()
     Rules = e["ya.purchase.uom.rule"].sudo().with_context(active_test=False)
-    products = Products.search([])
+    # Produk teknis POS (TIPS, Down Payment) tidak termasuk master YA.
+    products = Products.search([
+        ("default_code", "!=", False),
+        ("default_code", "not in", ["TIPS", "DISC"]),
+    ])
+    print("PRODUK TEKNIS DIKECUALIKAN: TIPS/DISC dan tanpa SKU")
     if len(products) != 2543:
-        raise RuntimeError("Jumlah SKU berubah dari 2543; audit ulang sebelum seed")
+        raise RuntimeError(
+            "Jumlah SKU master YA = %s, seharusnya 2543; audit ulang sebelum seed"
+            % len(products)
+        )
     existing = {}
     for rule in Rules.search([]):
         existing.setdefault(rule.product_id.id, []).append(rule)
