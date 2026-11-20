@@ -72,7 +72,6 @@ def main():
 
             Move = e["stock.move"].sudo()
             move_values = {
-                "name": "YA integer stock test",
                 "product_id": product.id,
                 "product_uom_qty": 10,
                 "location_id": supplier.id,
