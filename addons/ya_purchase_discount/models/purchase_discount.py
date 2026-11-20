@@ -27,6 +27,22 @@ class PurchaseOrder(models.Model):
     ya_global_discount_value = fields.Float(
         string="Global Discount", digits=(16, 2), default=0, copy=False)
 
+    def action_open_ya_discount_wizard(self):
+        self.ensure_one()
+        if self.state not in ("draft", "sent"):
+            raise ValidationError(_("Discounts can only be changed on an RFQ."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Discount"),
+            "res_model": "ya.purchase.discount.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_order_id": self.id,
+                "active_id": self.id,
+            },
+        }
+
     def _ya_gross_total(self):
         self.ensure_one()
         return sum(max(0.0, line.product_qty * line.price_unit)
