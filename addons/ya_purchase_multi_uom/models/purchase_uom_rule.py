@@ -11,6 +11,10 @@ class YaPurchaseUomRule(models.Model):
     _rec_name = "purchase_label"
 
     product_id = fields.Many2one("product.product", required=True, index=True, ondelete="cascade")
+    product_categ_id = fields.Many2one(
+        "product.category", related="product_id.categ_id", store=True,
+        readonly=True, index=True, string="Kategori Produk",
+    )
     purchase_label = fields.Char(required=True, index=True)
     base_uom_id = fields.Many2one(
         "uom.uom", related="product_id.uom_id", readonly=True, store=True
