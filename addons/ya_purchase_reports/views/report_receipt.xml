@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="ya_picking_print_received_units"
+              inherit_id="stock.report_picking">
+        <xpath expr="//span[@t-out='format_number(move.quantity)']" position="replace">
+            <span t-if="move.ya_received_unit_label and len(move.move_line_ids) &lt;= 1"
+                  t-out="move.ya_received_unit_qty"/>
+            <span t-else="" t-out="format_number(move.quantity)"/>
+        </xpath>
+        <xpath expr="//span[@t-field='move.product_uom']" position="replace">
+            <span t-if="move.ya_received_unit_label and len(move.move_line_ids) &lt;= 1"
+                  t-out="move.ya_received_unit_label"/>
+            <span t-else="" t-field="move.product_uom" groups="uom.group_uom"/>
+        </xpath>
+        <xpath expr="//span[@t-out='format_number(line.quantity)']" position="replace">
+            <span t-if="line.move_id and line.move_id.ya_received_unit_label and len(line.move_id.move_line_ids) == 1 and abs(line.quantity - line.move_id.quantity) &lt; 0.0000001"
+                  t-out="line.move_id.ya_received_unit_qty"/>
+            <span t-else="" t-out="format_number(line.quantity)"/>
+        </xpath>
+        <xpath expr="//span[@t-field='line.product_uom_id']" position="replace">
+            <span t-if="line.move_id and line.move_id.ya_received_unit_label and len(line.move_id.move_line_ids) == 1 and abs(line.quantity - line.move_id.quantity) &lt; 0.0000001"
+                  t-out="line.move_id.ya_received_unit_label"/>
+            <span t-else="" t-field="line.product_uom_id" groups="uom.group_uom"/>
+        </xpath>
+    </template>
+</odoo>
