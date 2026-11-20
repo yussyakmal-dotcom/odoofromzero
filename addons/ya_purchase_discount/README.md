@@ -41,3 +41,29 @@ to enable real purchasing.
 8. Compare currency rounding; cancel/edit/duplicate RFQ behavior.
 
 No production installation before all eight checks pass.
+
+## Sales-style wizard UX (v19.0.1.1.0)
+
+The PO product list shows only effective `Disc.%`. A **Discount** button
+beneath order lines opens a modal with **Apply / Discard** and these choices:
+
+- On All Order Lines (%)
+- One Order Line (%) or (Rp) — select the target PO line
+- Global Discount (%)
+- Fixed Amount (Rp) across the PO
+
+The wizard resets the previous discount mode in the same transaction before
+applying the selected one. It must be used on a **saved draft/sent RFQ**.
+
+After upgrading **only the test clone**, run the rollback-only smoke test:
+
+```bash
+sudo -u odoo19 /opt/odoo19/venv/bin/python3 \
+  /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf \
+  -d erp-yussyakmal-integer-test --no-http \
+  < script/test_purchase_discount_wizard_ya.py \
+  > discount_wizard_test.txt 2>&1
+```
+
+A successful installation is not enough: do not enable operational transactions
+until this ORM test and real UI/invoice tax tests have passed.
