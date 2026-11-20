@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="ya_vendor_bill_print_purchase_units"
+              inherit_id="account.report_invoice_document">
+        <xpath expr="//td[@name='td_quantity']/span[@t-field='line.quantity']" position="replace">
+            <span t-if="line.ya_report_purchase_unit" t-out="int(line.ya_report_qty)"/>
+            <span t-else="" t-field="line.quantity" class="text-nowrap"/>
+        </xpath>
+        <xpath expr="//td[@name='td_quantity']/span[@t-field='line.product_uom_id']" position="replace">
+            <span t-if="line.ya_report_purchase_unit" t-out="line.ya_report_unit"/>
+            <span t-else="" t-field="line.product_uom_id" groups="uom.group_uom"/>
+        </xpath>
+        <xpath expr="//td[@name='td_price_unit']/span[@t-field='line.price_unit']" position="replace">
+            <span t-if="line.ya_report_purchase_unit and not hide_prices"
+                  t-out="line.ya_report_unit_price"
+                  t-options="{'widget': 'float', 'decimal_precision': 'Product Price'}"/>
+            <span t-elif="not hide_prices" t-field="line.price_unit" class="text-nowrap"/>
+        </xpath>
+    </template>
+</odoo>
