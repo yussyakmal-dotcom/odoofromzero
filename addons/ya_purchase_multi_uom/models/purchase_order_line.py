@@ -32,8 +32,28 @@ class PurchaseOrderLine(models.Model):
     @api.onchange("product_id")
     def _ya_reset_purchase_rule_on_product(self):
         for line in self:
-            if line.ya_purchase_rule_id and line.ya_purchase_rule_id.product_id != line.product_id:
+            if not line.product_id:
                 line.ya_purchase_rule_id = False
+                continue
+            if line.ya_purchase_rule_id and line.ya_purchase_rule_id.product_id == line.product_id:
+                continue
+            base = line.product_id.uom_id
+            rule = self.env["ya.purchase.uom.rule"].search([
+                ("product_id", "=", line.product_id.id),
+                ("purchase_label", "=", base.name),
+                ("factor", "=", 1), ("active", "=", True),
+            ], limit=1)
+            line.ya_purchase_rule_id = rule
+            if rule:
+                line.ya_purchase_qty = int(line.product_qty or 1)
+                line.ya_purchase_price = line.price_unit
+
+    @api.onchange("ya_purchase_rule_id")
+    def _ya_reprice_purchase_unit(self):
+        for line in self:
+            if line.ya_purchase_rule_id:
+                # Preserve the current base-unit price when switching units.
+                line.ya_purchase_price = line.price_unit * line.ya_purchase_rule_id.factor
 
     @api.onchange("ya_purchase_rule_id", "ya_purchase_qty", "ya_purchase_price")
     def _ya_convert_purchase_values(self):
