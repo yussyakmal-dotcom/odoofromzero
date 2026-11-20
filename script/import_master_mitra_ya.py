@@ -65,7 +65,7 @@ def main():
     Partners = e["res.partner"].sudo().with_context(active_test=False)
     ModelData = e["ir.model.data"].sudo()
     Tag = e["res.partner.category"].sudo()
-    for field in ("name", "phone", "email", "street", "supplier_rank", "category_id"):
+    for field in ("name", "phone", "email", "street", "supplier_rank", "category_id", "comment"):
         if field not in Partners._fields:
             raise RuntimeError("Field res.partner.%s tidak tersedia" % field)
 
@@ -113,21 +113,23 @@ def main():
             invalid_phone.append((line_no, name, clean(row["Phone"])[:35]))
         planned.append((line_no, name, key, clean(row["Email"]), phone,
                         clean(row["Contact Address Complete"]),
-                        bool(re.search(r"\bCS\s*$", name, flags=re.I))))
+                        bool(re.search(r"\bCS\s*$", name, flags=re.I)),
+                        clean(row["Phone"]) if clean(row["Phone"]) and not phone else ""))
 
     print("DATABASE:", e.cr.dbname)
     print("MODE:", "APPLY" if applying else "PREVIEW (tanpa perubahan)")
     print("SUMBER: CSV privat MITRA_YA_FILE")
     print("CSV:", len(rows), "kontak | TAMBAH:", len(planned),
           "SUDAH ADA:", len(existing), "REVIEW:", len(review))
-    print("PENANDA CS:", sum(bool(p[-1]) for p in planned), "kontak baru")
-    print("TELEPON INVALID (akan dikosongkan):", len(invalid_phone))
+    print("PENANDA CS:", sum(bool(p[-2]) for p in planned), "kontak baru")
+    print("TELEPON TIDAK TERSTRUKTUR (disimpan di catatan):", len(invalid_phone))
     for item in review[:40]:
         print("REVIEW BARIS %s | %s | %s" % item)
     for item in invalid_phone[:20]:
         print("TELEPON BARIS %s | %s | %s" % item)
     print("KEBIJAKAN: tidak menggabung berdasar nomor telepon; duplikat nama ditahan")
     print("KEBIJAKAN: supplier_rank=1; boleh juga menjadi customer kemudian")
+    print("KEBIJAKAN: teks nomor mentah dipertahankan di catatan bila kolom Phone tidak valid")
     print("TETAP: tidak mengubah kontak yang sudah ada; tidak membuat transaksi")
     if not applying:
         print("MITRA_PREVIEW_OK: tidak ada data diubah; gunakan YA_MITRA_APPLY=YES")
@@ -136,12 +138,14 @@ def main():
     # Semua CREATE berada dalam transaksi yang sama; gagal => ROLLBACK.
     try:
         tag = tag_matches[:1]
-        if any(p[-1] for p in planned) and not tag:
+        if any(p[-2] for p in planned) and not tag:
             tag = Tag.create({"name": TAG_NAME})
-        for _line, name, key, email, phone, address, cs in planned:
+        for _line, name, key, email, phone, address, cs, raw_phone in planned:
             vals = {"name": name, "supplier_rank": 1,
                     "email": email or False, "phone": phone or False,
                     "street": address or False}
+            if raw_phone:
+                vals["comment"] = "Telepon dari sumber CSV (perlu verifikasi): " + raw_phone
             if cs:
                 vals["category_id"] = [(4, tag.id)]
             record = Partners.create(vals)
