@@ -32,3 +32,35 @@ model itu hanya berisi `product_id`, `uom_id`, dan barcode sesuai audit database
 
 **Penting:** integrasi UI dan penerimaan belum diuji. Modul ini tidak
 boleh dianggap lengkap hanya karena upgrade CLI berhasil.
+
+## Pemeliharaan master lewat Excel (Odoo 19)
+
+Pada **Purchase → Configuration → Master Multi-UoM YA**, filter **Dapat Dibeli** aktif secara default.
+Daftar hanya menampilkan aturan milik produk yang `Can be Purchased` aktif. Filter dapat dihapus
+untuk memeriksa aturan lama. Saat membuat/mengubah aturan lewat form, pilihan produk juga
+terbatas pada produk yang dapat dibeli. Mengaktifkan pembelian produk baru tetap dilakukan
+di master produk, bukan secara otomatis dari aturan konversi.
+
+**Ekspor / pembaruan massal:**
+
+1. Masuk sebagai **Purchase Manager**. Buka Master Multi-UoM YA dan pilih record dari daftar.
+2. **Action → Export** → centang **I want to update data (import-compatible export)**.
+   Sertakan `Product`, `Purchase Label`, `Factor`, `Active`; simpan sebagai XLSX.
+   Odoo menyertakan **External ID** untuk mengenali record saat impor ulang.
+3. Ubah baris yang perlu diperbarui tanpa mengubah External ID. Pada halaman daftar,
+   buka **Import records** (menu Favorites/ikon impor sesuai tampilan Odoo), unggah XLSX,
+   periksa pemetaan kolom, lalu klik **Test** sebelum **Import**.
+4. Untuk aturan **baru**, gunakan baris baru dengan External ID unik, SKU yang dipetakan
+   melalui **Product / External ID** dari ekspor master produk, label satuan, dan faktor
+   **bilangan bulat positif**. Jangan hanya mengandalkan nama produk (bisa tidak unik).
+   Gunakan contoh ekspor Odoo untuk mendapatkan header relasi yang benar.
+
+**Pengaman:** pengujian impor pertama harus di `erp-yussyakmal-integer-test`.
+Aturan yang sudah dipakai pada PO tidak boleh diubah identitas/faktornya; arsipkan aturan
+lama dan buat pengganti. Kombinasi SKU+label satuan tidak boleh duplikat, termasuk aturan
+arsip. Odoo melakukan validasi, tetapi batch impor tidak otomatis menawarkan pratinjau
+rekap khusus 608 aturan seperti skrip impor awal. Jangan impor hasil ekspor berisi baris
+arsip yang tidak sengaja diubah.
+
+**Catatan:** XLSX didukung langsung oleh fasilitas impor/ekspor standar Odoo 19;
+modul ini tidak menambahkan file Excel privat ke GitHub.
