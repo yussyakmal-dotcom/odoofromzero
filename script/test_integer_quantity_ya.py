@@ -5,8 +5,10 @@ from odoo.exceptions import ValidationError
 
 def main():
     e = globals().get("env")
-    if e is None or e.cr.dbname != "erp-yussyakmal":
-        raise RuntimeError("Gunakan database erp-yussyakmal")
+    if e is None or e.cr.dbname not in (
+        "erp-yussyakmal", "erp-yussyakmal-integer-test"
+    ):
+        raise RuntimeError("Gunakan erp-yussyakmal atau erp-yussyakmal-integer-test")
     if "ya_integer_quantity" not in e["ir.module.module"].sudo().search([
         ("name", "=", "ya_integer_quantity"), ("state", "=", "installed")
     ]).mapped("name"):
