@@ -6,19 +6,19 @@
         <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="priority">25</field>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='order_line']" position="before">
-                <group string="Purchase Discount" col="4">
-                    <field name="ya_discount_mode"/>
+            <xpath expr="//field[@name='order_line']" position="after">
+                <group string="Diskon Pembelian" col="4">
+                    <field name="ya_discount_mode" string="Mode Diskon"/>
                     <field name="ya_global_discount_type"
-                           invisible="ya_discount_mode != 'global'"/>
+                           string="Tipe" invisible="ya_discount_mode != 'global'"/>
                     <field name="ya_global_discount_value"
-                           invisible="ya_discount_mode != 'global'"/>
+                           string="Diskon Global" invisible="ya_discount_mode != 'global'"/>
                 </group>
             </xpath>
             <xpath expr="//field[@name='order_line']//field[@name='ya_purchase_price']" position="after">
-                <field name="ya_line_discount_type" string="Discount Type"
+                <field name="ya_line_discount_type" string="Tipe" width="65px"
                        column_invisible="parent.ya_discount_mode != 'line'"/>
-                <field name="ya_line_discount_value" string="Discount"
+                <field name="ya_line_discount_value" string="Diskon" width="100px"
                        column_invisible="parent.ya_discount_mode != 'line'"/>
             </xpath>
         </field>
