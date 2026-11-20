@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Format Quantity fields, leaving Float database definitions intact.
+         Backend validators independently reject fractional quantities. -->
+    <record id="ya_po_line_integer_list" model="ir.ui.view">
+        <field name="name">ya.po.line.integer.list</field>
+        <field name="model">purchase.order.line</field>
+        <field name="inherit_id" ref="purchase.purchase_order_line_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_qty']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+        </field>
+    </record>
+    <record id="ya_po_line_integer_form" model="ir.ui.view">
+        <field name="name">ya.po.line.integer.form</field>
+        <field name="model">purchase.order.line</field>
+        <field name="inherit_id" ref="purchase.purchase_order_line_form2"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_qty']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+        </field>
+    </record>
+    <record id="ya_sale_line_integer_list" model="ir.ui.view">
+        <field name="name">ya.sale.line.integer.list</field>
+        <field name="model">sale.order.line</field>
+        <field name="inherit_id" ref="sale.view_order_line_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_uom_qty']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+        </field>
+    </record>
+    <record id="ya_stock_picking_integer_list" model="ir.ui.view">
+        <field name="name">ya.stock.picking.integer.list</field>
+        <field name="model">stock.move</field>
+        <field name="inherit_id" ref="stock.view_picking_move_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_uom_qty']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+            <xpath expr="//field[@name='quantity']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+        </field>
+    </record>
+    <record id="ya_stock_move_line_integer_list" model="ir.ui.view">
+        <field name="name">ya.stock.move.line.integer.list</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock.view_move_line_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='quantity']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+        </field>
+    </record>
+    <record id="ya_stock_move_line_integer_detailed" model="ir.ui.view">
+        <field name="name">ya.stock.move.line.integer.detailed</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock.view_move_line_tree_detailed"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='quantity']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+        </field>
+    </record>
+    <record id="ya_scrap_integer_form" model="ir.ui.view">
+        <field name="name">ya.scrap.integer.form</field>
+        <field name="model">stock.scrap</field>
+        <field name="inherit_id" ref="stock.stock_scrap_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='scrap_qty']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+        </field>
+    </record>
+    <record id="ya_mrp_bom_line_integer_form" model="ir.ui.view">
+        <field name="name">ya.mrp.bom.line.integer.form</field>
+        <field name="model">mrp.bom.line</field>
+        <field name="inherit_id" ref="mrp.mrp_bom_line_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_qty']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+        </field>
+    </record>
+    <record id="ya_mrp_production_integer_form" model="ir.ui.view">
+        <field name="name">ya.mrp.production.integer.form</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_qty']" position="attributes">
+                <attribute name="digits">[16, 0]</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>
