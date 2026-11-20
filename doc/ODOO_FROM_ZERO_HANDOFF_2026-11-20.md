@@ -108,3 +108,22 @@ Salin pesan:
 > Kita lanjut **ODOO FROM ZERO**. Saya **Feri**. Baca seluruh dokumen `doc/ODOO_FROM_ZERO_HANDOFF_2026-11-20.md` di `yussyakmal-dotcom/odoofromzero` terlebih dahulu. Jangan asumsikan masalah terakhir selesai: UI Master Multi-UoM sebelumnya error `product_categ_id field is undefined`. Fokus stabilisasi UI master, uji filter kategori dan ekspor/impor XLSX pada `erp-yussyakmal-integer-test`; jangan ubah DB utama tanpa uji, snapshot, dan persetujuan. Catat hasil baru ke dokumen handoff agar konteks tidak hilang.
 
 Setelah setiap milestone, perbarui file ini dengan tanggal, versi/commit, DB target, hasil tes, status `OK/BELUM`, dan langkah berikutnya.
+
+## H. Pembaruan 20 November 2026 — Modul Receiving dalam pengembangan
+
+Feri memutuskan Multi-UoM juga dipakai saat **penerimaan fisik**: beberapa baris untuk satu SKU, unit Dus/Kg/Gram sesuai kemasan, kuantitas integer, konversi otomatis ke unit dasar saat menerima, laporan mempertahankan jumlah/unit fisik. Penerimaan kurang dianggap **selesai tanpa backorder**; pengiriman berikutnya memakai PO baru; Vendor Bill mengikuti received quantity.
+
+Audit `script/audit_multi_uom_receiving_ya.py` pada test:
+- PO `P00009` SKU 10164: 25 Kg→25.000 Gram dan 500 Gram→500 Gram.
+- Receipt `CDC/IN/00001`: assigned, 2 stock.move / 2 stock.move.line, tujuan CDC/Stock, belum Validate.
+- `stock.picking.type` CDC incoming id=1 `create_backorder=ask` (opsi ask/always/never).
+- `purchase_method=receive`, `qty_received_method=stock_moves`, benar.
+- 3.158 aturan Multi-UoM pada test (termasuk aturan base).
+
+Audit hook `script/audit_receiving_hooks_ya.py` menunjukkan form `stock.view_picking_form`, tombol `button_validate`, field `stock.move.quantity` computed/editable, `stock.move.line.quantity` computed/editable. **Tidak aman memodifikasi quantity tanpa tes integrasi**.
+
+**Kode baru ditulis (BELUM DIINSTAL/DIUJI di Odoo server):** addon
+`addons/ya_multi_uom_receiving/`, plus
+`script/test_multi_uom_receiving_orm_ya.py` yang melakukan CREATE/APPLY hanya pada DB test lalu **ROLLBACK**. Addon menyimpan baris satuan fisik per stock.move dengan faktor/label snapshot, menyediakan tab di Receipt dan tombol `Apply Satuan Fisik`, memvalidasi sebelum tombol Validate; menuntut policy backorder `never` untuk PO receipts. Belum dipromosikan ke DB utama.
+
+Pemeriksaan sintaks Python/XML dan tes matematika awal di lingkungan pengembangan **lulus**, tetapi itu **belum membuktikan integrasi ORM**. Tahap berikut: Feri `git pull`, jalankan unittest, compile, salin addon, instal **hanya di `erp-yussyakmal-integer-test`**, jalankan rollback ORM test, kirim log. Jika install/test gagal, perbaiki modul sebelum uji UI dan sebelum Validate Receipt. Jangan ubah CDC backorder hingga uji dikonfirmasi.
