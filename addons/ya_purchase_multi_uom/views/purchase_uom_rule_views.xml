@@ -5,7 +5,8 @@
         <field name="model">ya.purchase.uom.rule</field>
         <field name="arch" type="xml">
             <list string="Master Multi-UoM YA" default_order="product_id,purchase_label">
-                <field name="product_id" string="Produk / SKU" domain="[('purchase_ok', '=', True)]"/>
+                <field name="product_id" string="Produk / SKU"/>
+                <field name="product_categ_id" string="Kategori" optional="show" readonly="1"/>
                 <field name="base_uom_id" string="Satuan Dasar" readonly="1"/>
                 <field name="purchase_label" string="Satuan Pembelian"/>
                 <field name="factor" string="Isi per Satuan"/>
@@ -20,7 +21,8 @@
             <form string="Aturan Satuan Pembelian YA">
                 <sheet>
                     <group>
-                        <field name="product_id" domain="[('purchase_ok', '=', True)]" options="{'no_create': True}"/>
+                        <field name="product_id" options="{'no_create': True}"/>
+                        <field name="product_categ_id" readonly="1"/>
                         <field name="base_uom_id" readonly="1"/>
                         <field name="purchase_label"/>
                         <field name="factor"/>
@@ -37,9 +39,13 @@
             <search string="Cari Aturan Pembelian YA">
                 <field name="product_id"/>
                 <field name="purchase_label"/>
+                <field name="product_categ_id" filter_domain="[('product_categ_id', 'child_of', self)]"/>
                 <filter name="purchaseable" string="Dapat Dibeli" domain="[('product_id.purchase_ok', '=', True)]"/>
                 <filter name="active_only" string="Aktif" domain="[('active','=',True)]"/>
                 <filter name="archived" string="Arsip" domain="[('active','=',False)]"/>
+                <group expand="0" string="Kelompokkan Berdasarkan">
+                    <filter name="group_category" string="Kategori Produk" context="{'group_by': 'product_categ_id'}"/>
+                </group>
             </search>
         </field>
     </record>
@@ -47,7 +53,7 @@
         <field name="name">Master Multi-UoM YA</field>
         <field name="res_model">ya.purchase.uom.rule</field>
         <field name="view_mode">list,form</field>
-        <field name="context">{'active_test': False, 'search_default_purchaseable': 1}</field>
+        <field name="context">{'active_test': False}</field>
     </record>
     <menuitem id="menu_ya_purchase_uom_rule"
               name="Master Multi-UoM YA"
