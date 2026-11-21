@@ -119,6 +119,22 @@ print("FINISHED_BOM_HEADER_UOM_CHANGES:", modified_headers)
 print("WARNING: numeric quantities stay unchanged; no physical conversion inferred")
 
 # This snapshot is needed to recreate affected BoM component lines using ORM.
+# A master-UoM change is safe through native ORM only if every
+# finished-product BoM currently uses that product's OLD master UoM.
+# Otherwise Odoo correctly rejects the change; stop before attempting it.
+for bom in affected_header:
+    matching = targets.get(bom.product_id.id)
+    if not matching:
+        matching = next((entry for entry in targets.values()
+                         if entry[1].product_tmpl_id.id == bom.product_tmpl_id.id), None)
+    assert matching, f"No target for finished BoM {bom.code}"
+    sku, product, new_uom = matching
+    if product.uom_id.id != new_uom.id:
+        assert bom.product_uom_id.id == product.uom_id.id, (
+            f"Pre-existing finished BoM unit differs from OLD master: "
+            f"{bom.code} SKU {sku}, header {bom.product_uom_id.name}, "
+            f"master {product.uom_id.name}. Needs targeted handling."
+        )
 line_values = []
 for line in lines_to_detach:
     data = line.copy_data()[0]
@@ -137,16 +153,24 @@ try:
     # reject an otherwise unused product simply because it is in a BoM.
     lines_to_detach.unlink()
     assert L.search_count([]) == 8502 - len(line_values)
-    # Update finished-BoM units before base-product units. If Odoo rejects
-    # this ordering, the test fails safely and rolls back.
+    # IMPORTANT (Odoo 19): product._update_uom() checks the units of
+    # existing finished-product BoM headers AGAINST THE OLD MASTER UOM,
+    # then rewrites those headers itself to the new UoM.
+    # Changing BoM header UoMs BEFORE changing master triggers UserError.
+    # Because all component references have been detached above, update
+    # masters FIRST and allow Odoo to update related BoM headers natively.
+    for sku, product, new_unit in targets.values():
+        if product.uom_id.id != new_unit.id:
+            print("UPDATING_MASTER:", sku, product.uom_id.name, "->", new_unit.name)
+            product.write({"uom_id": new_unit.id})
+    # Handle BoM headers whose product master was ALREADY at target but
+    # header was still different. This cannot interfere with a master write
+    # because master changes have completed.
     for bom in affected_header:
         next_uom = (wanted_uom.get(bom.product_id.id)
                     or target_by_template[bom.product_tmpl_id.id])
         if bom.product_uom_id.id != next_uom:
             bom.write({"product_uom_id": next_uom})
-    for _, product, new_unit in targets.values():
-        if product.uom_id.id != new_unit.id:
-            product.write({"uom_id": new_unit.id})
     # Restore each component as its own row, preserving duplicates and qty.
     for data in line_values:
         L.create(data)
