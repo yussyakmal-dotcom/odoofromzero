@@ -130,3 +130,15 @@ Pemilik server mengonfirmasi **database duplikat khusus Manufacturing sudah dibu
 - Jangan menjalankan APPLY ulang. Importer sengaja menolak database yang sudah memiliki BoM.
 - Tahap berikut: verifikasi **read-only** total `mrp.bom` dan `mrp.bom.line`, sample cek SKU, kuantitas, komponen, picking type dan GUI. Setelah itu mulai tes satu Manufacturing Order dengan rollback, cek stok tidak negatif, konversi UoM, WIP, dan alur gudang sebelum alur produksi nyata.
 - `git pull` hanya memperbarui repository; script Odoo shell ini tidak memerlukan salin addon karena tidak mengubah addon. Hindari upgrade modul tanpa alasan.
+
+
+## Checkpoint 21 November 2026 — Verifikasi independen pasca-impor BoM LULUS
+
+Pengguna menjalankan Odoo shell **read-only** langsung pada database MRP test setelah APPLY:
+- `TOTAL BOM: 955`
+- `TOTAL COMPONENT: 8502`
+- `BOM12499: 1`; SKU produk `12499`; `SAMPLE QTY: 10.0`; `SAMPLE LINES: 16`; Operation Type `Dapur Tart: Manufacturing`.
+- `BOM11913: 0` (sesuai keputusan menghapus).
+- `POST_IMPORT_AUDIT_OK`.
+
+**Status akhir master:** 16 Work Center telah ditampilkan di GUI, 955 BoM + 8.502 baris komponen sudah diimpor dan lulus verifikasi ORM independen. **Jangan impor ulang.** Belum ada bukti tes transaksi MO selesai. Berikutnya inspeksi sampel GUI BoM bila perlu, lalu uji Manufacturing Order dengan rollback; jangan membuat operasi/durasi/kapasitas fiktif atau mengubah stok produksi tanpa uji dan persetujuan.
