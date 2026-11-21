@@ -44,7 +44,7 @@
             <group>
               <field name="source_document" readonly="state != 'draft'"/>
               <field name="reason_tag_id" readonly="state != 'draft'"
-                     options="{'no_create': True}"/>
+                     options="{'no_create': True, 'no_create_edit': True, 'no_quick_create': True}"/>
             </group>
           </group>
           <notebook>
