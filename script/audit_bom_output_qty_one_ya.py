@@ -13,28 +13,38 @@ from decimal import Decimal
 from pathlib import Path
 
 assert env.cr.dbname == "erp-yussyakmal-mrp-test", "MRP test database only"
-input_path = Path(os.environ.get("YA_UOM_DECISIONS_CSV", ""))
-assert input_path.is_file(), "Missing decision CSV; set YA_UOM_DECISIONS_CSV"
+# Decision CSV is optional: an independent audit of all actual BoM headers
+# must still work when the local revised CSV has not been installed yet.
+raw_input = os.environ.get("YA_UOM_DECISIONS_CSV", "").strip()
+input_path = Path(raw_input) if raw_input else None
 report_path = Path(os.environ.get(
     "YA_BOM_ONE_REPORT_CSV",
     "/var/lib/odoo19/import/audit_bom_output_qty_one_ya.csv"
 ))
 assert report_path.parent.is_dir(), "Report folder not found"
+by_sku = {}
+if input_path and input_path.is_file():
+    with input_path.open(encoding="utf-8-sig", newline="") as stream:
+        reader = csv.DictReader(stream)
+        assert {"SKU", "PRODUCT_NAME", "MASTER_UOM", "BOM_UOMS"} <= set(reader.fieldnames or [])
+        decisions = list(reader)
+    decisions = [{k: (v or "").strip() for k, v in r.items()} for r in decisions]
+    assert len(decisions) == 72, f"Expected 72 decisions, found {len(decisions)}"
+    by_sku = {r["SKU"]: r for r in decisions}
+    assert len(by_sku) == 72, "Duplicate SKU in decision CSV"
+    assert by_sku["10473"]["MASTER_UOM"].casefold() == "resep", (
+        "Decision CSV is outdated: SKU 10473 master must be Resep"
+    )
+    assert by_sku["10473"]["BOM_UOMS"].casefold() == "resep", (
+        "Decision CSV is outdated: SKU 10473 BoM must be Resep"
+    )
+    print("DECISION_CSV_STATUS: LOADED", input_path)
+else:
+    print("DECISION_CSV_STATUS: NOT_LOADED")
+    if input_path:
+        print("DECISION_CSV_NOT_FOUND:", input_path)
+    print("INFO: audit will check actual BoM headers only; planned 72-SKU targets NOT checked")
 
-with input_path.open(encoding="utf-8-sig", newline="") as stream:
-    reader = csv.DictReader(stream)
-    assert {"SKU", "PRODUCT_NAME", "MASTER_UOM", "BOM_UOMS"} <= set(reader.fieldnames or [])
-    decisions = list(reader)
-decisions = [{k: (v or "").strip() for k, v in r.items()} for r in decisions]
-assert len(decisions) == 72, f"Expected 72 decisions, found {len(decisions)}"
-by_sku = {r["SKU"]: r for r in decisions}
-assert len(by_sku) == 72, "Duplicate SKU in decision CSV"
-assert by_sku["10473"]["MASTER_UOM"].casefold() == "resep", (
-    "Decision CSV is outdated: SKU 10473 master must be Resep"
-)
-assert by_sku["10473"]["BOM_UOMS"].casefold() == "resep", (
-    "Decision CSV is outdated: SKU 10473 BoM must be Resep"
-)
 
 B = env["mrp.bom"].sudo().with_context(active_test=False)
 L = env["mrp.bom.line"].sudo().with_context(active_test=False)
@@ -118,6 +128,7 @@ print("RULE: OUTPUT_QTY=1 must not be Gram; choose Resep or Bungkus after busine
 print("BOM_TOTAL:", B.search_count([]))
 print("COMPONENT_TOTAL:", L.search_count([]))
 print("DECISION_SKUS:", len(by_sku))
+print("TARGET_COMPARISON:", "ENABLED" if by_sku else "DISABLED")
 print("SKUS_WITHOUT_OWN_FINISHED_BOM:", len(missing))
 print("FINDING_COUNT:", len(findings))
 for status, qty in sorted(counts.items()):
