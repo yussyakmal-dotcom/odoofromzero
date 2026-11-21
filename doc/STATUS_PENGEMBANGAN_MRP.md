@@ -164,3 +164,14 @@ Berdasarkan output terminal pengguna dan audit independen:
 - Audit independen `script/audit_post_apply_uom_72_ya.py` sukses (`AUDIT_EXIT_CODE=0`, `POST_APPLY_72_AUDIT_OK`, `ISSUE_COUNT: 0`). Audit mencakup 72 SKU, 253 referensi komponen, 65 Header BoM; hasil global `GLOBAL_QTY_ONE_GRAM: 0`. Total tetap **955 BoM dan 8.502 baris komponen**.
 - Script audit bersifat read-only (`NO_DATABASE_CHANGES`). Tidak perlu mengulang APPLY atau impor BoM. UoM berdasarkan keputusan pengguna sudah konsisten; pengujian tidak membuktikan ekuivalensi fisik antarunit yang berbeda, yang tetap harus divalidasi di penggunaan operasional.
 - Selanjutnya: validasi MO, consumptions, WIP, lokasi sumber/tujuan, stok tidak minus dan penyelesaian produksi **di MRP test dengan rollback dahulu**. Jangan ubah database produksi atau Purchasing test.
+
+
+## 22 November 2026 — Multi-SKU Scrap addon disiapkan (BELUM INSTAL)
+
+Keputusan baru di ODOO FROM ZERO: hentikan audit Scrap dan buat **satu dokumen dengan satu Source Document, satu alasan, satu lokasi asal, satu lokasi virtual Scrap bersama seluruh Central/dapur/toko, dan banyak SKU**. Tambahkan **impor Excel .xlsx**.
+- Addon baru: `addons/ya_scrap_multi` (Odoo 19 Community), tergantung `stock`, memakai tag alasan bawaan `stock.scrap.reason.tag`.
+- Parent `ya.scrap.batch`, lines `ya.scrap.batch.line`, tautan ke native `stock.scrap` melalui `ya_batch_id`. Validasi membuat satu native stock.scrap per baris dan memanggil `action_validate()`; seluruh proses satu transaksi database.
+- Input Excel: SKU, Quantity, UoM; template unduh, validasi kesesuaian satuan, maksimum 1.000 baris; semua baris tambahan tetap Draft sampai validasi.
+- Script cek Draft/import-Excel (rollback): `script/test_multi_scrap_xlsx_rollback_ya.py`; membutuhkan addon dan lokasi Scrap serta tag `Rusak` sudah terpasang.
+- **Kode baru commit, belum ada bukti terdeploy, terinstal, atau diuji pada server Odoo.** Jangan anggap siap operasi sebelum install+smoke test+uji stock move dengan rollback.
+- Jangan membawa policy dari proyek lain. Tidak ada approval atau larangan stok minus dalam addon; pembelajaran konsekuensi dilakukan sebelum policy bisnis.
