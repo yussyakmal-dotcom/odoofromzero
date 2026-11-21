@@ -95,10 +95,21 @@ def check_uom(code, unit_name, context):
     products = product_map.get(code, [])
     if len(products) != 1:
         return
-    if candidates[0].category_id != products[0].uom_id.category_id:
+    # Odoo 19 may not expose uom.uom.category_id. The native conversion
+    # method validates whether source and product UoMs are compatible.
+    source_uom = candidates[0]
+    target_uom = products[0].uom_id
+    try:
+        converted = source_uom._compute_quantity(1, target_uom, raise_if_failure=True)
+        if converted <= 0:
+            issue(
+                "UOM_CONVERSION_NONPOSITIVE",
+                f"{context}: SKU {code}, {unit_name} -> {target_uom.name}: {converted}"
+            )
+    except Exception as exc:
         issue(
-            "UOM_CATEGORY_MISMATCH",
-            f"{context}: SKU {code}, CSV {unit_name}, product base {products[0].uom_id.name}"
+            "UOM_CONVERSION_FAILED",
+            f"{context}: SKU {code}, {unit_name} -> {target_uom.name}: {type(exc).__name__}: {exc}"
         )
 
 for row in H:
