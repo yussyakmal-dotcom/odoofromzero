@@ -1,9 +1,11 @@
 # ODOO FROM ZERO — Status Pengembangan dan Handoff Manufacturing
 
-**Pembaruan:** 20 November 2026  
+**Pembaruan:** 22 November 2026  
 **Cakupan:** ringkasan teknis aman untuk repository publik. Detail lingkungan, daftar akun, identitas transaksi dan konfigurasi internal disimpan terpisah secara privat.
 
 > **Dokumen ini adalah acuan status terbaru.** Catatan handoff sebelumnya adalah riwayat pengerjaan dan dapat memuat status lama yang sudah diselesaikan.
+
+> **STATUS TERBARU (22 November 2026):** Multi-SKU Scrap `ya_scrap_multi` **terinstal dan form sudah muncul di `erp-yussyakmal-mrp-test`** menurut verifikasi pengguna. Konfigurasi Scrap bersama dan alasan Rusak/Expired **APPLY committed**. Pengujian end-to-end `3 SKU → 3 native Scrap → 3 Stock Move → 1 batch` **PASS** dan **rollback terkonfirmasi**. Belum ada hasil uji impor Excel terpisah atau promosi ke DB utama. Lihat checkpoint paling akhir dan `doc/HANDOVER_ODOO_FROM_ZERO.md`.
 
 ## Status tahapan
 
@@ -175,3 +177,55 @@ Keputusan baru di ODOO FROM ZERO: hentikan audit Scrap dan buat **satu dokumen d
 - Script cek Draft/import-Excel (rollback): `script/test_multi_scrap_xlsx_rollback_ya.py`; membutuhkan addon dan lokasi Scrap serta tag `Rusak` sudah terpasang.
 - **Kode baru commit, belum ada bukti terdeploy, terinstal, atau diuji pada server Odoo.** Jangan anggap siap operasi sebelum install+smoke test+uji stock move dengan rollback.
 - Jangan membawa policy dari proyek lain. Tidak ada approval atau larangan stok minus dalam addon; pembelajaran konsekuensi dilakukan sebelum policy bisnis.
+
+
+## Checkpoint terbaru — 22 November 2026: Multi-SKU Scrap, E2E PASS + ROLLBACK
+
+**Sumber bukti:** log terminal pengguna dari `erp-yussyakmal-mrp-test`; bukan verifikasi ulang langsung ke server melalui konektor. Bagian historis di atas mencatat keadaan pada tanggal checkpoint masing-masing dan **tidak boleh dibaca sebagai status terkini** bila bertentangan dengan checkpoint ini.
+
+### Keputusan scope pengguna
+
+- **Hentikan audit perbandingan Scrap vs Opname.** Lanjutkan pengembangan modul multi-SKU.
+- **Satu dokumen induk** berisi **banyak SKU**, **satu alasan**, **satu Source Document**, **satu lokasi asal** serta **satu lokasi Scrap virtual bersama** yang bisa dipakai Central, semua dapur, dan semua toko.
+- Pilihan alasan Scrap **harus dari master yang sudah ada**; form Multi-SKU Scrap **tidak menawarkan Create / Create and Edit / Quick Create**. Ini pembatasan UI form tersebut, **bukan** pembatasan administratif global.
+- Tambahkan **impor file .xlsx** ke baris dokumen: `SKU, Quantity, UoM`; UoM opsional (fallback satuan dasar); baris tetap Draft sebelum validasi.
+- **Tidak ada** keputusan untuk menambah approval, membatasi stok minus, atau mengubah metode costing. Jangan mengimpor kebijakan dari percakapan/proyek lain.
+- Pemahaman bisnis pengguna: Scrap untuk barang fisik yang rusak/expired/dimusnahkan dengan sebab jelas; Opname untuk selisih audit fisik vs sistem. Jangan menyamakan selisih hasil MO dengan Scrap otomatis.
+
+### Status instalasi / master (MRP TEST ONLY)
+
+- Addon `addons/ya_scrap_multi`, nama teknis `ya_scrap_multi`, telah **installed** menurut hasil SQL `ir_module_module.state = installed`; pengguna mengonfirmasi menu/form sudah muncul dan OK.
+- Konfigurasi master sudah **committed** (log: `APPLY_EXIT_CODE=0`, `SCRAP_SETUP_APPLY_OK COMMITTED`): lokasi virtual `Scrap` (ID saat APPLY: **248**, usage `inventory`); tag `Rusak` (ID **3**) dan `Expired` (ID **4**). ID hanya identitas DB MRP test, jangan hard-code untuk DB lain.
+- Lokasi standar `Inventory adjustment` tetap terpisah, bukan tujuan Scrap.
+- Form memilih `reason_tag_id` dari model bawaan `stock.scrap.reason.tag`. `stock.scrap` menyimpan alasan pada `scrap_reason_tag_ids`.
+- Perbaikan kompatibilitas Odoo 19 mengganti validasi `uom.uom.category_id` yang **tidak tersedia** menjadi pemeriksaan native `_has_common_reference()` di `addons/ya_scrap_multi/models/scrap_batch.py`. Commit perbaikan `014fe71`. Versi yang dipakai oleh uji E2E berikutnya berhasil melewati langkah ini.
+
+### Bukti uji End-to-End
+
+Script: `script/test_multi_scrap_3sku_e2e_rollback_ya.py`, commit pembuatan `a2802da`.
+
+Log pengguna:
+- `TEST_EXIT_CODE=0`
+- `E2E_3_SKU_3_NATIVE_SCRAPS_1_BATCH_OK`
+- `E2E_3_SKU_ROLLBACK_CONFIRMED`
+- Source `TART/Stock`; tujuan `Scrap`; alasan tunggal `Rusak`; Source Document tunggal `YA-E2E-3SKU-ROLLBACK`; dokumen induk `SCRB/2026/00003`.
+- Data simulasi: SKU `10440` qty **1** -> `SP/00001`, stock move **46**, saldo sementara **9**; SKU `10180` qty **2** -> `SP/00002`, move **47**, saldo **8**; SKU `10182` qty **3** -> `SP/00003`, move **48**, saldo **7**.
+- Ketiga `stock.scrap` memiliki `state=done`, alasan sama, origin/source document sama, `ya_batch_id` sama; ketiga `stock.move` berstatus `done` dan mengalir ke lokasi Scrap.
+- Seluruh objek dan perubahan stok simulasi di-**rollback**. Nomor dokumen, IDs transaksi serta saldo di atas adalah **hasil sementara pengujian**, **bukan transaksi permanen**; tidak boleh dicari sebagai riwayat posting nyata.
+- Kegagalan awal (`AttributeError: uom.uom has no attribute category_id`) **sudah diatasi**; rollback tes gagal juga terkonfirmasi. Jangan kembali memakai `category_id`.
+
+### Fitur addon dan batas verifikasi
+
+- Model: `ya.scrap.batch` (header), `ya.scrap.batch.line` (baris), native `stock.scrap` (satu per baris) dengan tautan `ya_batch_id`; `action_validate()` native menangani stok. Kesalahan baris membatalkan validasi dalam satu transaksi melalui savepoint.
+- Form, menu dan instalasi: pengguna sudah konfirmasi.
+- **Belum ada bukti tes terpisah impor Excel .xlsx** (termasuk preview dan error handling), meskipun kode import/template tersedia dan script Draft rollback `script/test_multi_scrap_xlsx_rollback_ya.py` dibuat.
+- **Belum ada** bukti uji manual operator penuh, uji multi-company, pengujian lot/serial-tracked products, atau audit jurnal dan biaya kerugian Scrap. Jangan klaim semuanya lulus.
+- **Belum ada promosi ke `erp-yussyakmal`** (utama) atau `erp-yussyakmal-integer-test` (checkpoint Purchasing).
+
+### Lanjutan teknis yang tepat
+
+1. Jalankan `script/test_multi_scrap_xlsx_rollback_ya.py` di MRP test setelah meninjau SKU sampel pada script (jangan anggap data hard-code berlaku di luar DB ini); perbaiki bila perlu, lalu cek import 3 SKU melalui GUI.
+2. Uji satu dokumen Manual dan satu impor Excel; cek header, pilihan alasan existing-only, tiga `stock.scrap`, stock moves, dan tampilan smart button. Gunakan rollback untuk tes otomatis yang memanipulasi saldo.
+3. Pastikan GUI menolak pembuatan alasan baru dari header. Kebijakan akses administratif tag alasan belum diputuskan.
+4. Catat hasil dan hanya setelah persetujuan eksplisit rencanakan deployment di lingkungan lain.
+5. Jangan mengulang audit Scrap vs Opname yang sudah ditutup pengguna; jangan menjalankan ulang impor master BoM/UoM.
