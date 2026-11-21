@@ -118,10 +118,12 @@ print("FINISHED_BOM_HEADERS_REFERENCED:", len(affected_header))
 print("FINISHED_BOM_HEADER_UOM_CHANGES:", modified_headers)
 print("WARNING: numeric quantities stay unchanged; no physical conversion inferred")
 
-# This snapshot is needed to recreate affected BoM component lines using ORM.
-# A master-UoM change is safe through native ORM only if every
-# finished-product BoM currently uses that product's OLD master UoM.
-# Otherwise Odoo correctly rejects the change; stop before attempting it.
+# Odoo's native product UoM update expects each finished-product BoM
+# header to be expressed in the OLD product UoM. Some imported headers are
+# already expressed in the target UoM, while the master still uses the old
+# unit. Record the exact headers needing temporary realignment, preserving
+# all original quantities for end-to-end verification.
+temporary_header_alignment = []
 for bom in affected_header:
     matching = targets.get(bom.product_id.id)
     if not matching:
@@ -129,12 +131,19 @@ for bom in affected_header:
                          if entry[1].product_tmpl_id.id == bom.product_tmpl_id.id), None)
     assert matching, f"No target for finished BoM {bom.code}"
     sku, product, new_uom = matching
-    if product.uom_id.id != new_uom.id:
-        assert bom.product_uom_id.id == product.uom_id.id, (
-            f"Pre-existing finished BoM unit differs from OLD master: "
-            f"{bom.code} SKU {sku}, header {bom.product_uom_id.name}, "
-            f"master {product.uom_id.name}. Needs targeted handling."
+    if product.uom_id.id != new_uom.id and bom.product_uom_id.id != product.uom_id.id:
+        assert bom.product_uom_id.id == new_uom.id, (
+            f"Unexpected third UoM on finished BoM {bom.code}: "
+            f"header={bom.product_uom_id.name}, old={product.uom_id.name}, "
+            f"target={new_uom.name}; requires separate review"
         )
+        temporary_header_alignment.append((bom, product.uom_id.id, sku))
+print("TEMPORARY_HEADER_ALIGNMENT:", len(temporary_header_alignment))
+for bom, old_id, sku in temporary_header_alignment:
+    print("  ALIGN:", bom.code, "SKU:", sku,
+          "HEADER:", bom.product_uom_id.name,
+          "OLD_MASTER:", U.browse(old_id).name,
+          "QTY_HELD:", bom.product_qty)
 line_values = []
 for line in lines_to_detach:
     data = line.copy_data()[0]
@@ -153,6 +162,13 @@ try:
     # reject an otherwise unused product simply because it is in a BoM.
     lines_to_detach.unlink()
     assert L.search_count([]) == 8502 - len(line_values)
+    # Temporarily align previously mismatched finished BoM headers with the
+    # OLD master UoM so Odoo's own _update_uom can make the target change.
+    # We do not recalculate quantities. The complete final signatures are
+    # compared against originals/approved targets below.
+    for bom, old_id, sku in temporary_header_alignment:
+        bom.write({"product_uom_id": old_id})
+        print("TEMP_HEADER_ALIGNED:", bom.code, "SKU:", sku)
     # IMPORTANT (Odoo 19): product._update_uom() checks the units of
     # existing finished-product BoM headers AGAINST THE OLD MASTER UOM,
     # then rewrites those headers itself to the new UoM.
