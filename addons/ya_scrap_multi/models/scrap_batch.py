@@ -244,8 +244,11 @@ class YaScrapBatch(models.Model):
             raise UserError(_("Excel contains no product rows."))
         self.write({"line_ids": prepared, "import_file": False, "import_filename": False})
         return {
-            "type": "ir.actions.client",
-            "tag": "soft_reload",
+            "type": "ir.actions.act_window",
+            "res_model": self._name,
+            "res_id": self.id,
+            "view_mode": "form",
+            "target": "current",
         }
 
 
@@ -274,9 +277,22 @@ class YaScrapBatchLine(models.Model):
             if rec.qty <= 0:
                 raise ValidationError(_("Scrap quantity must be positive."))
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        batches = self.env["ya.scrap.batch"].browse([
+            vals["batch_id"] for vals in vals_list if vals.get("batch_id")
+        ])
+        if any(batch.state != "draft" for batch in batches):
+            raise UserError(_("Cannot add lines to a validated Scrap batch."))
+        return super().create(vals_list)
+
     def write(self, vals):
         if any(line.batch_id.state != "draft" for line in self):
             raise UserError(_("Validated Scrap lines cannot be edited."))
+        if vals.get("batch_id"):
+            target = self.env["ya.scrap.batch"].browse(vals["batch_id"])
+            if target.state != "draft":
+                raise UserError(_("Cannot move lines into a validated batch."))
         return super().write(vals)
 
     def unlink(self):
