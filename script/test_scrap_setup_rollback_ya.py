@@ -21,9 +21,11 @@ assert len(inventory_adjustment) == 1, (
     "Expected one Inventory adjustment location; inspect actual locations")
 reference = inventory_adjustment[0]
 parent = reference.location_id
-assert parent, "Inventory adjustment has no parent; inspect manually"
-assert parent.usage == "view", (
-    "Expected view-type parent for virtual location, got " + parent.usage)
+# Odoo may place its Inventory adjustment location at the root level.
+# In that case, create the Scrap location at the same root level.
+if parent:
+    assert parent.usage == "view", (
+        "Unexpected parent usage: " + parent.usage)
 assert reference.company_id, "Expected company on inventory adjustment"
 company = reference.company_id
 existing = Loc.search([
@@ -39,7 +41,7 @@ for reason in reasons:
 
 print("DATABASE:", env.cr.dbname)
 print("MODE: TEST + ALWAYS ROLLBACK")
-print("PARENT:", parent.complete_name, "| USAGE:", parent.usage)
+print("PARENT:", parent.complete_name if parent else "(root)", "| USAGE:", parent.usage if parent else "(none)")
 print("REFERENCE:", reference.complete_name)
 print("COMPANY:", company.name)
 print("REASONS:", ", ".join(reasons))
@@ -49,7 +51,7 @@ try:
     location = Loc.create({
         "name": "Scrap",
         "usage": "inventory",
-        "location_id": parent.id,
+        "location_id": parent.id if parent else False,
         "company_id": company.id,
     })
     assert location.usage == "inventory"
