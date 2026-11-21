@@ -142,3 +142,14 @@ Pengguna menjalankan Odoo shell **read-only** langsung pada database MRP test se
 - `POST_IMPORT_AUDIT_OK`.
 
 **Status akhir master:** 16 Work Center telah ditampilkan di GUI, 955 BoM + 8.502 baris komponen sudah diimpor dan lulus verifikasi ORM independen. **Jangan impor ulang.** Belum ada bukti tes transaksi MO selesai. Berikutnya inspeksi sampel GUI BoM bila perlu, lalu uji Manufacturing Order dengan rollback; jangan membuat operasi/durasi/kapasitas fiktif atau mengubah stok produksi tanpa uji dan persetujuan.
+
+
+## Checkpoint 21 November 2026 — Koreksi UoM SKU 11055 berhasil
+
+Berdasarkan log CLI `erp-yussyakmal-mrp-test` dari pengguna:
+- Script `script/fix_sku_11055_uom_gram_ya.py` uji mode `test`: `TEST_EXIT_CODE=0`, perubahan master dari Pcs ke Gram serta restore dua BoM line lulus, kemudian rollback dikonfirmasi.
+- Mode `apply`: `APPLY_EXIT_CODE=0`; `UOM_CHANGE_VERIFIED: SKU 11055 BASE: Gram RESTORED_LINES: 2 TOTAL_BOMS: 955 TOTAL_LINES: 8502`; `UOM_CHANGE_APPLY_OK COMMITTED`.
+- Komponen `BOM12499` = 500 Gram dan `BOM12326` = 300 Gram. Baris komponen tersebut direkonstruksi melalui ORM sehingga ID internalnya bisa berubah; jangan gunakan ID lama secara hard-code.
+- Pemeriksaan script: `stock.move`, `stock.move.line`, `stock.quant`, `mrp.production`, `purchase.order.line`, `sale.order.line` semuanya 0 untuk SKU 11055 pada saat APPLY; model stock valuation layer tidak tersedia di registry yang diuji.
+- Belum ada bukti uji konsumsi stok/Mark as Done. Audit seluruh BoM sebelumnya: 8.248 line satuan sama persis, 191 beda UoM dengan hasil konversi 1:1, 63 cross-family; **angka ini sebelum koreksi 11055 dan perlu diperbarui jika menilai status terkini**.
+- Tidak perlu menjalankan ulang APPLY SKU 11055 atau impor BoM. Lanjut meninjau daftar UoM berbeda per SKU dan validasi stok dengan rollback.
