@@ -103,3 +103,14 @@ Pemilik server mengonfirmasi **database duplikat khusus Manufacturing sudah dibu
 5. Dokumentasikan hasil serta SHA commit. Tidak ada promosi ke database utama tanpa persetujuan.
 
 **Catatan kesinambungan:** Dokumen handoff historis tanggal 20 November memiliki status awal yang telah kedaluwarsa. Untuk status operasional terbaru, gunakan **dokumen ini** dan log audit/commit terbaru, bukan bagian `BELUM SELESAI` pada handoff lama.
+
+
+## Checkpoint 21 November 2026 — Uji massal BoM berhasil, BELUM APPLY
+
+- Target tetap **database test Manufacturing**; database utama dan checkpoint Purchasing tidak diubah.
+- Sumber privat yang sudah dibersihkan: **955 BoM** dan **8.502 baris komponen**. Header BOM12499 versi 1.100 Pcs dan BOM11913 dihapus berdasarkan keputusan pemilik; komponen kuantitas 0 dibuang; label satuan `Paket` dan `Botol 80ml` dipetakan menjadi `Pcs` sesuai satuan master produk. Operations/work orders, durasi, kapasitas belum dipakai.
+- PREVIEW `script/preview_import_bom_ya.py`: `BOM_IMPORT_PREVIEW_OK`, 14 jenis Operation Type terpetakan berdasarkan gudang, existing BoM 0.
+- Uji satu BoM `BOM12499` dengan 16 baris komponen via ORM: `ROLLBACK_TEST_OK` dan `ROLLBACK_CONFIRMED`.
+- Uji massal `script/import_bom_bulk_ya.py`, Git commit `0f2d55c`, mode `YA_BOM_MODE=test`: **`TEST_EXIT_CODE=0`**, `BOM_BULK_TEST_OK created and verified: 955 8502`, `BOM_BULK_ROLLBACK_CONFIRMED: zero BoMs retained`.
+- SHA-256 sumber CSV header: `f39036870ae7a0f439d23932ae91faef4765ad7cb6b02e2ff06d127c504b1b86`. SHA-256 komponen: `d05c8bff41df4d7eadf1e60484090ab1b20e9cafe9d8a1911bdbce3b40a9fb50`. Simpan CSV sebenarnya tetap privat.
+- **Status sekarang: mass rollback TEST PASS, APPLY permanen BELUM dilakukan.** Langkah selanjutnya adalah menjalankan mode `YA_BOM_MODE=apply` pada DB MRP test menggunakan CSV yang sama (periksa hash), lalu audit read-only dan GUI. Tidak perlu mengulang audit lama.
