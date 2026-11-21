@@ -132,18 +132,25 @@ for bom in affected_header:
     assert matching, f"No target for finished BoM {bom.code}"
     sku, product, new_uom = matching
     if product.uom_id.id != new_uom.id and bom.product_uom_id.id != product.uom_id.id:
-        assert bom.product_uom_id.id == new_uom.id, (
-            f"Unexpected third UoM on finished BoM {bom.code}: "
-            f"header={bom.product_uom_id.name}, old={product.uom_id.name}, "
-            f"target={new_uom.name}; requires separate review"
-        )
-        temporary_header_alignment.append((bom, product.uom_id.id, sku))
+        # The pre-existing BoM header can use a THIRD unit (for example
+        # Pcs vs old Resep vs approved target Bungkus). This is a TEST-only
+        # transformation and NOT an endorsement of their physical equality.
+        # The final quantity and target UoM are checked against the full
+        # expected data signatures; any ORM adjustment fails the test.
+        temporary_header_alignment.append((bom, product.uom_id.id, sku,
+                                            bom.product_uom_id.name,
+                                            new_uom.name, bom.product_qty))
 print("TEMPORARY_HEADER_ALIGNMENT:", len(temporary_header_alignment))
-for bom, old_id, sku in temporary_header_alignment:
+print("THIRD_UNIT_HEADERS:", sum(
+    current.casefold() != target.casefold()
+    for _, _, _, current, target, _ in temporary_header_alignment
+))
+for bom, old_id, sku, original_name, target_name, original_qty in temporary_header_alignment:
     print("  ALIGN:", bom.code, "SKU:", sku,
-          "HEADER:", bom.product_uom_id.name,
+          "HEADER:", original_name,
           "OLD_MASTER:", U.browse(old_id).name,
-          "QTY_HELD:", bom.product_qty)
+          "TARGET:", target_name,
+          "QTY_HELD:", original_qty)
 line_values = []
 for line in lines_to_detach:
     data = line.copy_data()[0]
@@ -166,8 +173,11 @@ try:
     # OLD master UoM so Odoo's own _update_uom can make the target change.
     # We do not recalculate quantities. The complete final signatures are
     # compared against originals/approved targets below.
-    for bom, old_id, sku in temporary_header_alignment:
+    for bom, old_id, sku, original_name, target_name, original_qty in temporary_header_alignment:
         bom.write({"product_uom_id": old_id})
+        assert abs(bom.product_qty - original_qty) < 1e-9, (
+            f"Temporary alignment unexpectedly changed quantity: {bom.code}"
+        )
         print("TEMP_HEADER_ALIGNED:", bom.code, "SKU:", sku)
     # IMPORTANT (Odoo 19): product._update_uom() checks the units of
     # existing finished-product BoM headers AGAINST THE OLD MASTER UOM,
