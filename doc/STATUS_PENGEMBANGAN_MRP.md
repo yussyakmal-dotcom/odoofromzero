@@ -114,3 +114,19 @@ Pemilik server mengonfirmasi **database duplikat khusus Manufacturing sudah dibu
 - Uji massal `script/import_bom_bulk_ya.py`, Git commit `0f2d55c`, mode `YA_BOM_MODE=test`: **`TEST_EXIT_CODE=0`**, `BOM_BULK_TEST_OK created and verified: 955 8502`, `BOM_BULK_ROLLBACK_CONFIRMED: zero BoMs retained`.
 - SHA-256 sumber CSV header: `f39036870ae7a0f439d23932ae91faef4765ad7cb6b02e2ff06d127c504b1b86`. SHA-256 komponen: `d05c8bff41df4d7eadf1e60484090ab1b20e9cafe9d8a1911bdbce3b40a9fb50`. Simpan CSV sebenarnya tetap privat.
 - **Status sekarang: mass rollback TEST PASS, APPLY permanen BELUM dilakukan.** Langkah selanjutnya adalah menjalankan mode `YA_BOM_MODE=apply` pada DB MRP test menggunakan CSV yang sama (periksa hash), lalu audit read-only dan GUI. Tidak perlu mengulang audit lama.
+
+
+## Checkpoint 21 November 2026 — APPLY BoM berhasil
+
+**Berhasil menurut log server yang dikirim pengguna; verifikasi independen read-only/GUI berikutnya belum dilakukan.**
+
+- Database target: `erp-yussyakmal-mrp-test`, bukan DB utama atau checkpoint Purchasing.
+- Script: `script/import_bom_bulk_ya.py`, mode `YA_BOM_MODE=apply`.
+- `APPLY_EXIT_CODE=0`; log final: **`BOM_BULK_APPLY_OK COMMITTED: 955 8502`**.
+- **955 BoM** dan **8.502 baris komponen** telah dibuat serta diverifikasi oleh script sebelum commit. **14** Manufacturing Operation Type dipetakan; **tidak ada** Work Order Operations yang dibuat.
+- Source file SHA-256 sesuai dengan file yang lulus test rollback sebelumnya:
+  - Header: `f39036870ae7a0f439d23932ae91faef4765ad7cb6b02e2ff06d127c504b1b86`
+  - Komponen: `d05c8bff41df4d7eadf1e60484090ab1b20e9cafe9d8a1911bdbce3b40a9fb50`
+- Jangan menjalankan APPLY ulang. Importer sengaja menolak database yang sudah memiliki BoM.
+- Tahap berikut: verifikasi **read-only** total `mrp.bom` dan `mrp.bom.line`, sample cek SKU, kuantitas, komponen, picking type dan GUI. Setelah itu mulai tes satu Manufacturing Order dengan rollback, cek stok tidak negatif, konversi UoM, WIP, dan alur gudang sebelum alur produksi nyata.
+- `git pull` hanya memperbarui repository; script Odoo shell ini tidak memerlukan salin addon karena tidak mengubah addon. Hindari upgrade modul tanpa alasan.
