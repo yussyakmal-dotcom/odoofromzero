@@ -51,8 +51,7 @@ kesesuaian kategori UoM. File privat tidak disimpan di GitHub.
    cek stock move, native Scrap record, alasan, source document, dan
    valuasi sebelum mengaktifkan operasional.
 
-**Status:** kode modul telah dibuat dalam repository. Belum ada bukti instalasi
-sukses pada database pengguna, dan belum ada bukti validasi transaksi multi-SKU.
+**Status 22 November 2026:** Modul **installed** pada `erp-yussyakmal-mrp-test` dan form sudah muncul (konfirmasi pengguna). Satu virtual lokasi Scrap dan alasan Rusak/Expired sudah APPLY committed. Uji end-to-end 3 SKU -> 3 native Scrap -> 3 Stock Move dalam 1 dokumen **PASS**, rollback juga PASS (lihat `script/test_multi_scrap_3sku_e2e_rollback_ya.py`). Belum ada uji impor Excel terpisah, GUI operasional penuh, atau deployment ke DB utama.
 
 ## Keputusan belum dibuat
 
@@ -60,3 +59,8 @@ sukses pada database pengguna, dan belum ada bukti validasi transaksi multi-SKU.
 - Apakah Source Document dikaitkan ke MO, POS, Delivery Order dan sebagainya.
 - Kebijakan penerimaan dan penolakan selisih stok.
 - Role approval atau tahapan audit.
+
+## Handover terbaru
+
+- [Handover ODOO FROM ZERO](../../doc/HANDOVER_ODOO_FROM_ZERO.md)
+- [Status Pengembangan Manufacturing](../../doc/STATUS_PENGEMBANGAN_MRP.md)
