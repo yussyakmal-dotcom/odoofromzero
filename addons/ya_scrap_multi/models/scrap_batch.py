@@ -93,7 +93,7 @@ class YaScrapBatch(models.Model):
         for line in self.line_ids:
             if line.qty <= 0:
                 raise UserError(_("Quantity must be greater than zero."))
-            if line.uom_id.category_id != line.product_id.uom_id.category_id:
+            if not line.uom_id._has_common_reference(line.product_id.uom_id):
                 raise UserError(_(
                     "UoM of %(sku)s is incompatible with the product."
                 ) % {"sku": line.product_id.default_code or line.product_id.display_name})
@@ -226,7 +226,7 @@ class YaScrapBatch(models.Model):
                     uom = candidates[0]
                 else:
                     uom = product.uom_id
-                if uom.category_id != product.uom_id.category_id:
+                if not uom._has_common_reference(product.uom_id):
                     raise UserError(_(
                         "Row %(row)s: incompatible UoM for SKU %(sku)s."
                     ) % {"row": row_num, "sku": sku})
