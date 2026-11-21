@@ -153,3 +153,14 @@ Berdasarkan log CLI `erp-yussyakmal-mrp-test` dari pengguna:
 - Pemeriksaan script: `stock.move`, `stock.move.line`, `stock.quant`, `mrp.production`, `purchase.order.line`, `sale.order.line` semuanya 0 untuk SKU 11055 pada saat APPLY; model stock valuation layer tidak tersedia di registry yang diuji.
 - Belum ada bukti uji konsumsi stok/Mark as Done. Audit seluruh BoM sebelumnya: 8.248 line satuan sama persis, 191 beda UoM dengan hasil konversi 1:1, 63 cross-family; **angka ini sebelum koreksi 11055 dan perlu diperbarui jika menilai status terkini**.
 - Tidak perlu menjalankan ulang APPLY SKU 11055 atau impor BoM. Lanjut meninjau daftar UoM berbeda per SKU dan validasi stok dengan rollback.
+
+
+## Checkpoint — 21 November 2026: Koreksi UoM 73 SKU selesai (MRP test)
+
+Berdasarkan output terminal pengguna dan audit independen:
+- SKU 11055 telah diubah dari Pcs menjadi Gram melalui script terpisah; BoM dan komponen dipertahankan.
+- Koreksi massal 72 SKU dengan `YA_UOM_KOREKSI_72_SKU_REVISI_2.csv` (SHA256 `5e120a0057a8c73c10abdef83b9def3eb1e94844da574d796bd16945f85c2d38`) selesai pada database `erp-yussyakmal-mrp-test`. Log: `UOM_72_APPLY_OK COMMITTED`.
+- Keputusan khusus: SKU 10473 = Resep untuk master dan BoM; SKU 11074 = Pcs untuk master dan BoM; SKU 10732 = Bungkus untuk master dan BoM.
+- Audit independen `script/audit_post_apply_uom_72_ya.py` sukses (`AUDIT_EXIT_CODE=0`, `POST_APPLY_72_AUDIT_OK`, `ISSUE_COUNT: 0`). Audit mencakup 72 SKU, 253 referensi komponen, 65 Header BoM; hasil global `GLOBAL_QTY_ONE_GRAM: 0`. Total tetap **955 BoM dan 8.502 baris komponen**.
+- Script audit bersifat read-only (`NO_DATABASE_CHANGES`). Tidak perlu mengulang APPLY atau impor BoM. UoM berdasarkan keputusan pengguna sudah konsisten; pengujian tidak membuktikan ekuivalensi fisik antarunit yang berbeda, yang tetap harus divalidasi di penggunaan operasional.
+- Selanjutnya: validasi MO, consumptions, WIP, lokasi sumber/tujuan, stok tidak minus dan penyelesaian produksi **di MRP test dengan rollback dahulu**. Jangan ubah database produksi atau Purchasing test.
