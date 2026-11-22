@@ -79,6 +79,7 @@ class YaProductionPlanning(models.Model):
                 'res_model': 'ya.production.planning',
                 'res_id': self.id,
                 'view_mode': 'form',
+                'views': [(False, 'form')],
                 'target': 'current'}
 
     def write(self, vals):
