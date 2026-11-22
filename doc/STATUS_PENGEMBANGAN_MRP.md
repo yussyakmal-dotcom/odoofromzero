@@ -331,3 +331,74 @@ Log pengguna:
 - https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/operations_valuation.html
 - https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/manufacturing/basic_setup/mo_costs.html
 - https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/manufacturing/basic_setup/work_in_progress.html
+
+
+---
+
+## 22 November 2026 — Keputusan desain terbaru: Planning, RO, MO, Packing, DO, selisih, anti-fraud
+
+**STATUS: DESAIN TELAH DIDISKUSIKAN, BELUM DIIMPLEMENTASIKAN ATAU DIUJI DI ODOO.** Bagian ini **menggantikan usulan lama yang bertentangan** (misalnya membuka pemesanan oleh Packing, alokasi final toko pada saat membuat MO, penggunaan tanggal produksi sebagai kunci, dan tombol selesai pesan oleh toko). Jangan menganggap mockup form sebagai hasil implementasi.
+
+### 1. Delivery Schedule sebagai kunci tunggal operasional
+
+- Tepat **3 slot tetap per tanggal pengiriman**, WIB: **S1 Subuh 05.00**, **S2 Pagi 09.00**, **S3 Siang 11.00**.
+- **Tanggal pengiriman + slot** merupakan kunci jadwal untuk planning, penerimaan RO, konsolidasi, penerimaan SO dan alokasi. Close/Lock satu tanggal-slot tidak menutup slot lainnya.
+- Tanggal/waktu produksi hanya **informasi operasional**, bukan kunci lock/konsolidasi: produksi berlangsung malam melewati pergantian hari. Tidak memerlukan batch terpisah hanya karena perubahan tanggal.
+- SKU punya dapur produksi tertentu. Gudang Packing mengonsolidasikan hasil dari berbagai dapur.
+
+### 2. Master Capacity Template dan Generate Planning Massal — TAHAP PERTAMA
+
+- Jumlah kombinasi master template standar: **3 × jumlah dapur** (contoh 10 dapur → 30 template), masing-masing berisi **Reference, Nama Produk, Max Capacity per SKU** untuk dapur + slot.
+- **Export/Import Excel hanya pada Master Capacity Template** untuk memperbarui daftar/kapasitas standar. **TIDAK ada upload Excel pada Production Planning harian.**
+- Admin Produksi memilih tanggal kirim, slot dan dapur; **Generate Massal** membuat Draft Planning terpisah untuk tiap kombinasi **tanggal pengiriman + slot + dapur** dari master template. Dapur/slot boleh dipilih massal, hindari dokumen ganda. Kapasitas Draft boleh dikoreksi langsung di form; perubahan harian tidak mengubah master dan perubahan master tidak mengubah planning lama.
+- Draft → Publish; Published adalah dasar pemesanan toko. **Planning SKU berkapasitas 0 tidak ditawarkan pada RO**. Kapasitas berarti batas untuk SKU/jadwal, bukan Work Center per-cycle capacity. Jangan menyalahgunakan field Odoo standar dengan makna berbeda.
+- Publish, Close RO dan Lock untuk SO adalah konsep berbeda. Tidak perlu membuat kebijakan baru perubahan kapasitas Published tanpa permintaan pengguna.
+
+### 3. RO toko — banyak SKU, Excel terfilter
+
+- **1 RO = 1 toko + 1 dapur + 1 tanggal pengiriman + 1 slot**, berisi banyak SKU dapur itu. Toko memilih **jadwal kirim**, tidak perlu memilih kapan diproduksi.
+- Header minimal: nomor RO, **tanggal pesanan**, toko, dapur, **tanggal + slot/jam pengiriman**, status.
+- **Draft → Confirmed**, hanya Confirmed yang masuk konsolidasi. Toko **download Excel** berisi **Reference, Nama Produk, Qty Pesan**, mengisi Qty, lalu **upload** ke RO dan review sebelum Confirm.
+- Hanya SKU dengan **Published Max Capacity > 0** untuk dapur dan jadwal terkait yang boleh diminta. Validasi juga saat upload: SKU di luar daftar, beda dapur, qty negatif/tidak valid, duplikat ditolak; 0/kosong tidak diikutkan; upload Draft ulang mengganti baris, bukan menjumlahkan. Toko tidak bisa menambahkan item di luar daftar baik dari Excel maupun UI.
+- Qty Requested adalah *demand*, **bukan kuota pengiriman yang dijamin**. Bisa berakhir alokasi 0 karena SO lebih prioritas, atau lebih besar dari RO berkat surplus hasil pembulatan resep.
+
+### 4. Packing Close RO → Konsolidasi → MO → Material Replenishment
+
+- **Admin Packing tidak membuka pemesanan.** Jadwal tersedia ketika PPIC Publish; **Admin Packing menutup akses pemesanan RO toko per tanggal + slot**, lalu menjalankan konsolidasi RO Confirmed. Draft tidak ikut.
+- Konsolidasi menggabungkan kebutuhan **per jadwal kirim + dapur + SKU** bersama demand SO; mengacu kapasitas maksimal PPIC serta kelipatan hasil BoM. **Bukan alokasi final per toko**.
+- Hasil konsolidasi membuat **MO satu SKU per dapur dan jadwal kirim**, bukan MO per RO; tidak membuat MO setiap toko Confirm RO.
+- **Di antara Generate MO dan pelaksanaan produksi wajib ada Material Replenishment**: hitung seluruh kebutuhan bahan dari BoM MO terkonsolidasi, periksa stok dapur tersedia, buat kebutuhan **Internal Transfer Central → Transit → Dapur**, dan validasi penerimaan fisik oleh dapur sebelum dipakai produksi.
+- Setelah itu, MO/WO dikonsumsi/diproses; produk jadi berpindah **Dapur → Transit → Packing**. Produksi bisa menghasilkan kuantitas lebih tinggi dari demand karena kelipatan resep, tetapi tidak boleh melewati batas produksi yang disepakati.
+
+### 5. Alokasi SO dahulu; alokasi final toko dan DO dilakukan TERAKHIR
+
+- SO bisa multi-SKU dari beberapa dapur; saat Confirm **cek status Open/Locked jadwal pengiriman terlebih dahulu** serta validasi semua SKU terhadap planning/kapasitas. Jika satu SKU gagal, **seluruh SO tidak Confirm**. SO punya prioritas mutlak atas kuota toko belum dikirim, termasuk setelah MO terbit, **selama slot pengiriman masih Open**.
+- SO tidak instan seperti POS (estimasi 10–50 SO/hari, lazimnya 2–3 hari sebelum kirim); jangan over-engineer kecepatan.
+- **JANGAN alokasikan toko secara final saat Planning, RO, konsolidasi atau penerbitan MO**. Tunggu **produk jadi aktual diterima di Packing**; alokasikan dan reservasi **SO lebih dahulu**.
+- Setelah kebutuhan SO yang relevan dipenuhi/dilindungi, sistem menghitung stok produk jadi yang benar-benar dapat dipakai toko lalu **otomatis memprorata stok sisa berdasarkan Qty RO asli**, baik kekurangan maupun surplus hasil pembulatan. Admin Packing **boleh mengubah pembagian akhir secara manual sebelum pengiriman** tetapi tidak boleh mengambil stok yang sudah menjadi komitmen SO.
+- **1 DO toko = 1 toko + tanggal pengiriman + slot**, **multi-SKU dari seluruh dapur**. RO tetap dipisah per dapur; DO disatukan untuk distribusi. Buat DO dari hasil alokasi final (bukan input ulang).
+- Validasi Dispatch menggerakkan barang **Packing → Transit**; toko memvalidasi Receipt **Transit → Toko** berdasarkan barang fisik aktual.
+
+### 6. Receipt toko dan discrepancy
+
+- **Toko boleh Validate Receipt sesuai kuantitas fisik yang benar-benar diterima**, sekalipun berbeda dari DO Packing. Qty yang sesuai boleh menjadi stok jual POS tanpa menunggu investigasi item lain.
+- Selisih **otomatis dicatat sebagai kasus discrepancy per SKU**, terhubung ke DO, jadwal, toko, qty dikirim/diterima, waktu, user; DO asli yang sudah Done **tidak diubah**. Sisa kurang diterima ditelusuri pada Transit sesuai perilaku transfer parsial yang harus diuji.
+- Kategori investigasi: **salah hitung, barang tertinggal, salah kirim, rusak, atau belum ditemukan/hilang**. Selisih tidak otomatis menjadi inventory loss.
+- **Barang rusak: pisahkan, catat SKU/qty/kondisi, lalu Scrap. TIDAK ADA RETUR untuk penanganan barang rusak ini.** Lokasi sumber Scrap harus sesuai lokasi fisik dan stock move aktual; jangan mengarang stock adjustment.
+- Kasus dapat dicatat Open → In Progress → Resolved, tetapi Resolved hanya setelah tindakan korektif yang relevan selesai dan dibuktikan.
+
+### 7. Pemisahan kewenangan anti-fraud — KEPUTUSAN PENGGUNA
+
+**Admin Packing hanya melakukan investigasi dan mencatat hasil/permintaan tindak lanjut; DILARANG mengeksekusi koreksi stok berdasarkan investigasinya sendiri.** **Petugas yang ditunjuk** secara terpisah mengeksekusi dan memvalidasi:
+- Scrap barang rusak;
+- Inventory Adjustment bila sesuai hasil investigasi;
+- transfer koreksi/penanganan salah lokasi.
+
+Jejak audit harus membedakan **investigator, petugas eksekusi, dokumen koreksi, waktu, alasan, dan transaksi stok**. Tidak mengubah transaksi stock move/DO Done diam-diam. Hak akses teknis dan penunjukan personel belum diterapkan/ditetapkan rinci.
+
+### 8. Accounting dan batas implementasi
+
+- **Setiap pergerakan fisik** di Central → Transit → Dapur → produksi/WIP → Packing → Transit → Toko, serta Scrap/Inventory Adjustment, harus ditinjau dari **quantity, stock valuation, costing/HPP, dan jurnal/closing sesuai Odoo 19 Community + OCA aktual**. Internal transfer satu perusahaan tidak otomatis penjualan. RO dan Planning bukan jurnal atau stock move.
+- Pengujian Accounting produksi/stock valuation end-to-end **BELUM LULUS**; audit Scrap 3-SKU sebelumnya bukan uji valuation. Jangan menjanjikan posting jurnal per setiap move tanpa verifikasi versi dan konfigurasi.
+- Seluruh pernyataan di bagian ini adalah **rancangan yang disetujui secara konseptual**. **Belum ada addon baru atau perubahan database**, dan tidak boleh menyentuh DB utama ataupun purchasing test tanpa persetujuan eksplisit.
+- **Fokus berikutnya:** detail mekanisme penanganan discrepancy (aksi penutupan, referensi stock move, kontrol peran) dan implementasi awal Master Template/Production Planning di test DB bila diminta; jangan kembali ke asumsi yang sudah dikoreksi di atas.
