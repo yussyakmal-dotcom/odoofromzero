@@ -30,9 +30,7 @@
             <field name="ro_count" readonly="1"/>
             <field name="kitchen_count" readonly="1"/>
             <field name="sku_count" readonly="1"/>
-            <field name="blocked_count" readonly="1"
-                   widget="badge" decoration-danger="blocked_count &gt; 0"
-                   decoration-success="blocked_count == 0"/>
+            <field name="blocked_count" readonly="1"/>
           </group>
           <group>
             <field name="total_requested" readonly="1"/>
