@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Entry point: select Confirmed RO rows before opening SKU consolidation. -->
+  <record id="view_ya_packing_confirmed_ro_list" model="ir.ui.view">
+    <field name="name">ya.packing.confirmed.ro.list</field>
+    <field name="model">ya.store.ro</field>
+    <field name="arch" type="xml">
+      <list string="Packing - Pilih RO Confirmed" create="false" edit="false" delete="false">
+        <header>
+          <button name="action_open_packing_selected" type="object"
+                  string="Konsolidasi SKU" display="always" class="btn-primary"
+                  groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
+        </header>
+        <field name="delivery_date_yyyymmdd" string="Tgl Kirim"/>
+        <field name="ro_date_yyyymmdd" string="Tgl RO"/>
+        <field name="slot"/>
+        <field name="kitchen_code" string="Dapur"/>
+        <field name="store_warehouse_id" string="Toko"/>
+        <field name="line_count" string="SKU"/>
+        <field name="qty_total" string="Total Qty RO"/>
+        <field name="state"/>
+        <field name="production_ok" string="Produksi OK"/>
+      </list>
+    </field>
+  </record>
+  <record id="action_ya_packing_confirmed_ro" model="ir.actions.act_window">
+    <field name="name">Packing - Pilih RO Confirmed</field>
+    <field name="res_model">ya.store.ro</field>
+    <field name="view_mode">list</field>
+    <field name="view_id" ref="view_ya_packing_confirmed_ro_list"/>
+    <field name="domain">[('state','=','confirmed')]</field>
+    <field name="context">{'search_default_group_by_slot': 0}</field>
+  </record>
+  <!-- Existing menu xmlid deliberately reused to update an installed system. -->
+  <menuitem id="menu_ya_packing_preview"
+            name="Packing - Consolidation"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_packing_confirmed_ro"
+            sequence="35"
+            groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
+</odoo>
