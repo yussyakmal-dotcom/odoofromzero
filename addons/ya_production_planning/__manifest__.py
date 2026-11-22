@@ -1,6 +1,6 @@
 {
     'name': 'YA Production Planning - XLSX Capacity',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Manufacturing',
     'summary': 'Import production capacity by delivery date and slot from XLSX',
     'depends': ['mrp', 'stock'],
