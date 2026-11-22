@@ -15,6 +15,7 @@
         <field name="state"/>
         <field name="confirmed_by"/>
         <field name="confirmed_at_label"/>
+        <field name="internal_transfer_id" string="Internal Transfer Odoo"/>
       </list>
     </field>
   </record>
@@ -29,6 +30,12 @@
           <button name="action_confirm_qty" type="object"
                   string="Konfirmasi Qty Picking" class="btn-primary"
                   invisible="state != 'draft'"/>
+          <button name="action_create_internal_transfer" type="object"
+                  string="Buat Internal Transfer (Draft)" class="btn-primary"
+                  invisible="state != 'confirmed' or internal_transfer_id"/>
+          <button name="action_open_internal_transfer" type="object"
+                  string="Buka Internal Transfer"
+                  invisible="not internal_transfer_id"/>
           <field name="state" widget="statusbar"
                  statusbar_visible="draft,confirmed"/>
         </header>
@@ -38,6 +45,9 @@
             Qty lebih besar dari kebutuhan MO boleh untuk Special Transfer ke
             dapur tujuan yang sama, dengan centang dan alasan.
             Tambahan menjadi stok dapur, BUKAN penambahan konsumsi MO.
+            Tombol Buat Internal Transfer hanya membuat DRAFT standar Odoo
+            (CDC ke dapur ini); belum reservasi atau perpindahan stok.
+            Periksa lot/FEFO dan rute gudang sebelum validasi.
           </div>
           <group>
             <group>
@@ -49,6 +59,8 @@
             <group>
               <field name="confirmed_by" readonly="1"/>
               <field name="confirmed_at_label" readonly="1"/>
+              <field name="internal_transfer_id" readonly="1"
+                     options="{'no_create': True, 'no_create_edit': True}"/>
             </group>
           </group>
           <field name="info" readonly="1" nolabel="1"/>
