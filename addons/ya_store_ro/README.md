@@ -82,3 +82,11 @@ Alur RO-only untuk satu siklus sampai toko menerima barang:
 Jika qty produksi > Max Planning, preview **menandai Exceeds Max** dan menghitung blocked_count; **tidak menciptakan MO** dan **tidak mengurangi permintaan**. Jika kitchen BoM tak dapat ditemukan secara unik, tampil error per SKU agar mapping dicek. Menu ini hanya READ-ONLY terhadap RO, Planning, Inventory, MO, transfer dan accounting; ia hanya menyimpan record transient preview sementara. SO tidak dilibatkan; aturan SO ditinjau kembali nanti sesudah siklus pertama RO selesai. **Material replenishment Central→Dapur + picking list Central + konfirmasi receipt dapur + material availability gate tetap WAJIB sebelum menjalankan MO.**
 
 **PRE-FLIGHT:** `cd ~/odoofromzero && git pull && python3 script/test_ro_packing_prorata_pure_ya.py && python3 script/check_ya_store_ro_source_readonly.py`. Jika semua PASS, backup GUI DB `erp-yussyakmal-mrp-test`, copy addon dan `-u ya_store_ro`, restart, uji Preview. **Jangan jalankan MO/transfer pada tahap ini**.
+
+## KOREKSI PENTING Packing Preview — sumber CONFIRMED RO, bukan Planning (22 November 2026)
+
+Feri menegaskan Preview Packing **tidak boleh membuka daftar PPIC Planning (termasuk Draft)**. Titik masuk benar: **pilih Tanggal Kirim + Slot → ambil semua RO toko status CONFIRMED pada jadwal tersebut, lintas toko dan dapur → grup menurut dapur + SKU → masing-masing grup menjadi dasar tepat SATU MO** untuk dapur+SKU+tanggal+slot (setelah validasi/close/kapasitas kelak). Planning hanya direferensikan di belakang layar untuk BoM, Max Capacity, dan memastikan RO yang sudah Confirmed terhubung pada Planning Published. **Draft RO diabaikan sepenuhnya.** Jangan menggabungkan dapur yang berbeda, meskipun SKU sama.
+
+**Kode telah dikoreksi di GitHub (addon `ya_store_ro` v19.0.3.1.0), belum diuji/upgrade di server.** Wizard `ya.packing.preview` sekarang memiliki `delivery_date` + `slot`, query `ya.store.ro` state confirmed, dan hasil tab konsolidasi/prorata memuat kode dapur. Tidak ada MO/transfer yang dibuat. Sebelum upgrade lakukan source preflight dan pure arithmetic tests; tes GUI untuk memastikan yang muncul adalah RO Confirmed lintas toko/dapur. Kalau Planning Draft muncul sebagai pilihan pada Packing Preview, itu bug.
+
+Koreksi ini menggantikan instruksi lama yang menyuruh memilih satu Published Planning dari menu Packing.
