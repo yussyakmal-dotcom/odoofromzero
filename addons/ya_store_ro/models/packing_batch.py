@@ -80,26 +80,7 @@ class YaPackingBatch(models.Model):
         return super().write(vals)
 
     def unlink(self):
-        if not (self.env.context.get('ya_reset_preproduction') and
-                all(batch.state == 'pre_production' and not batch.line_ids.mapped('mo_id')
-                    for batch in self)):
-            raise UserError(_('Only empty-MO Pre Produksi can be reset.'))
-        return super().unlink()
-
-    def action_reset_preproduction(self):
-        self.ensure_one()
-        if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin'):
-            raise UserError(_('Only Packing Admin may reset Pre Produksi.'))
-        lock_ro_slot(self.env.cr, self.delivery_date, self.slot)
-        if self.state != 'pre_production' or self.line_ids.mapped('mo_id'):
-            raise UserError(_('Cannot reset after Produksi OK.'))
-        self.ro_ids.sudo().with_context(ya_stage_or_reset_packing=True).write({
-            'packing_batch_id': False,
-        })
-        self.allocation_ids.sudo().with_context(ya_reset_preproduction=True).unlink()
-        self.line_ids.sudo().with_context(ya_reset_preproduction=True).unlink()
-        self.sudo().with_context(ya_reset_preproduction=True).unlink()
-        return self.env.ref('ya_store_ro.action_ya_packing_confirmed_ro').read()[0]
+        raise UserError(_('Pre Produksi and Produksi OK cannot be deleted.'))
 
     def action_open_mos(self):
         self.ensure_one()
@@ -154,31 +135,8 @@ class YaPackingBatchLine(models.Model):
         return super().write(vals)
 
     def unlink(self):
-        if not (self.env.context.get('ya_reset_preproduction') and
-                all(line.batch_id.state == 'pre_production' and not line.mo_id for line in self)):
-            raise UserError(_('Released Production lines cannot be deleted.'))
-        return super().unlink()
+        raise UserError(_('Pre Produksi SKU lines cannot be deleted.'))
 
-
-    @api.model
-    def action_reset_selected_preproduction(self, *args, **kwargs):
-        """Rebuild Pre Produksi when RO Qty changed, without touching any MO."""
-        if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin'):
-            raise UserError(_('Only Packing Admin can reset Pre Produksi.'))
-        ids = list(self.ids)
-        if args and isinstance(args[0], (list, tuple)):
-            ids = list(args[0])
-        if not ids:
-            ids = self.env.context.get('active_ids') or []
-        if not ids:
-            raise UserError(_('Select a Pre Produksi line to reset its entire date/slot.'))
-        lines = self.browse(ids).exists()
-        if not lines or len(lines) != len(set(ids)):
-            raise UserError(_('Selected Pre Produksi rows no longer exist.'))
-        batches = lines.mapped('batch_id')
-        if len(batches) != 1:
-            raise UserError(_('Reset one date and slot at a time.'))
-        return batches.action_reset_preproduction()
 
     @api.model
     def action_generate_selected_mo(self, *args, **kwargs):
@@ -339,11 +297,7 @@ class YaPackingBatchAllocation(models.Model):
         raise UserError(_('Final allocation cannot be edited.'))
 
     def unlink(self):
-        if not (self.env.context.get('ya_reset_preproduction') and
-                all(row.batch_id.state == 'pre_production' and not row.line_id.mo_id
-                    for row in self)):
-            raise UserError(_('Final allocation cannot be deleted.'))
-        return super().unlink()
+        raise UserError(_('Pre Produksi allocations cannot be deleted.'))
 
 
 class MrpProduction(models.Model):
