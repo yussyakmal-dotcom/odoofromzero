@@ -39,8 +39,12 @@ class YaProductionPlanning(models.Model):
             rec.line_count = len(rec.line_ids)
 
     @api.model
-    def action_open_upload_wizard(self):
-        """Open the existing XLSX wizard from the Planning list header."""
+    def action_open_upload_wizard(self, *args, **kwargs):
+        """List-header object buttons pass selected record IDs as a positional argument.
+
+        This is a navigation shortcut only; ignore that optional list of IDs.
+        """
+
         if not self.env.user.has_group('mrp.group_mrp_manager'):
             raise UserError(_('Only a Manufacturing Manager may upload planning.'))
         return self.env.ref(
