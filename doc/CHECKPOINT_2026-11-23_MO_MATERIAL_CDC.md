@@ -65,3 +65,29 @@ Target output `MATERIAL_REQUIREMENT_SOURCE_OK` dan `MATERIAL_REQUIREMENT_RULES_O
 - Rujuk `addons/ya_material_requirement/README.md` untuk instalasi addon dan `doc/SKILL_ODOO19_ADDON_WORKFLOW.md` untuk cara deployment.
 
 **Resume prompt**: "Baca `doc/CHECKPOINT_2026-11-23_MO_MATERIAL_CDC.md`. Mulai dari modul `ya_material_requirement` 19.0.1.1.0 source-only; Feri sudah punya 20 confirmed MO untuk 2026-11-27 S1, read-only audit 247 moves/97 bahan-dapur dan CDC Gudang Central teridentifikasi. Jangan bangun Purchasing; replenishment stok CDC dikerjakan Admin Gudang via Purchase standar di luar alur. Langkah berikutnya preflight script, install GUI test, validasi angka, lalu CDC→dapur internal transfer." 
+
+## 6. Developer-only test stock seeding — NOT part of business replenishment flow
+
+**Feri requested** a one-off inventory adjustment for an otherwise empty transaction **DEVELOPMENT test database** so subsequent CDC→kitchen internal transfers can be tested. Request: make CDC stock **10× shortages per raw material** from MO. This is **NOT a standard replenishment workflow** and does not affect the scope freeze (Warehouse Admin handles actual CDC replenishment via existing standard Odoo Purchase outside this flow).
+
+Source added **only** as `script/dev_seed_cdc_material_10x_ya.py` and static guard `script/check_dev_seed_cdc_material_10x_source_readonly_ya.py`. NOT EXECUTED, NOT COMMITTED TO DATABASE. Strict DB whitelist `erp-yussyakmal-mrp-test`, batch `2026-11-27 S1`, CDC warehouse code `CDC`. Uses linked Confirmed MO `move_raw_ids` per kitchen/product base UoM, subtracts free physical stock per kitchen and aggregates across kitchens by ingredient. Computes **outstanding = max(sum(kitchen shortfall) - CDC stock,0)**, CDC target = **max(current CDC stock, 10×outstanding)**, inventory adjustment quantity difference = target - current; no adjustment when no shortage. It does not multiply already stocked quantities on repeated runs. Refuses if products require lots/serial, non-storable products, CDC/kitchen reservations, negative stock, ambiguous CDC child stock, changed MO status, wrong DB. Uses Odoo standard `stock.quant` inventory count + `action_apply_inventory`, with post-validation and commit only on explicit `YA_DEV_CDC_STOCK_APPLY=YES_I_CONFIRM_TEST_DB`. Default preview rolls back.
+
+**Never run APPLY without backup GUI of test DB and human inspection of all printed target values**. This does create stock valuation/inventory adjustment stock moves in test DB, unlike readonly Material Requirement audit; it is exclusively test fixture data. First run:
+```bash
+cd ~/odoofromzero
+git pull
+python3 script/check_dev_seed_cdc_material_10x_source_readonly_ya.py
+sudo -u odoo19 /opt/odoo19/venv/bin/python3 \
+ /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf \
+ -d erp-yussyakmal-mrp-test --no-http \
+ < script/dev_seed_cdc_material_10x_ya.py
+```
+Only after preview approved and GUI backup:
+```bash
+cd ~/odoofromzero
+sudo -u odoo19 env YA_DEV_CDC_STOCK_APPLY=YES_I_CONFIRM_TEST_DB \
+ /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell \
+ -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http \
+ < script/dev_seed_cdc_material_10x_ya.py
+```
+Expected `APPLY_COMMITTED_TEST_DB_ONLY`, else stop and inspect error. No module install, no service restart; Python script only. Last known state is source-only and unverified on actual Odoo inventory flow. In development this populates **CDC**, not kitchen, so internal transfer CDC→kitchen remains testable.
