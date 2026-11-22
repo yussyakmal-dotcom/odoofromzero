@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.4.1.0'",
+        "'version': '19.0.5.0.0'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
         "'views/material_requirement_batch_views.xml'",
@@ -41,6 +41,23 @@ required = {
         "if is_extra and not (line.special_reason or '').strip():",
         "'state': 'confirmed'",
         "special_reference = fields.Char(",
+        "internal_transfer_id = fields.Many2one(",
+        "def action_create_internal_transfer(self):",
+        "def action_open_internal_transfer(self):",
+        "if self.internal_transfer_id:",
+        "if self.state != 'confirmed':",
+        "'stock.group_stock_manager'",
+        "'SELECT id FROM ya_cdc_pick_confirmation WHERE id = %s FOR UPDATE'",
+        "'SELECT id FROM stock_warehouse WHERE id = %s FOR UPDATE'",
+        "picking_type = cdc.int_type_id",
+        "picking_type.code != 'internal'",
+        "'origin': origin",
+        "'product_uom_qty': qty",
+        "'location_id': source.id",
+        "'location_dest_id': dest.id",
+        "picking = Picking.create(picking_vals)",
+        "Move.create([",
+        "ya_link_cdc_internal_transfer=True",
         "('state', '=', 'confirmed')",
         "('location_id', 'child_of', self.cdc_warehouse_id.lot_stock_id.id)",
         "'SELECT id FROM stock_warehouse WHERE id = %s FOR UPDATE'",
@@ -124,6 +141,9 @@ required = {
         'special_transfer',
         'special_reason',
         'special_reference',
+        'internal_transfer_id',
+        'name="action_create_internal_transfer"',
+        'name="action_open_internal_transfer"',
         '<header>',
         'create="false"',
     ],
@@ -196,6 +216,24 @@ if '<footer>' in batch_view:
     errors.append('FORM BUTTONS MUST BE IN HEADER, NOT FOOTER')
 if '<field name="res_model">ya.material.requirement.wizard</field>' in batch_view:
     errors.append('MENU MUST POINT TO EXISTING PACKING, NOT TRANSIENT WIZARD')
+# Standard Odoo picking/move creation is permitted ONLY in an explicit action
+# and only as Draft (no action_confirm, action_assign, button_validate, etc).
+# This source audit does not prove correct runtime behavior in Odoo.
+const_required_guards = [
+    'def action_create_internal_transfer(self):',
+    "if self.state != 'confirmed':",
+    "'stock.group_stock_manager'",
+    "'origin': origin",
+    "('origin', '=', origin)",
+    "'internal_transfer_id': picking.id",
+]
+confirm_source = (root / 'models/cdc_pick_confirmation.py').read_text(
+    encoding='utf-8')
+for needle in const_required_guards:
+    if needle not in confirm_source:
+        errors.append('MISSING TRANSFER SAFETY GUARD: '+needle)
+if "picking.action_confirm(" in confirm_source or "picking.button_validate(" in confirm_source:
+    errors.append('FORBIDDEN AUTOMATIC STOCK TRANSFER CONFIRM/VALIDATE')
 # Confirmation is a document, not an inventory write. Reject any stock
 # reservation, transfer validation or explicit DB commits in this source.
 confirmation = (root / 'models/cdc_pick_confirmation.py').read_text(encoding='utf-8')
