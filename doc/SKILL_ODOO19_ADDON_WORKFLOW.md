@@ -148,3 +148,7 @@ Jika upload memunculkan notifikasi `Created Draft` tetapi popup `Cannot read pro
 ## 8. Selalu perbarui dokumentasi setelah milestone
 
 Setelah hasil tes nyata, tulis **apa yang diuji, perintah, database, commit, output PASS/FAIL, batas yang belum diuji** pada handover & status. Jangan mengganti status historis menjadi “lulus” hanya karena kodenya sudah di-commit. Hindari menyebarkan log yang berisi rahasia ke repo publik.
+
+## 9. Aturan Max BoM (kode versi 19.0.1.4.0 — UJI BELUM PASS)
+
+Sebelum mengerjakan RO Toko, validasi kapabilitas penyesuaian Max menjadi **kelipatan terdekat BoM output** dan peringatan asal→baru. Sumber `addons/ya_production_planning/models/capacity_rules.py` digunakan oleh importer dan Draft edit. `python3 script/test_planning_capacity_batch_pure_ya.py` adalah tes matematika **tanpa database**. Setelah source preflight PASS, deploy ke custom-addons, upgrade hanya `erp-yussyakmal-mrp-test` via `-u ya_production_planning`, restart `odoo19.service` dan cek UI. **Jangan upload ulang jadwal produksi sungguhan untuk tes**: gunakan tanggal/slot uji. Preview seharusnya menunjukkan `Excel Max | BoM Output | Adjusted Max`, kolom `Adjusted?` dan ringkasan warning, kemudian Save Draft menyimpan adjusted. Inline edit Draft perlu warning dan corrected qty. Publish ditolak jika ada Max lama non-kelipatan. Published tidak boleh berubah karena upload baru. Test edge case BoM 24: 50→48, 70→72, 36→24 (seri ke bawah), 0→0. Field Max Integer: BoM output fractional/invalid harus ditolak untuk review. **Jangan klaim PASS sebelum bukti server/GUI.**
