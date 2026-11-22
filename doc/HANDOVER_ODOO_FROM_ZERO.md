@@ -1,9 +1,40 @@
 # ODOO FROM ZERO — Handover Operasional
 
-**Tanggal:** 22 November 2026  
-**Prioritas saat ini:** Desain dimulai dari **Master Capacity Template + Production Planning massal**, diteruskan RO toko, konsolidasi, material replenishment, produksi, lalu SO dan DO toko; **belum implementasi**. Pengujian Excel `ya_scrap_multi` tetap tercatat sebagai pekerjaan modul terpisah yang belum selesai.
+**Checkpoint aktif: 22 November 2026, akhir sesi Production Planning.**  
+**Prioritas berikutnya: desain dan implementasi RO Toko dari Published Planning; kosmetik UI/UX Planning PENDING.**  
+**Panduan eksekusi addon:** [SKILL_ODOO19_ADDON_WORKFLOW.md](SKILL_ODOO19_ADDON_WORKFLOW.md).  
+**Riwayat detail MRP:** [STATUS_PENGEMBANGAN_MRP.md](STATUS_PENGEMBANGAN_MRP.md).
 
-> **BACA DAHULU:** Dokumen ini merangkum checkpoint terbaru. Riwayat lengkap master Manufacturing, Purchasing, dan UoM di [STATUS_PENGEMBANGAN_MRP.md](STATUS_PENGEMBANGAN_MRP.md). Jangan memakai status checkpoint lama sebagai keadaan terkini.
+> **PENTING — CHECKPOINT INI MENGGANTIKAN RENCANA MASTER CAPACITY TEMPLATE LAMA.** Jangan mulai lagi dari desain master 30 template atau pengauditan seluruh BoM untuk memulai Planning. Kebijakan yang disetujui sekarang adalah **upload file XLSX multi-sheet setiap pembuatan jadwal**. Bagian historis di bawah tetap berguna untuk RO/SO/MO/Distribusi, tetapi bila bertentangan, dahulukan checkpoint ini.
+
+## CHECKPOINT TERBARU — YA Production Planning sudah berjalan di MRP TEST
+
+### Status terbukti berdasarkan output Feri dan uji GUI
+
+- Addon **`ya_production_planning` terinstal** pada **`erp-yussyakmal-mrp-test`**: `ir.module.module.state=installed`, empat model Planning/Header/Line/Import/Preview dikenali. **Bukan produksi**, jangan klaim live.
+- **`git pull` dan SOURCE_PREFLIGHT_OK** telah berhasil. `openpyxl 3.1.2`, 10 kode Work Center dari sheet `info`, master produk/UoM, dan manifest dibaca. Kode harus **disalin ke `/opt/odoo19/custom-addons/`**, lalu **upgrade `-u` bila model/view/ACL berubah**, dan **restart `odoo19.service`** agar proses web memuat field Python.
+- File acuan **`template_jadwal(1).xlsx`** (file operasional milik pengguna; **jangan masukkan file master privat ke GitHub publik**). Sheet `info`: `NO | Sheet | Code Dapur`; 10 sheet dapur: `DAPUR | Product | Max | Unit`, `Product` berbentuk `[Reference] Nama Produk`. SOP pengguna adalah validasi pertama daftar SKU per sheet.
+- Importer melakukan **Upload → Validate & Preview → Save Draft**. Satu workbook untuk **tanggal kirim + slot** (S1 05.00, S2 09.00, S3 11.00 WIB) dapat menghasilkan dokumen per dapur. Dari screenshot/operator, **Draft per dapur dan daftar SKU sudah tersimpan**; ada bukti notifikasi `Created Draft: ASN, GRG, PST, ROTI, TART` pada satu upload. **Jangan menganggap semua skenario sudah lulus uji otomatis.**
+- Keputusan final: **Publish This Kitchen** satu dapur saja; Draft lain tidak ikut. **Satu daftar Planning menampilkan Draft dan Published**, filter status. **Max boleh diedit operator saat Draft, terkunci setelah Published**. UI kecil/kosmetik ditunda setelah pengguna menyatakan flow benar.
+- **Re-upload** menurut desain/kode: identitas `tanggal kirim + slot + kode dapur`. Jika belum ada → **CREATE Draft**; sudah Draft → **REPLACE semua SKU/Max dapur tersebut**; sudah Published → **SKIP tanpa mengubah**; dapur tidak ada pada workbook → tidak diubah. Preview dan notifikasi memberi ringkasan CREATE/REPLACE/SKIP. **Belum ada hasil tes lengkap seluruh kombinasi Published + Draft bersamaan**.
+- UI final yang **dinyatakan sesuai flow oleh pengguna**: menu **Upload Planning** → **List Planning** → tombol **Upload Baru** → form XLSX. Menu/list tetap menampilkan Draft dan Published. Versi kode terakhir pada repository: **`19.0.1.3.0`** (cek manifest aktual saat sesi baru; jangan asumsikan versi server sama hanya dari GitHub).
+- **UoM**: dari BoM Header hasil produksi (`mrp.bom.product_uom_id`), **bukan harus sama dengan UoM stok master**. Audit global 955 BoM: 902 UoM sama, 53 berbeda; 29 error importer yang dikirim pengguna adalah kasus UoM Excel/BoM berbeda dari master. Validasi sekarang mencari satu BoM produk pada Warehouse `DAPUR` dan mengecek UoM hasil BoM. **Tidak ada konversi UoM otomatis**.
+- Dapur **Premik** membuat bahan produksi, **Dahlia 5/Trial** bukan dapur produksi reguler; **Packing** merakit paket. Mereka bukan 10 sheet Planning yang disepakati. Pemeriksaan 955 BoM pernah menampilkan Premik karena auditnya global; **jangan tambahkan Premik ke upload Planning toko**.
+- Error `line_row field undefined` dulu disebabkan XML database baru sementara kode Python servis masih lama; pemecahan dengan deploy/upgrade/restart. Error browser `Cannot read properties of undefined (reading 'map')` terjadi **sesudah Save Draft berhasil**, pada action navigasi yang tak punya `views`; kode kemudian ditambah `views: [(False,'list'),(False,'form')]`. **Jangan upload ulang secara membabi buta bila notifikasi Created sudah muncul**—cek list dulu.
+- **Planning hanya batas kapasitas**, belum membuat RO, SO, MO, stock move, jurnal atau HPP. **RO toko BELUM diimplementasikan**: Published Planning dengan Max > 0 akan menjadi sumber SKU yang dapat diminta toko saat modul RO dibuat.
+
+### Keputusan tahap selanjutnya
+
+1. **Stop polishing minor UI Planning** hingga modul RO berlanjut; jangan audit ulang Work Center/BoM/Premik hanya untuk membuat RO.
+2. **RO toko**: satu RO per **toko + dapur + tanggal kirim + slot**, SKU hanya dari **Published Planning** dapur/jadwal tersebut dengan Max > 0. Qty Pesan diisi toko via template XLSX RO; Draft → Confirmed. Satu file Planning dan file RO adalah dua proses berbeda.
+3. Setelah RO: Close oleh Packing per tanggal+slot, konsolidasi RO/SO → MO per SKU/dapur/jadwal, material replenishment Central→Transit→Dapur, produksi, alokasi SO dulu lalu toko dari stok aktual Packing, DO gabungan per toko+tanggal+slot; discrepancy dan anti-fraud sesuai catatan historis.
+4. Accounting/valuation/WIP/HPP wajib diperiksa untuk **pergerakan fisik**, bukan otomatis untuk upload Planning/RO. **Accounting produksi end-to-end belum PASS**.
+
+### Jangan ulang kesalahan saat sesi baru
+
+Baca **[SKILL_ODOO19_ADDON_WORKFLOW.md](SKILL_ODOO19_ADDON_WORKFLOW.md)** sebelum menjalankan perintah terminal. **Jangan kirim ZIP manual**, kode lewat GitHub → `git pull`; jangan membaca script dalam `/home/feri` sebagai `odoo19`; untuk tes source gunakan `python3` sebagai `feri`; untuk Odoo shell gunakan `sudo -u odoo19 ... < script/name.py`; jangan lupakan copy addon aktif, `-i` untuk instalasi pertama, `-u` untuk upgrade XML/ACL/model, restart service, dan baca exit code/log. Backup lewat GUI adalah pilihan pengguna.
+
+---
 
 ## 1. Prinsip dan batas proyek
 
@@ -159,6 +190,6 @@ Ketiganya memiliki alasan **Rusak**, Source Document `YA-E2E-3SKU-ROLLBACK`, sum
 4. Uji dengan Odoo shell `--no-http` dan skrip rollback, baca exit code serta log; jangan tinggalkan saldo stok hasil simulasi.
 5. Setelah hasil valid, perbarui status dan handover ini. Perlu persetujuan user sebelum promosi keluar DB test.
 
-## 7. Pesan singkat untuk sesi berikut
+## 7. Pesan singkat untuk sesi berikut (TERBARU)
 
-> **UTAMAKAN CHECKPOINT TERBARU DI ATAS.** Jadwal kirim S1 05.00 / S2 09.00 / S3 11.00 WIB; **PPIC Planning lebih dulu** (3×dapur Master Capacity Templates, Excel export/import master saja, generate massal Draft → Publish); RO toko per dapur dari Excel hanya SKU berkapasitas positif; Packing hanya **Close** RO lalu konsolidasi → MO → **Material Replenishment Central–Transit–Dapur** → produksi → produk jadi Packing. **SO dialokasikan lebih dulu; alokasi final toko baru setelah stok fisik tersedia di Packing**, prorata otomatis bisa diubah Admin Packing, lalu 1 DO multi-SKU per toko+tanggal+slot. Toko validate receipt kuantitas fisik dan discrepancy otomatis; **rusak → Scrap, tidak retur; Admin Packing investigasi saja, petugas ditunjuk terpisah mengeksekusi semua koreksi stok** untuk anti-fraud. Accounting/valuation/WIP/HPP wajib ditelaah setiap tahap, belum E2E PASS. Semua ini desain, tidak ada modul baru; jangan sentuh DB utama/Purchasing test. Riwayat Multi-SKU Scrap tetap ada, tes Excel/GUI masih pending.
+> **BACA CHECKPOINT AKTIF DI AWAL DOKUMEN DAN SKILL INSTALASI.** `ya_production_planning` sudah terinstal dan flow upload XLSX multi-sheet → Preview → Save Draft → Publish per dapur telah dipakai di MRP test. Menu Upload Planning membuka list, tombol Upload Baru membuka wizard. Reupload CREATE/REPLACE Draft/SKIP Published. Kosmetik UI pending. **Selanjutnya bangun RO Toko dari Published Planning (Max > 0)**; jangan kembali ke Master Capacity Template permanen atau mengulang audit BoM. Tidak ada RO yang berjalan saat checkpoint ini. Perintah GitHub/deploy/upgrade/restart ada dalam `doc/SKILL_ODOO19_ADDON_WORKFLOW.md`. Hanya `erp-yussyakmal-mrp-test`; DB utama dan Purchasing test tidak disentuh. Aturan SO prioritas, Packing/Transit, anti-fraud, serta Accounting pada tahapan fisik tetap seperti riwayat.
