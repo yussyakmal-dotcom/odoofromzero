@@ -2,6 +2,6 @@
 <odoo>
   <record id="group_ya_packing_admin" model="res.groups">
     <field name="name">YA Packing - Admin Konsolidasi</field>
-    <field name="implied_ids" eval="[(4, ref('stock.group_stock_user'))]"/>
+    <field name="implied_ids" eval="[(4, ref('stock.group_stock_user')), (4, ref('mrp.group_mrp_user'))]"/>
   </record>
 </odoo>
