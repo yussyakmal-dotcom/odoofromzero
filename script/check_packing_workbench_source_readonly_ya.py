@@ -28,6 +28,12 @@ files = {
         'name="action_apply_corrections"',
         'Simpan Koreksi Qty + Recalculate',
         'name="action_move_to_preproduction"',
+        'class="alert alert-danger"',
+        'PERINGATAN KAPASITAS!',
+        'decoration-danger="capacity_status == \'blocked\'"',
+        'decoration-success="capacity_status == \'ok\'"',
+        'invisible="state != \'preview\' or blocked_count == 0"',
+        'BLOKIR: Qty Produksi melebihi Planning Max.',
     ],
     'security/ir.model.access.csv': [
         'model_ya_packing_preview_source_line',
