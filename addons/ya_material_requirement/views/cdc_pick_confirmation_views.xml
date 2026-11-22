@@ -67,6 +67,7 @@
                   <field name="uom_id" readonly="1"/>
                   <field name="special_transfer" string="Special Transfer?"/>
                   <field name="special_reason" string="Alasan Special"/>
+                  <field name="special_reference" string="Referensi Special"/>
                 </list>
               </field>
             </page>
