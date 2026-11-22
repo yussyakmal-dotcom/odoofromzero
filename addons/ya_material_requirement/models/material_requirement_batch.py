@@ -23,6 +23,84 @@ class YaPackingBatchMaterialRequirement(models.Model):
         string='Ringkasan CDC per Bahan', readonly=True,
         domain=[('kind', '=', 'cdc')],
     )
+    mr_pick_confirmation_ids = fields.One2many(
+        'ya.cdc.pick.confirmation', 'batch_id',
+        string='Konfirmasi Picking Fisik CDC', readonly=True,
+    )
+    mr_pick_confirmation_count = fields.Integer(
+        string='Jumlah Dokumen Picking', compute='_compute_mr_pick_count',
+    )
+
+    @api.depends('mr_pick_confirmation_ids')
+    def _compute_mr_pick_count(self):
+        for batch in self:
+            batch.mr_pick_confirmation_count = len(batch.mr_pick_confirmation_ids)
+
+    def action_mr_open_pick_confirmations(self):
+        """Explicit form action: create once per kitchen, then open existing list.
+
+        Initial MO Qty is last printed Material Requirement snapshot. Actual
+        physical Qty may be edited; excess must be documented as Special.
+        Never creates or validates a stock.picking / stock.move.
+        """
+        self.ensure_one()
+        self._mr_guard()
+        if not self.mr_kitchen_line_ids:
+            raise UserError(_('Hitung / Refresh Kebutuhan sebelum konfirmasi picking.'))
+        # Never duplicate a kitchen picking document for the same MO batch.
+        Confirmation = self.env['ya.cdc.pick.confirmation']
+        existing = Confirmation.search([('batch_id', '=', self.id)])
+        kitchens = {}
+        for line in self.mr_kitchen_line_ids:
+            if line.short_max_qty <= 0:
+                continue
+            if abs(line.short_max_qty - line.short_min_qty) > (
+                    line.uom_id.rounding or 0.00001) / 2.0:
+                raise UserError(_(
+                    'Reservasi dapur membuat Qty Picking List tidak pasti. '
+                    'Selesaikan cek reservasi lalu hitung ulang terlebih dahulu.'
+                ))
+            wh = line.warehouse_id
+            kitchens.setdefault(wh.id, []).append(line)
+        if not kitchens:
+            raise UserError(_('Tidak ada material pada Picking List CDC.'))
+        cdc = self.env['stock.warehouse'].search([
+            ('company_id', '=', self.line_ids[0].mo_id.company_id.id),
+            ('code', '=', 'CDC'),
+        ])
+        if len(cdc) != 1:
+            raise UserError(_('Gudang CDC tidak unik / tidak ditemukan.'))
+        for wh_id, lines in sorted(kitchens.items()):
+            if existing.filtered(lambda doc: doc.warehouse_id.id == wh_id):
+                continue
+            Confirmation.with_context(ya_create_cdc_pick_confirmations=True).create({
+                'batch_id': self.id,
+                'warehouse_id': wh_id,
+                'cdc_warehouse_id': cdc.id,
+                'line_ids': [(0, 0, {
+                    'product_id': line.product_id.id,
+                    'uom_id': line.uom_id.id,
+                    'requested_qty': line.short_min_qty,
+                    'picked_qty': line.short_min_qty,
+                }) for line in lines if line.short_min_qty > 0],
+            })
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Konfirmasi Picking Fisik CDC - %s') % self.name,
+            'res_model': 'ya.cdc.pick.confirmation',
+            'view_mode': 'list,form',
+            'domain': [('batch_id', '=', self.id)],
+            'views': [
+                (self.env.ref(
+                    'ya_material_requirement.view_ya_cdc_pick_confirmation_list'
+                ).id, 'list'),
+                (self.env.ref(
+                    'ya_material_requirement.view_ya_cdc_pick_confirmation_form'
+                ).id, 'form'),
+            ],
+            'target': 'current',
+        }
+
     mr_component_count = fields.Integer(
         string='Kombinasi Dapur-Bahan', compute='_compute_mr_stats',
     )
