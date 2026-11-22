@@ -55,7 +55,7 @@ checks = {
         "('state','=','confirmed')",
     ],
     '__manifest__.py': [
-        "'version': '19.0.6.0.0'",
+        "'version': '19.0.6.1.0'",
         "'views/packing_batch_views.xml'",
     ],
 }
