@@ -161,6 +161,26 @@ class YaPackingBatchLine(models.Model):
 
 
     @api.model
+    def action_reset_selected_preproduction(self, *args, **kwargs):
+        """Rebuild Pre Produksi when RO Qty changed, without touching any MO."""
+        if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin'):
+            raise UserError(_('Only Packing Admin can reset Pre Produksi.'))
+        ids = list(self.ids)
+        if args and isinstance(args[0], (list, tuple)):
+            ids = list(args[0])
+        if not ids:
+            ids = self.env.context.get('active_ids') or []
+        if not ids:
+            raise UserError(_('Select a Pre Produksi line to reset its entire date/slot.'))
+        lines = self.browse(ids).exists()
+        if not lines or len(lines) != len(set(ids)):
+            raise UserError(_('Selected Pre Produksi rows no longer exist.'))
+        batches = lines.mapped('batch_id')
+        if len(batches) != 1:
+            raise UserError(_('Reset one date and slot at a time.'))
+        return batches.action_reset_preproduction()
+
+    @api.model
     def action_generate_selected_mo(self, *args, **kwargs):
         """List header: selected Pre Produksi SKU rows -> atomic all-MO release."""
         if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin'):
