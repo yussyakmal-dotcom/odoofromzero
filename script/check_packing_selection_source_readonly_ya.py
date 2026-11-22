@@ -31,7 +31,7 @@ checks = {
         'action_move_to_preproduction',
     ),
     '__manifest__.py': (
-        "'version': '19.0.7.0.0'",
+        "'version': '19.0.8.0.0'",
         'views/packing_ro_selection_views.xml',
     ),
 }
