@@ -119,11 +119,11 @@ class YaMaterialRequirementWizard(models.TransientModel):
         if not links or any(not link.mo_id for link in links):
             raise UserError(_('Packing batch is missing released MO links.'))
         mos = links.mapped('mo_id')
-        if len(mos) != len(links) or any(mo.state in ('done', 'cancel', 'draft')
+        if len(mos) != len(links) or any(mo.state != 'confirmed'
                                        for mo in mos):
             raise UserError(_(
-                'Expected distinct open confirmed MO per Packing SKU, '
-                'no Draft/Done/Cancelled MO.'
+                'Expected distinct MO in Confirmed status only per Packing SKU. '
+                'Do not calculate once MO has started, finished, or been cancelled.'
             ))
         companies = mos.mapped('company_id')
         if len(companies) != 1:
