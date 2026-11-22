@@ -29,7 +29,6 @@
     <field name="name">Download RO Toko Template</field>
     <field name="res_model">ya.store.ro.template</field>
     <field name="view_mode">form</field>
-    <field name="views" eval="[(5, 0, 0), (0, 0, {'view_mode': 'form', 'view_id': ref('view_ya_store_ro_template_form')})]"/>
     <field name="target">new</field>
   </record>
   <menuitem id="menu_ya_store_ro_template"
