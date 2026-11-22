@@ -21,3 +21,5 @@ access_ya_packing_batch_allocation_manager,ya.packing.batch.allocation manager,m
 access_ya_packing_batch_packing,ya.packing.batch packing,model_ya_packing_batch,ya_store_ro.group_ya_packing_admin,1,0,1,0
 access_ya_packing_batch_line_packing,ya.packing.batch.line packing,model_ya_packing_batch_line,ya_store_ro.group_ya_packing_admin,1,1,1,0
 access_ya_packing_batch_allocation_packing,ya.packing.batch.allocation packing,model_ya_packing_batch_allocation,ya_store_ro.group_ya_packing_admin,1,0,1,0
+access_ya_packing_source_line_manager,ya.packing.preview.source.line manager,model_ya_packing_preview_source_line,mrp.group_mrp_manager,1,1,1,1
+access_ya_packing_source_line_packing,ya.packing.preview.source.line packing,model_ya_packing_preview_source_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
