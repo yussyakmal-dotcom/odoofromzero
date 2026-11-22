@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_material_requirement_wizard_form" model="ir.ui.view">
+    <field name="name">ya.material.requirement.wizard.form</field>
+    <field name="model">ya.material.requirement.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Material Requirement - Kebutuhan Bahan Dapur / CDC"
+            create="false" delete="false">
+        <sheet>
+          <div class="alert alert-info" role="alert">
+            <strong>AUDIT SAJA — BELUM MEMBUAT TRANSFER.</strong>
+            Menghitung kebutuhan bahan dari MO Confirmed, membandingkan stok dapur,
+            dan menggabungkan seluruh kebutuhan CDC per SKU.
+          </div>
+          <group>
+            <group>
+              <field name="delivery_date"/>
+              <field name="slot"/>
+              <field name="state" invisible="1"/>
+              <field name="batch_id" readonly="1" invisible="state != 'preview'"/>
+            </group>
+            <group invisible="state != 'preview'">
+              <field name="cdc_warehouse_id" readonly="1"/>
+              <field name="mo_count" readonly="1"/>
+              <field name="kitchen_count" readonly="1"/>
+              <field name="raw_move_count" readonly="1"/>
+              <field name="component_count" readonly="1"/>
+              <field name="product_count" readonly="1"/>
+            </group>
+          </group>
+          <div class="alert alert-danger" role="alert"
+               invisible="state != 'preview' or need_purchasing_count == 0">
+            <strong>PERINGATAN STOK CDC:</strong>
+            <field name="need_purchasing_count" readonly="1" nolabel="1"/>
+            <span> bahan memiliki kekurangan CDC bahkan pada perkiraan minimum.
+              Belum boleh melakukan transfer melebihi stok CDC yang tersedia.
+              Lihat tab Ringkasan CDC per Bahan.
+            </span>
+          </div>
+          <div class="alert alert-warning" role="alert"
+               invisible="state != 'preview' or reservation_review_count == 0">
+            <strong>PERLU CEK RESERVASI:</strong>
+            <field name="reservation_review_count" readonly="1" nolabel="1"/>
+            <span> bahan membutuhkan pemeriksaan reservasi MO sebelum jumlah
+              permintaan transfer ditetapkan.
+            </span>
+          </div>
+          <group invisible="state != 'preview'">
+            <field name="info" readonly="1" nolabel="1"/>
+          </group>
+          <notebook invisible="state != 'preview'">
+            <page string="Kebutuhan Bahan per Dapur">
+              <field name="kitchen_line_ids" readonly="1" nolabel="1">
+                <list create="false" edit="false" delete="false"
+                      decoration-danger="status == 'short'"
+                      decoration-warning="status == 'review'">
+                  <field name="warehouse_id" string="Dapur"/>
+                  <field name="product_id" string="Bahan"/>
+                  <field name="required_qty" sum="0"/>
+                  <field name="on_hand_qty"/>
+                  <field name="reserved_qty"/>
+                  <field name="free_qty"/>
+                  <field name="short_min_qty"/>
+                  <field name="short_max_qty"/>
+                  <field name="uom_id"/>
+                  <field name="status" widget="badge"
+                         decoration-danger="status == 'short'"
+                         decoration-warning="status == 'review'"
+                         decoration-success="status == 'ready'"/>
+                </list>
+              </field>
+            </page>
+            <page string="Ringkasan CDC per Bahan">
+              <field name="cdc_line_ids" readonly="1" nolabel="1">
+                <list create="false" edit="false" delete="false"
+                      decoration-danger="status == 'purchase'"
+                      decoration-warning="status == 'review'">
+                  <field name="product_id" string="Bahan"/>
+                  <field name="kitchen_count"/>
+                  <field name="required_qty"/>
+                  <field name="kitchen_short_min_qty"/>
+                  <field name="kitchen_short_max_qty"/>
+                  <field name="cdc_on_hand_qty"/>
+                  <field name="cdc_reserved_qty"/>
+                  <field name="cdc_free_qty"/>
+                  <field name="purchase_gap_min_qty"/>
+                  <field name="purchase_gap_max_qty"/>
+                  <field name="uom_id"/>
+                  <field name="status" widget="badge"
+                         decoration-danger="status == 'purchase'"
+                         decoration-warning="status == 'review'"
+                         decoration-success="status == 'ready' or status == 'enough'"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
+        </sheet>
+        <footer>
+          <button name="action_calculate" type="object" class="btn-primary"
+                  string="Hitung / Refresh Kebutuhan"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_ya_material_requirement" model="ir.actions.act_window">
+    <field name="name">Material Requirement - Bahan CDC</field>
+    <field name="res_model">ya.material.requirement.wizard</field>
+    <field name="view_mode">form</field>
+    <field name="view_id" ref="view_ya_material_requirement_wizard_form"/>
+    <field name="target">current</field>
+  </record>
+
+  <menuitem id="menu_ya_material_requirement"
+            name="Material Requirement"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_material_requirement"
+            sequence="45"
+            groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
+</odoo>
