@@ -243,6 +243,16 @@ class YaPackingPreview(models.TransientModel):
             if not pt.default_location_src_id or not pt.default_location_dest_id:
                 raise UserError(_('Manufacturing stock locations missing for kitchen %s.')
                                 % row.kitchen_code)
+            expected_warehouse = ' '.join(
+                ('Dapur ' + (row.planning_id.workcenter_id.name or '')).casefold().split()
+            )
+            actual_warehouse = ' '.join(
+                (pt.warehouse_id.name or '').casefold().split()
+            )
+            if expected_warehouse != actual_warehouse:
+                raise UserError(_(
+                    'MO kitchen routing mismatch for SKU %s: expected %s, got %s.'
+                ) % (row.reference, expected_warehouse, actual_warehouse))
             if bom.product_uom_id != row.uom_id:
                 raise UserError(_('BoM UoM differs from RO/Planning UoM: %s') % row.reference)
             if (bom.product_id and bom.product_id != row.product_id) or (
