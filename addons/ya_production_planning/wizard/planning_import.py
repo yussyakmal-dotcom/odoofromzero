@@ -13,7 +13,7 @@ try:
 except ImportError:
     load_workbook = None
 
-PRODUCT_RE = re.compile(r'^\\[([^\\[\\]]+)\\]\\s+(.+)$')
+PRODUCT_RE = re.compile(r'^\[([^\[\]]+)\]\s+(.+)$')
 MAX_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 25000
 
@@ -198,7 +198,7 @@ class YaProductionPlanningImport(models.TransientModel):
         errors += extra
         self.preview_line_ids.unlink()
         if errors:
-            self.write({'state': 'upload', 'errors': '\\n'.join(errors[:250]),
+            self.write({'state': 'upload', 'errors': '\n'.join(errors[:250]),
                         'report': '%s validation error(s); showing first 250' % len(errors),
                         'line_count': 0})
             return self._reopen()
