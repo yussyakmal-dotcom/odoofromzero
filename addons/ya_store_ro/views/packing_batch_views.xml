@@ -5,6 +5,12 @@
     <field name="model">ya.packing.batch</field>
     <field name="arch" type="xml">
       <list string="Packing Batch per Jadwal" create="false" delete="false">
+        <header>
+          <button name="action_open_packing_queue" type="object"
+                  string="RO Confirmed" display="always"/>
+          <button name="action_open_packing_preproduction" type="object"
+                  string="Pre Produksi" display="always"/>
+        </header>
         <field name="name" string="Batch Produksi"/>
         <field name="ro_count" string="RO Confirmed"/>
         <field name="kitchen_count" string="Dapur"/>
@@ -97,6 +103,10 @@
     <field name="arch" type="xml">
       <list string="Pre Produksi - Dapur / SKU" create="false" edit="false" delete="false">
         <header>
+          <button name="action_open_packing_queue" type="object"
+                  string="RO Confirmed" display="always"/>
+          <button name="action_open_packing_done" type="object"
+                  string="Lihat Produksi OK" display="always"/>
           <button name="action_generate_selected_mo" type="object"
                   string="Produksi OK"
                   class="btn-primary" display="always"
@@ -140,4 +150,11 @@
             parent="ya_production_planning.menu_ya_capacity_root"
             action="action_ya_packing_batch" sequence="40"
             groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
+  <!-- One main Packing menu: these actions remain reachable via navigation buttons. -->
+  <record id="menu_ya_packing_preproduction" model="ir.ui.menu">
+    <field name="active" eval="False"/>
+  </record>
+  <record id="menu_ya_packing_batch" model="ir.ui.menu">
+    <field name="active" eval="False"/>
+  </record>
 </odoo>
