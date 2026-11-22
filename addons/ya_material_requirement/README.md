@@ -1,6 +1,6 @@
 # YA Material Requirement — Read-Only MO → Kitchen → CDC
 
-**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.4.1.0. Use only the test DB `erp-yussyakmal-mrp-test`.
+**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.5.0.0. Use only the test DB `erp-yussyakmal-mrp-test`.
 
 ## Purpose and workflow
 
@@ -103,3 +103,23 @@ For each product on a kitchen:
 **This is a confirmation/audit, NOT a stock reservation or Internal Transfer**. It does not write inventory, pickings, MOs, Purchase or accounting. A native CDC→Dapur internal transfer must later reconcile actual Qty vs already existing Special Transfers to avoid duplicate movements; check FEFO, actual bin lots, all reservations and shared CDC free stock again at transfer time. The confirmation's free-stock check is not a guarantee availability will remain unchanged. The source at 19.0.4.1.0 is **not yet independently confirmed installed or GUI-tested**. User confirmed the previous 19.0.3.0.0 PDF generation, NOT this picking confirmation action.
 
 After GUI backup test DB, `git pull`, run `python3 script/check_material_requirement_source_readonly_ya.py`, copy addon to live custom-addons, upgrade with `-u ya_material_requirement` on exact `erp-yussyakmal-mrp-test`, check exit 0, coordinate `sudo systemctl restart odoo19`. Then open existing Packing batch → Konfirmasi Qty Picking CDC → list of kitchen sheets → select a kitchen form → edit actual Qty / Special entries → Confirm. **Do not manually create native stock transfer as an unlinked copy before reconciliation of Special.**
+
+## 19.0.5.0.0 — Native Standard Odoo Internal Transfer DRAFT from confirmed CDC picking
+
+**Business requirement confirmed by Feri on 2026-Nov-23:** once CDC physical picking Qty has been confirmed, the team expects an item in Odoo Inventory standard **Internal Transfers**. Previous release `19.0.4.1.0` intentionally only recorded confirmed actual Qty; no `stock.picking` existed. This release connects the confirmed document explicitly to standard Odoo transfers.
+
+**UI flow (always LIST→FORM→ACTION):**
+`Manufacturing → YA Production Capacity → Material Requirement` → existing `Packing 2026-Nov-27 S1` in List → Form → `Konfirmasi Qty Picking CDC` → kitchen-document List → kitchen Form → `Konfirmasi Qty Picking` → **`Buat Internal Transfer (Draft)`** (visible only after Confirmed and before linking) → Odoo's native `stock.picking` Form. After creation, `Buka Internal Transfer` reopens that same linked transfer. The standard Odoo `Inventory → Operations → Transfers` or Internal Transfers list displays this native document with internal operation type when filters match.
+
+**Source `models/cdc_pick_confirmation.py`:**
+- Adds audit link `ya.cdc.pick.confirmation.internal_transfer_id` to the native `stock.picking`, locked down to a single explicit action by authorized Stock Manager (plus existing YA MRP/Packing role and `erp-yussyakmal-mrp-test` DB guard).
+- One sheet per existing batch+destination warehouse; all rows use immutable actual physical Qty. Qty planned to transfer = `picked_qty` **once**, not `picked_qty + special_qty`. Existing MO Qty remains unchanged. Every material is a native `stock.move` demand line with description of breakdown `MO vs Special` in picking notes; negative and zero actual Qty excluded.
+- Source = **CDC warehouse `lot_stock_id`**, destination = **selected kitchen warehouse `lot_stock_id`**, picking type = **CDC warehouse `int_type_id`**, explicitly required to be internal and same-company.
+- Existing linked transfer opens instead of duplicating. The action obtains row lock on confirmation record, checks duplicate native `stock.picking.origin`, and links the created document atomically.
+- The optional `special_reference` is checked against existing non-cancelled standard Odoo `stock.picking.name` or `origin`. If matched, action blocks for reconciliation to prevent re-dispatching an existing Special Transfer. No silent adoption/duplication of preexisting Special Transfers.
+- Prior to creating a Draft, checks current CDC free stock and outstanding unfulfilled confirmed sheets for this source warehouse (conservative, possible overcount when another transfer has already reserved stock). This is NOT an actual stock reservation; recheck again when validating in Inventory. Note: external transfers without a populated Special reference cannot always be detected; Warehouse Admin must reconcile those.
+- **Creates only native `stock.picking` and native `stock.move` in Draft**. NO `action_confirm`, `action_assign`, `button_validate`, stock quant mutation, receipt, MO change, or PO. Odoo handles actual stock movement and possible reservations **later** when Warehouse Admin processes the native transfer. FEFO/lot, intermediate transit routing, company and available stock must be verified before validation. We do not bypass Odoo's normal validations; no automatic marking Done.
+
+**Safe rollout:** backup GUI `erp-yussyakmal-mrp-test`; `git pull`, run `python3 script/check_material_requirement_source_readonly_ya.py` and `python3 script/test_material_requirement_rules_ya.py`; copy addon to active custom-addons, `-u ya_material_requirement` on exact MRP test DB; restart only when safe. **Source is committed; not deployed/GUI-tested on server**. The user will execute upgrade and test one confirmed kitchen record. Verify native picking `state=draft`, `picking_type_id.code=internal`, source/destination, quantity, and single link. Reclick button/open link and verify no duplicate; **do not validate/assign the transfer yet**.
+
+**Important remaining phase:** live FEFO/lot picking, route-specific Transit legs if configured, warehouse Dispatch and Kitchen Receive, inventory/accounting valuation must be separately configured and tested; no claim of end-to-end successful stock transfer at this stage.
