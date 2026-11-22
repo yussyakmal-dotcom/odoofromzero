@@ -309,13 +309,17 @@ class YaPackingPreview(models.TransientModel):
                 'qty_allocated': allocation.qty_allocated,
             })
 
+        orders.with_context(ya_stage_or_reset_packing=True).write({
+            'packing_batch_id': batch.id,
+        })
         return {
             'type': 'ir.actions.act_window',
             'name': _('Pre Produksi'),
             'res_model': 'ya.packing.batch.line',
-            'view_mode': 'list,form',
+            'view_mode': 'list',
+            'views': [(self.env.ref(
+                'ya_store_ro.view_ya_packing_preproduction_line_list').id, 'list')],
             'domain': [('batch_id', '=', batch.id)],
-            'context': {'search_default_group_by_kitchen': 1},
             'target': 'current',
         }
 
