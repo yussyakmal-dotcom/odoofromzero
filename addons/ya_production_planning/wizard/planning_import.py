@@ -7,6 +7,7 @@ from io import BytesIO
 
 from odoo import fields, models, _
 from odoo.exceptions import UserError
+from ..models.capacity_rules import closest_batch_multiple
 
 try:
     from openpyxl import load_workbook
@@ -211,8 +212,18 @@ class YaProductionPlanningImport(models.TransientModel):
             centers = workcenters[row['code']]
             if len(centers) != 1 or not centers[0].active:
                 continue
-            resolved.append(dict(row, product_id=product.id,
-                                 uom_id=units[0].id, workcenter_id=centers[0].id))
+            try:
+                adjusted = closest_batch_multiple(row['max'], bom.product_qty)
+            except ValueError as exc:
+                errors.append('%s: SKU %s: %s' % (where, row['reference'], exc))
+                continue
+            resolved.append(dict(
+                row, requested_max=row['max'], max=adjusted,
+                bom_qty=bom.product_qty, bom_id=bom.id,
+                adjusted=(row['max'] != adjusted),
+                product_id=product.id, uom_id=units[0].id,
+                workcenter_id=centers[0].id,
+            ))
         return resolved, errors
 
     def action_validate_preview(self):
@@ -238,20 +249,33 @@ class YaProductionPlanningImport(models.TransientModel):
             action = ('skip' if plan and plan.state == 'published'
                       else 'replace' if plan else 'create')
             expected[action].append(code)
-        lines = [(0, 0, {'sheet': r['sheet'], 'kitchen_code': r['code'],
-                         'source_row': r['row'], 'reference': r['reference'],
-                         'product_id': r['product_id'], 'max_capacity': r['max'],
-                         'uom_id': r['uom_id'], 'workcenter_id': r['workcenter_id']})
-                 for r in resolved]
+        lines = [(0, 0, {
+            'sheet': r['sheet'], 'kitchen_code': r['code'],
+            'source_row': r['row'], 'reference': r['reference'],
+            'product_id': r['product_id'], 'requested_max': r['requested_max'],
+            'max_capacity': r['max'], 'bom_qty': r['bom_qty'],
+            'bom_id': r['bom_id'], 'adjusted': r['adjusted'],
+            'uom_id': r['uom_id'], 'workcenter_id': r['workcenter_id'],
+        }) for r in resolved]
+        adjusted_rows = [
+            '%s!%s SKU %s: %s -> %s (BoM %s)' %
+            (r['sheet'], r['row'], r['reference'], r['requested_max'],
+             r['max'], r['bom_qty']) for r in resolved if r['adjusted']
+        ]
         self.write({'preview_line_ids': lines, 'state': 'preview', 'errors': False,
                     'report': (
                         '%s kitchens; %s SKU lines. PREVIEW ONLY.\n'
                         'CREATE Draft: %s\nREPLACE Draft: %s\n'
-                        'SKIP Published (unchanged): %s'
+                        'SKIP Published (unchanged): %s\\n'
+                        'MAX BATCH ADJUSTMENTS: %s\\n%s'
                     ) % (len(sheet_map), len(resolved),
                          ', '.join(expected['create']) or '-',
                          ', '.join(expected['replace']) or '-',
-                         ', '.join(expected['skip']) or '-'),
+                         ', '.join(expected['skip']) or '-',
+                         len(adjusted_rows),
+                         '\\n'.join(adjusted_rows[:25]) +
+                         ('\\n...see preview rows for more changes'
+                          if len(adjusted_rows) > 25 else '')),
                     'line_count': len(resolved)})
         return self._reopen()
 
@@ -262,10 +286,12 @@ class YaProductionPlanningImport(models.TransientModel):
         parsed, errors, sheet_map = self._parse()
         resolved, extra = self._validate_master(parsed, sheet_map)
         errors += extra
-        frozen = {(r.kitchen_code, r.reference, r.max_capacity, r.uom_id.id,
-                   r.product_id.id) for r in self.preview_line_ids}
-        current = {(r['code'], r['reference'], r['max'], r['uom_id'],
-                    r['product_id']) for r in resolved}
+        frozen = {(r.kitchen_code, r.reference, r.requested_max,
+                   r.max_capacity, r.bom_qty, r.bom_id.id,
+                   r.uom_id.id, r.product_id.id) for r in self.preview_line_ids}
+        current = {(r['code'], r['reference'], r['requested_max'],
+                    r['max'], r['bom_qty'], r['bom_id'],
+                    r['uom_id'], r['product_id']) for r in resolved}
         if errors or len(resolved) != len(self.preview_line_ids) or frozen != current:
             raise UserError(_('Uploaded file/master changed since Preview; validate again. %s')
                             % '; '.join(errors[:5]))
@@ -293,7 +319,8 @@ class YaProductionPlanningImport(models.TransientModel):
                 raise UserError(_('Kitchen %s has no SKU rows') % code)
             lines = [(0, 0, {'product_id': r['product_id'],
                              'reference': r['reference'], 'max_capacity': r['max'],
-                             'uom_id': r['uom_id'], 'source_sheet': r['sheet'],
+                             'uom_id': r['uom_id'], 'bom_id': r['bom_id'],
+                             'source_sheet': r['sheet'],
                              'source_row': r['row']}) for r in rows]
             vals = {'workcenter_id': rows[0]['workcenter_id'],
                     'upload_filename': self.filename or '', 'import_batch': batch,
@@ -350,6 +377,10 @@ class YaProductionPlanningImportLine(models.TransientModel):
     source_row = fields.Integer(readonly=True)
     product_id = fields.Many2one('product.product', readonly=True)
     reference = fields.Char(readonly=True)
-    max_capacity = fields.Integer(readonly=True)
+    requested_max = fields.Integer(string='Excel Max', readonly=True)
+    max_capacity = fields.Integer(string='Adjusted Max', readonly=True)
+    bom_qty = fields.Float(string='BoM Output Qty', readonly=True)
+    adjusted = fields.Boolean(string='Adjusted?', readonly=True)
+    bom_id = fields.Many2one('mrp.bom', readonly=True)
     uom_id = fields.Many2one('uom.uom', readonly=True)
     workcenter_id = fields.Many2one('mrp.workcenter', readonly=True)
