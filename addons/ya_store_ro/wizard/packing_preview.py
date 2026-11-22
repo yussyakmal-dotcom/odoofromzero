@@ -4,6 +4,7 @@ Group per kitchen + SKU. Each group becomes the BASIS for one eventual MO.
 Read-only for all persistent business documents; no MO or stock move here.
 """
 from collections import defaultdict
+from datetime import datetime
 
 from odoo import fields, models, _
 from odoo.exceptions import UserError
@@ -18,8 +19,10 @@ class YaPackingPreview(models.TransientModel):
     _name = 'ya.packing.preview'
     _description = 'YA Packing RO-only Consolidation Preview'
 
-    delivery_date = fields.Date(string='Tanggal Kirim', required=True,
-                                default=fields.Date.context_today)
+    delivery_date_yyyymmdd = fields.Char(
+        string='Tanggal Kirim (YYYYMMDD)', required=True,
+        default=lambda self: fields.Date.context_today(self).strftime('%Y%m%d'),
+    )
     slot = fields.Selection(SLOTS, string='Slot Pengiriman', required=True)
     ro_count = fields.Integer(readonly=True)
     kitchen_count = fields.Integer(readonly=True)
@@ -45,13 +48,21 @@ class YaPackingPreview(models.TransientModel):
         self.ensure_one()
         if not self.env.user.has_group('mrp.group_mrp_manager'):
             raise UserError(_('Only a Manufacturing Manager may preview Packing consolidation.'))
-        if not self.delivery_date or not self.slot:
-            raise UserError(_('Select Tanggal Kirim and Slot Pengiriman.'))
+        try:
+            delivery_date = datetime.strptime(
+                self.delivery_date_yyyymmdd or '', '%Y%m%d'
+            ).date()
+            if delivery_date.strftime('%Y%m%d') != self.delivery_date_yyyymmdd:
+                raise ValueError('Invalid date format')
+        except ValueError:
+            raise UserError(_('Tanggal Kirim must be YYYYMMDD, e.g. 20261122.'))
+        if not self.slot:
+            raise UserError(_('Select Slot Pengiriman.'))
 
         # Critical: start from CONFIRMED RO (all stores and kitchens), never
         # from PPIC Planning list. No Draft RO participates.
         orders = self.env['ya.store.ro'].search([
-            ('delivery_date', '=', self.delivery_date),
+            ('delivery_date', '=', delivery_date),
             ('slot', '=', self.slot),
             ('state', '=', 'confirmed'),
         ])
@@ -63,6 +74,7 @@ class YaPackingPreview(models.TransientModel):
         by_group = defaultdict(dict)
         planning_lines = {}
         included_kitchens = set()
+        source_ro_by_group_store = {}
         for ro in orders:
             plan = ro.planning_id
             if plan.state != 'published':
@@ -91,6 +103,7 @@ class YaPackingPreview(models.TransientModel):
                         raise UserError(_('Duplicate store Qty for kitchen %s SKU %s.')
                                         % (plan.kitchen_code, order_line.reference))
                     by_group[group][store_id] = order_line.qty_requested
+                    source_ro_by_group_store[(plan.id, order_line.product_id.id, store_id)] = ro
 
         if not by_group:
             raise UserError(_('All Confirmed RO quantities are zero.'))
@@ -138,7 +151,14 @@ class YaPackingPreview(models.TransientModel):
             }))
             for store_id in sorted(allocations):
                 a = allocations[store_id]
+                source_ro = source_ro_by_group_store[(plan_id, product_id, store_id)]
                 allocation_values.append((0, 0, {
+                    'ro_id': source_ro.id,
+                    'ro_date_yyyymmdd': (
+                        fields.Datetime.context_timestamp(source_ro, source_ro.create_date)
+                        .strftime('%Y%m%d') if source_ro.create_date else ''
+                    ),
+                    'delivery_date_yyyymmdd': delivery_date.strftime('%Y%m%d'),
                     'planning_id': plan_id,
                     'kitchen_code': plan.kitchen_code,
                     'product_id': product_id,
@@ -195,6 +215,9 @@ class YaPackingPreviewAllocation(models.TransientModel):
 
     wizard_id = fields.Many2one('ya.packing.preview', required=True, ondelete='cascade')
     planning_id = fields.Many2one('ya.production.planning', readonly=True)
+    ro_id = fields.Many2one('ya.store.ro', readonly=True)
+    ro_date_yyyymmdd = fields.Char(string='Tgl RO (YYYYMMDD)', readonly=True)
+    delivery_date_yyyymmdd = fields.Char(string='Tgl Kirim (YYYYMMDD)', readonly=True)
     kitchen_code = fields.Char(readonly=True)
     product_id = fields.Many2one('product.product', readonly=True)
     reference = fields.Char(readonly=True)
