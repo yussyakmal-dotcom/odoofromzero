@@ -329,8 +329,8 @@ class YaCdcPickConfirmation(models.Model):
                 continue
             existing_special = Picking.search([
                 ('company_id', '=', self.company_id.id),
-                ('name', '=', ref),
                 ('state', '!=', 'cancel'),
+                '|', ('name', '=', ref), ('origin', '=', ref),
             ], limit=1)
             if existing_special:
                 raise UserError(_(
@@ -443,7 +443,7 @@ class YaCdcPickConfirmation(models.Model):
             'origin': origin,
         }
         if 'note' in Picking._fields:
-            picking_vals['note'] = '\\n'.join(notes)
+            picking_vals['note'] = '\n'.join(notes)
         picking = Picking.create(picking_vals)
         Move.create([
             dict(values, picking_id=picking.id) for values in move_values
