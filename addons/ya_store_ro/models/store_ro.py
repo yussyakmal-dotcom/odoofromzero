@@ -85,6 +85,40 @@ class YaStoreRO(models.Model):
             raise UserError(_('Only a Manufacturing Manager may upload RO at this phase.'))
         return self.env.ref('ya_store_ro.action_ya_store_ro_import').read()[0]
 
+    @api.model
+    def action_open_packing_selected(self, *args, **kwargs):
+        """List-view header receives selected record IDs as first RPC argument."""
+        if not (self.env.user.has_group('mrp.group_mrp_manager') or
+                self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):
+            raise UserError(_('Only Packing Admin or Manufacturing Manager may consolidate RO.'))
+        selected_ids = list(self.ids)
+        if args and isinstance(args[0], (list, tuple)):
+            selected_ids = list(args[0])
+        if not selected_ids:
+            selected_ids = self.env.context.get('active_ids') or []
+        if not selected_ids:
+            raise UserError(_('Select Confirmed RO rows in the list before clicking Konsolidasi SKU.'))
+        orders = self.browse(selected_ids).exists()
+        if len(orders) != len(set(selected_ids)):
+            raise UserError(_('One or more selected RO records no longer exist.'))
+        if any(ro.state != 'confirmed' for ro in orders):
+            raise UserError(_('Only Confirmed RO may be consolidated.'))
+        dates_slots = {(ro.delivery_date, ro.slot) for ro in orders}
+        if len(dates_slots) != 1:
+            raise UserError(_('Select RO with the SAME Tanggal Kirim and Slot.'))
+        delivery_date, slot = next(iter(dates_slots))
+        if self.env['ya.packing.batch'].sudo().search_count([
+            ('delivery_date', '=', delivery_date), ('slot', '=', slot),
+        ]):
+            raise UserError(_('This date/slot already has Produksi OK. See Packing - Produksi OK.'))
+        action = self.env.ref('ya_store_ro.action_ya_packing_preview').read()[0]
+        action['context'] = {
+            'default_selected_ro_ids': [(6, 0, orders.ids)],
+            'default_delivery_date_yyyymmdd': format_ymondd(delivery_date),
+            'default_slot': slot,
+        }
+        return action
+
     def action_confirm(self):
         self.ensure_one()
         if not self.env.user.has_group('mrp.group_mrp_manager'):
