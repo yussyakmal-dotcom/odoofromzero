@@ -237,12 +237,14 @@ class YaStoreROLine(models.Model):
                 raise UserError(_('Only Packing Admin may edit Confirmed Qty with a reason.'))
             ro = confirmed.ro_id
             lock_ro_slot(self.env.cr, ro.delivery_date, ro.slot)
-            if self.env['ya.packing.batch'].sudo().search_count([
+            if ro.packing_batch_id or self.env['ya.packing.batch'].sudo().search_count([
                 ('delivery_date', '=', ro.delivery_date),
                 ('slot', '=', ro.slot),
-                ('state', '=', 'production_ok'),
             ]):
-                raise UserError(_('Produksi OK: this entire delivery slot is locked.'))
+                raise UserError(_(
+                    'RO already entered Pre Produksi or Produksi OK. '
+                    'Qty is locked; corrections are no longer allowed.'
+                ))
             if set(vals) != {'qty_requested'} or len(self) != 1:
                 raise UserError(_('Correct one RO line at a time.'))
             new_qty = vals['qty_requested']
