@@ -10,6 +10,12 @@
           <button name="action_open_packing_selected" type="object"
                   string="Konsolidasi SKU" display="always" class="btn-primary"
                   groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
+          <button name="action_open_packing_preproduction" type="object"
+                  string="Lanjut Pre Produksi" display="always"
+                  groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
+          <button name="action_open_packing_done" type="object"
+                  string="Lihat Produksi OK" display="always"
+                  groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
         </header>
         <field name="delivery_date_yyyymmdd" string="Tgl Kirim"/>
         <field name="ro_date_yyyymmdd" string="Tgl RO"/>
