@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_store_ro_template_form" model="ir.ui.view">
+    <field name="name">ya.store.ro.template.form</field>
+    <field name="model">ya.store.ro.template</field>
+    <field name="arch" type="xml">
+      <form string="Download RO Toko Template" create="false" delete="false">
+        <group>
+          <field name="planning_id" readonly="state == 'ready'"
+                 options="{'no_create': True, 'no_open': True}"/>
+          <field name="store_warehouse_id" readonly="state == 'ready'"
+                 options="{'no_create': True, 'no_open': True}"/>
+          <field name="state" invisible="1"/>
+          <field name="line_count" readonly="1" invisible="state != 'ready'"/>
+          <field name="filename" invisible="1"/>
+          <field name="file" filename="filename" readonly="1"
+                 invisible="state != 'ready'"/>
+        </group>
+        <footer>
+          <button name="action_generate_template" type="object"
+                  string="Generate RO Excel" class="btn-primary"
+                  invisible="state == 'ready'"/>
+          <button string="Close" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_store_ro_template" model="ir.actions.act_window">
+    <field name="name">Download RO Toko Template</field>
+    <field name="res_model">ya.store.ro.template</field>
+    <field name="view_mode">form</field>
+    <field name="views" eval="[(5, 0, 0), (0, 0, {'view_mode': 'form', 'view_id': ref('view_ya_store_ro_template_form')})]"/>
+    <field name="target">new</field>
+  </record>
+  <menuitem id="menu_ya_store_ro_template"
+            name="RO Toko - Download Template"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_store_ro_template"
+            sequence="25"
+            groups="mrp.group_mrp_manager"/>
+</odoo>
