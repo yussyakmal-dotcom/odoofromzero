@@ -110,7 +110,7 @@ class YaStoreRO(models.Model):
         if self.env['ya.packing.batch'].sudo().search_count([
             ('delivery_date', '=', delivery_date), ('slot', '=', slot),
         ]):
-            raise UserError(_('This date/slot already has Produksi OK. See Packing - Produksi OK.'))
+            raise UserError(_('This date/slot is already Pre Produksi or Produksi OK. Open the Pre Produksi list.'))
         action = self.env.ref('ya_store_ro.action_ya_packing_preview').read()[0]
         action['context'] = {
             'default_selected_ro_ids': [(6, 0, orders.ids)],
