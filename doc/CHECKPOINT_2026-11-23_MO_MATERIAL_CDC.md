@@ -144,3 +144,7 @@ python3 script/check_material_requirement_source_readonly_ya.py
 python3 script/test_material_requirement_rules_ya.py
 ```
 Lalu backup GUI test, deploy `ya_material_requirement`. Pakai `-i` jika module belum installed, `-u` jika sudah installed; restart service hanya setelah exit=0 dan saat aman. Pilih 2026-11-27 S1, Hitung / Refresh, Cetak Picking List. Periksa halaman per dapur dan jumlah bahan. Jangan klik transfer.
+
+## 10. ATURAN WAJIB FORMAT TANGGAL SEMUA UI / CETAK (2026-Nov-23)
+
+**User Feri menegaskan:** setiap informasi tanggal yang ditampilkan ke pengguna di seluruh workflow YA harus mengandung **tahun 4 digit**, **bulan singkatan bahasa Inggris 3 huruf**, dan **tanggal 2 digit**: **`YYYY-Mon-DD`**. Contoh `2026-Nov-22`, `2026-Nov-23`, `2026-Nov-27`. Jangan gunakan `22-Nov`, `Nov-22`, `27/11`, atau format tanggal tanpa tahun pada label, judul, export, nama dokumen, maupun laporan cetak. Termasuk Planning, RO, Packing, MO, Material Requirement, dan CDC Picking List. Jika data disimpan dalam Odoo `fields.Date`, tetap simpan dalam standar ISO internal; format khusus hanya untuk label/display/report. Setiap UI baru atau revisi yang menyangkut tanggal wajib dicek konsistensinya sebelum di-commit. Format tanggal harus eksplisit menggunakan `%Y-%b-%d` (atau helper proyek `format_ymondd`) agar tidak bergantung pada locale pengguna.
