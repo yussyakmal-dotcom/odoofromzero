@@ -28,7 +28,7 @@
     <field name="res_model">ya.store.ro</field>
     <field name="view_mode">list</field>
     <field name="view_id" ref="view_ya_packing_confirmed_ro_list"/>
-    <field name="domain">[('state','=','confirmed')]</field>
+    <field name="domain">[('state','=','confirmed'),('packing_batch_id','=',False)]</field>
     <field name="context">{'search_default_group_by_slot': 0}</field>
   </record>
   <!-- Existing menu xmlid deliberately reused to update an installed system. -->
