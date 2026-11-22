@@ -87,6 +87,8 @@ class YaPackingPreview(models.TransientModel):
         planning_lines = {}
         included_kitchens = set()
         source_ro_by_group_store = {}
+        # Initialize before iterating Confirmed RO source lines.
+        source_line_values = []
         for ro in orders:
             if ro.packing_batch_id:
                 raise UserError(_('RO already Pre Produksi: Qty is locked.'))
@@ -133,7 +135,6 @@ class YaPackingPreview(models.TransientModel):
             raise UserError(_('All Confirmed RO quantities are zero.'))
 
         line_values, allocation_values, blocked = [], [], []
-        source_line_values = []
         total_requested = total_production = 0
         sort_key = lambda item: (
             self.env['ya.production.planning'].browse(item[0]).kitchen_code,
