@@ -45,3 +45,9 @@ A workbook is scoped to the selected delivery date and slot; its `info` sheet li
 - **Preview:** show per-kitchen expected CREATE / REPLACE / SKIP before saving. After Save Draft, a notification summarizes the actual actions and opens planning records for that date and slot.
 - Published always remains immutable, and all writes are in one Odoo request transaction; a failure rolls back new Draft creation and Draft replacement together.
 - The XLSX is still validated against SKU/BoM UoM master data. This change does not create RO transactions or authorize store orders.
+
+## List header upload shortcut
+
+The Production Planning list now has **Upload Planning XLSX** available in its list toolbar to Manufacturing Managers, without requiring record selection. This opens the *existing* import wizard. No changes to CSV/XLSX parsing, database contents, publish semantics, or store RO behavior. In Odoo 19 the list header uses `<button type="object" display="always"/>`, invoking model method `action_open_upload_wizard`.
+
+Deploy both `models/planning.py` and `views/planning_views.xml`, upgrade **only** `ya_production_planning` in `erp-yussyakmal-mrp-test` to reload XML, restart service, then test list shortcut. Existing Draft/Published planning records should remain as they are.
