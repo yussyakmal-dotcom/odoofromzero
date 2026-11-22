@@ -37,6 +37,15 @@ class YaProductionPlanning(models.Model):
         for rec in self:
             rec.line_count = len(rec.line_ids)
 
+    @api.model
+    def action_open_upload_wizard(self):
+        """Open the existing XLSX wizard from the Planning list header."""
+        if not self.env.user.has_group('mrp.group_mrp_manager'):
+            raise UserError(_('Only a Manufacturing Manager may upload planning.'))
+        return self.env.ref(
+            'ya_production_planning.action_ya_production_planning_import'
+        ).read()[0]
+
     def action_publish(self):
         """Publish only the selected kitchen planning, never its siblings."""
         self.ensure_one()
