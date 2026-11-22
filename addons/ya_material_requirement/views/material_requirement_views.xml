@@ -56,7 +56,7 @@
                       decoration-warning="status == 'review'">
                   <field name="warehouse_id" string="Dapur"/>
                   <field name="product_id" string="Bahan"/>
-                  <field name="required_qty" sum="0"/>
+                  <field name="required_qty"/>
                   <field name="on_hand_qty"/>
                   <field name="reserved_qty"/>
                   <field name="free_qty"/>
