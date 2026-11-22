@@ -29,21 +29,25 @@ checks = {
         "def _compute_production_ok(self):",
     ],
     'wizard/packing_preview.py': [
-        'def action_production_ok_generate_mo(self):',
+        'def action_move_to_preproduction(self):',
         'lock_ro_slot(self.env.cr, delivery_date, self.slot)',
         'self.action_preview()',
         "if self.blocked_count:",
+        "'state': 'pre_production',",
+    ],
+    'models/packing_batch.py': [
+        'def action_generate_selected_mo',
         "self.env['mrp.production'].create({",
         'mo.action_confirm()',
-        "line.with_context(ya_create_production_batch=True).write({'mo_id': mo.id})",
+        "line.with_context(ya_release_production_batch=True).write({'mo_id': mo.id})",
     ],
     'views/packing_batch_views.xml': [
         'view_ya_packing_batch_form', 'mo_id', 'allocation_ids',
-        'menu_ya_packing_batch',
+        'menu_ya_packing_batch', 'menu_ya_packing_preproduction',
     ],
     'views/packing_preview_views.xml': [
-        'action_production_ok_generate_mo',
-        'Produksi OK + Generate MO',
+        'action_move_to_preproduction',
+        'Pindahkan ke Pre Produksi',
         'confirm=',
     ],
     'security/ir.model.access.csv': [
@@ -52,7 +56,7 @@ checks = {
         'model_ya_packing_batch_allocation',
     ],
     '__manifest__.py': [
-        '19.0.5.1.0',
+        '19.0.6.0.0',
         'views/packing_batch_views.xml',
         'views/packing_ro_selection_views.xml',
     ],
