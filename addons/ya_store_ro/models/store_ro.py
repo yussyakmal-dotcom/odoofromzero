@@ -155,8 +155,13 @@ class YaStoreROLine(models.Model):
             reason = (self.env.context.get('packing_qty_correction_reason') or '').strip()
             if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin') or not reason:
                 raise UserError(_('Only Packing Admin may edit Confirmed Qty with a reason.'))
-            if any(line.ro_id.production_ok for line in confirmed):
-                raise UserError(_('Produksi OK: RO Qty is locked.'))
+            ro = confirmed.ro_id
+            if ro.production_ok or self.env['ya.store.ro'].search_count([
+                ('delivery_date', '=', ro.delivery_date),
+                ('slot', '=', ro.slot),
+                ('production_ok', '=', True),
+            ]):
+                raise UserError(_('Produksi OK: this entire delivery slot is locked.'))
             if set(vals) != {'qty_requested'} or len(self) != 1:
                 raise UserError(_('Correct one RO line at a time.'))
             new_qty = vals['qty_requested']
@@ -173,6 +178,8 @@ class YaStoreROLine(models.Model):
                     'reason': reason,
                 })
             return result
+        if not self.env.user.has_group('mrp.group_mrp_manager'):
+            raise UserError(_('Only RO operators with the current manager permission may edit Draft Qty.'))
         return super().write(vals)
 
     def unlink(self):
