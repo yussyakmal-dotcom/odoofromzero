@@ -43,6 +43,19 @@
               </list>
             </field>
           </page>
+          <page string="Koreksi Qty RO - Sebelum Pre Produksi">
+            <field name="source_line_ids" nolabel="1">
+              <list editable="bottom" create="false" delete="false">
+                <field name="kitchen_code" string="Dapur" readonly="1"/>
+                <field name="reference" string="SKU" readonly="1"/>
+                <field name="store_warehouse_id" string="Toko" readonly="1"/>
+                <field name="ro_id" readonly="1"/>
+                <field name="old_qty" string="Qty Confirmed" readonly="1"/>
+                <field name="new_qty" string="Qty Koreksi"/>
+                <field name="reason" string="Alasan (wajib jika Qty berubah)"/>
+              </list>
+            </field>
+          </page>
           <page string="Prorata per Toko">
             <field name="allocation_ids" readonly="1" nolabel="1">
               <list create="false" delete="false">
@@ -62,6 +75,10 @@
         <footer>
           <button name="action_preview" type="object" class="btn-primary"
                   string="Calculate Preview" invisible="state == 'preview'"/>
+          <button name="action_apply_corrections" type="object"
+                  string="Simpan Koreksi Qty + Recalculate"
+                  groups="ya_store_ro.group_ya_packing_admin"
+                  invisible="state != 'preview'"/>
           <button name="action_preview" type="object"
                   string="Recalculate" invisible="state != 'preview'"/>
           <button name="action_move_to_preproduction" type="object"
