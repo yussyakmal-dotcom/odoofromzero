@@ -327,6 +327,7 @@ class YaProductionPlanningImport(models.TransientModel):
                     'name': _('Production Planning'),
                     'res_model': 'ya.production.planning',
                     'view_mode': 'list,form',
+                    'views': [(False, 'list'), (False, 'form')],
                     'domain': [
                         ('delivery_date', '=', self.delivery_date),
                         ('slot', '=', self.slot),
