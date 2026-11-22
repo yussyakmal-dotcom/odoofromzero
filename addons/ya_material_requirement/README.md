@@ -1,6 +1,6 @@
 # YA Material Requirement — Read-Only MO → Kitchen → CDC
 
-**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.1.1.0. Use only the test DB `erp-yussyakmal-mrp-test`.
+**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.2.0.0. Use only the test DB `erp-yussyakmal-mrp-test`.
 
 ## Purpose and workflow
 
@@ -9,7 +9,7 @@ After `ya_store_ro` Packing batch is `Produksi OK` with confirmed `mrp.productio
 1. **Kebutuhan Bahan per Dapur:** each kitchen+raw product grouped from actual MO `move_raw_ids`, converted into product stock base UoM. Displays gross MO demand, physical and total reserved stock under that kitchen warehouse Stock internal sublocations, free stock, **minimum and maximum** possible shortages; highlighting where shortage definite or reservations ambiguous.
 2. **Ringkasan CDC per Bahan:** same ingredient needed by multiple kitchens combined BEFORE CDC free stock is subtracted ONCE. Shows total need, aggregate kitchen shortage bounds, CDC physical/reserved/free, and potential unmet CDC shortage min/max. Shows **CDC shortage for Warehouse Admin information only**, without initiating a Purchasing workflow.
 
-This is **NOT a definitive transfer request**: reservation ownership (including same-MO reserved stock), incoming transfers, lot / FEFO, and real availability must be verified before issuing CDC internal transfers. Any CDC replenishment via standard Odoo Purchase is handled independently by Warehouse Admin, outside this flow. No buttons create transfer, pickings, reservations, MOs or purchases.
+This is **NOT a definitive transfer request**: reservation ownership (including same-MO reserved stock), incoming transfers, lot / FEFO, and real availability must be verified before issuing CDC internal transfers. Any CDC replenishment via standard Odoo Purchase is handled independently by Warehouse Admin, outside this flow. New **Cetak Picking List CDC (Draft)** button creates a QWeb PDF for physical preparation only. No buttons create stock transfers, stock pickings, reservations, MOs or purchases.
 
 Pilot guard restricts usage to exact database `erp-yussyakmal-mrp-test`. The wizard writes *only transient report records*, never business stock or MO.
 
@@ -47,3 +47,11 @@ User-provided read-only MO audit of `2026-11-27 S1`: Packing batch Produksi OK, 
 ## Fixed scope: no purchasing workflow inside this module
 
 **User decision, 23 Nov 2026:** When CDC stock is insufficient, **Warehouse Admin (Admin Gudang) independently replenishes CDC using standard Odoo Purchase outside the Material Requirement flow.** Do not build purchase request, purchase approvals, automated RFQ/PO, or replenishment queues here. Material Requirement only computes demand for kitchen CDC transfer, displays CDC stock shortage as **information**, and will later hand off to standard Odoo Internal Transfers subject to available stock, accurate reservations, and FEFO. After stock arrives in CDC through the separate standard workflow, refresh Material Requirement and fulfill kitchen demand. Do not extend this project into Purchasing.
+
+## 19.0.2.0.0 — Picking List CDC DRAFT PDF (source only)
+
+From **Material Requirement → Hitung / Refresh Kebutuhan**, click **Cetak Picking List CDC (Draft)**. Re-reads MO demand and current CDC/kitchen stocks immediately before printing. Refuses if shared CDC stock is inadequate or kitchen reservations make pickup Qty ambiguous. Separate page per destination kitchen, consolidated material SKU, output UoM, estimated CDC pickup Qty, and blank columns for prepared Qty, lot/FEFO, checkmark, signatures. Print is **NOT** a persisted and numbered requisition, not a stock reservation and does **not** validate an Internal Transfer. Staff still record actual prepared Qty on paper; confirmation/transfer implementation is a separate next stage.
+
+QWeb report: `report/cdc_picking_list_report.xml`; button in wizard form. **Not yet installed or tested in real Odoo.** Only `erp-yussyakmal-mrp-test` may run it.
+
+**If addon not yet installed:** use `-i ya_material_requirement` as above. **If already installed:** copy updated files and use `-u ya_material_requirement` on test DB. Always complete GUI backup first, check CLI exit 0, coordinated service restart, then browser test. Test 2026-11-27 S1: 20 MOs, 97 kitchen/product combinations; print PDF should contain one page per kitchen with materials needing pickup. Do not create transfer merely by printing.
