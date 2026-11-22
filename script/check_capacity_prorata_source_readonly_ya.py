@@ -14,6 +14,7 @@ required = {
         "assert sum(row['shortage'] for row in result.values()) == total - available",
     ],
     'wizard/packing_preview.py': [
+        'from ..models.allocation_rules import allocate_capacity_prorata',
         'allocate_capacity_prorata(',
         "if capacity_status == 'blocked':",
         "elif capacity_status == 'prorated':",
@@ -26,6 +27,8 @@ required = {
         "'qty_shortage': allocation.qty_shortage",
         "if any(a['surplus'] for a in allocations.values()):",
         "'total_unallocated': total_unallocated",
+        "'qty_surplus': unallocated",
+        "unallocated = produced - allocated_total",
     ],
     'models/packing_batch.py': [
         "qty_shortage = fields.Integer(",
@@ -43,6 +46,8 @@ required = {
         'name="qty_shortage"',
         'name="total_unallocated"',
         'Selisih BoM Belum Dialokasikan',
+        'Prorata Pengurangan Qty per Toko',
+        'Jatah Setelah Prorata',
         "decoration-warning=\"capacity_status == 'prorated'\"",
     ],
     'views/packing_batch_views.xml': [
@@ -70,6 +75,14 @@ for path, tokens in required.items():
     except (SyntaxError, ET.ParseError) as exc:
         errors.append('SOURCE INVALID: %s: %s' % (path, exc))
     print('SOURCE_CHECK:', path)
+preview = (root / 'wizard/packing_preview.py').read_text(encoding='utf8')
+if 'allocate_surplus_prorata(' in preview:
+    errors.append('FORBIDDEN: Preview still distributes hypothetical BoM surplus')
+allocation = (root / 'models/allocation_rules.py').read_text(encoding='utf8')
+if "'surplus': 0,  # No surplus distribution before production." not in allocation:
+    errors.append('MISSING: No-surplus store allocation rule')
+if "row['allocated'] <= row['requested']" not in allocation:
+    errors.append('MISSING: final store allocation must not exceed original demand')
 print('ERROR_COUNT:', len(errors))
 for error in errors:
     print(error)
