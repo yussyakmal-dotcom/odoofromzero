@@ -1,6 +1,7 @@
 # ODOO FROM ZERO — Handover Operasional
 
-**Checkpoint aktif: 22 November 2026, akhir sesi Production Planning.**  
+**Checkpoint aktif: 22 November 2026, akhir sesi Production Planning.**
+**ATURAN BARU PENDING TEST (22 Nov): Max harus kelipatan terdekat Qty BoM; kode v19.0.1.4.0 sudah ada di GitHub, BELUM diuji/deploy ke Odoo server. Baca bagian "CHECKPOINT TAMBAHAN — Max Capacity" di akhir file sebelum lanjut RO.**  
 **Prioritas berikutnya: desain dan implementasi RO Toko dari Published Planning; kosmetik UI/UX Planning PENDING.**  
 **Panduan eksekusi addon:** [SKILL_ODOO19_ADDON_WORKFLOW.md](SKILL_ODOO19_ADDON_WORKFLOW.md).  
 **Riwayat detail MRP:** [STATUS_PENGEMBANGAN_MRP.md](STATUS_PENGEMBANGAN_MRP.md).
