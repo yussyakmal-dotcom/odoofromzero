@@ -64,7 +64,7 @@ if packing_file.is_file():
         "('slot', '=', self.slot)",
         "('state', '=', 'confirmed')",
         "group = (plan.id, order_line.product_id.id)",
-        "allocate_surplus_prorata(requests, int(batch))",
+        "allocate_capacity_prorata(",
     )
     for token in required_tokens:
         if token not in packing:
