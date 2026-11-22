@@ -418,3 +418,10 @@ python3 script/check_material_requirement_source_readonly_ya.py
 python3 script/test_material_requirement_rules_ya.py
 ```
 If both PASS, install new addon to test DB using `-i ya_material_requirement`, coordinated restart of shared Odoo service, inspect menu and compare counts with earlier audit. No CDC transfers yet, no purchase generation.
+
+## Scope freeze: CDC shortage handled by Warehouse Admin OUTSIDE this workflow (2026-11-23)
+
+Feri explicitly clarified: **"replanish akan dilakukan oleh admin gudang ... barang kurang akan dilakukan tindak lanjut nya admin gudang di luar flow ini, dengan pembelian standard ... flow tidak melebar"**. Treat this as definitive business design:
+- **Inside YA Material Requirement:** MO → calculate raw requirements per kitchen → available stock/need for CDC transfer → check available CDC stock → later create **standard Odoo Internal Transfer** CDC→kitchen only for supported quantities. Mark shortages `CDC Kurang - Info Gudang` for visibility only. Do not create secondary procurement module, request-for-quotation, purchasing pipeline, auto-replenish or purchasing approval/alerts.
+- **Outside this flow:** Admin Gudang replenishes insufficient CDC stock using existing **standard Odoo Purchase**. When CDC stock is received, recompute material needs/continue CDC fulfillment.
+- Current addon remains **read-only** and **not confirmed deployed**. Source updated to `ya_material_requirement` version `19.0.1.1.0`: field labels `cdc_shortage_count`, `cdc_short_min_qty/max_qty` replace purchase-centric naming, status `cdc_short`. If any prior pilot version installed, requires `-u` rather than `-i`, after GUI backup, on DB `erp-yussyakmal-mrp-test` only. If not installed, use `-i`. Never assume install state.
