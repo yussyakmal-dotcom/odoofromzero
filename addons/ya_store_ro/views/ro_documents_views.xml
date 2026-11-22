@@ -48,7 +48,6 @@
               <field name="qty_total" readonly="1"/>
               <field name="confirmed_at" readonly="1"/>
               <field name="confirmed_by" readonly="1"/>
-              <field name="production_ok" readonly="1"/>
             </group>
           </group>
           <notebook>
