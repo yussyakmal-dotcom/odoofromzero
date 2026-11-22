@@ -14,14 +14,15 @@ root = pathlib.Path(__file__).resolve().parents[1]
 addon = root / "addons" / "ya_store_ro"
 required = [
     "__init__.py", "__manifest__.py",
-    "models/__init__.py", "models/store_ro.py", "models/allocation_rules.py", "models/date_labels.py",
+    "models/__init__.py", "models/store_ro.py", "models/allocation_rules.py",
+    "models/date_labels.py", "models/packing_lock.py", "models/packing_batch.py",
     "wizard/__init__.py", "wizard/ro_template_wizard.py",
     "wizard/ro_import.py", "wizard/packing_preview.py",
     "wizard/packing_correction.py", "security/packing_groups.xml",
     "security/ir.model.access.csv",
     "views/ro_template_wizard_views.xml", "views/ro_import_wizard_views.xml",
     "views/ro_documents_views.xml", "views/packing_preview_views.xml",
-    "views/packing_correction_views.xml",
+    "views/packing_correction_views.xml", "views/packing_batch_views.xml",
 ]
 errors = []
 for relative in required:
