@@ -6,7 +6,7 @@ Purpose: Import a multi-sheet XLSX matching the approved `template_jadwal(1).xls
 
 Flow: **Upload → Validate & Preview → Save Draft → Publish Entire Upload**. One plan per kitchen/date/slot. This addon does not create MO, stock moves, RO, or accounting entries. The XLSX SKU selection is controlled by SOP; this addon performs technical checks.
 
-Validation: XLSX format, sheet links and headers, duplicate references, integer nonnegative Max, Reference matching product.product.default_code, product name, one active Work Center per kitchen code, and UoM equal to product stock UoM. Alternate Multi-UoM conversions **are not yet enabled**. A zero Max is retained in planning but will not be eligible when RO integration is built.
+Validation: XLSX format, sheet links and headers, duplicate references, integer nonnegative Max, Reference matching product.product.default_code, product name, one active Work Center per kitchen code, and UoM equal to the finished-product UoM of the unique BoM belonging to the DAPUR warehouse. Differences from stock UoM are accepted when the BoM output UoM matches Excel. Alternate Multi-UoM conversions **are not enabled**; Production Planning does not convert quantities or generate MOs. A zero Max is retained in planning but will not be eligible when RO integration is built.
 
 Preview writes only transient wizard records; Save Draft creates/overwrites only Draft planning; Published plans cannot be overwritten. Publish requires all plans for the date/slot to belong to the same import batch.
 
