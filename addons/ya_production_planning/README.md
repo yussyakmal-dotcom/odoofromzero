@@ -34,3 +34,14 @@ After source preflight, next stage is a controlled install rehearsal on the MRP 
 - Published is immutable for SKU Max and acts as **future input** for store RO templates, filtered to Max > 0. **RO creation and store ordering are NOT implemented in this addon yet**; no shop can actually submit an RO solely because a planning was Published.
 - Do not reupload or delete existing Drafts just to apply this UI/workflow change.
 - Upgrading this addon affects views and model methods only; use the MRP test database and check a GUI backup exists first.
+
+## Reupload behavior (2026-11-22)
+
+A workbook is scoped to the selected delivery date and slot; its `info` sheet lists participating kitchens. Each kitchen is identified by **delivery date + slot + kitchen code**.
+
+- **Not present:** create a new Draft.
+- **Present and Draft:** replace all SKU lines and Max quantities for **that kitchen only**. Omitted kitchens are not deleted or modified.
+- **Present and Published:** skip completely and keep the Published data untouched; other Draft/new kitchens in the same upload still proceed.
+- **Preview:** show per-kitchen expected CREATE / REPLACE / SKIP before saving. After Save Draft, a notification summarizes the actual actions and opens planning records for that date and slot.
+- Published always remains immutable, and all writes are in one Odoo request transaction; a failure rolls back new Draft creation and Draft replacement together.
+- The XLSX is still validated against SKU/BoM UoM master data. This change does not create RO transactions or authorize store orders.
