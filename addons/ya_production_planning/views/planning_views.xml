@@ -5,6 +5,11 @@
     <field name="model">ya.production.planning</field>
     <field name="arch" type="xml">
       <list string="Production Planning" create="false" delete="false">
+        <header>
+          <button name="action_open_upload_wizard" type="object"
+                  string="Upload Planning XLSX" display="always"
+                  groups="mrp.group_mrp_manager" class="btn-primary"/>
+        </header>
         <field name="delivery_date"/>
         <field name="slot"/>
         <field name="kitchen_code"/>
