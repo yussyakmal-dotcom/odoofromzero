@@ -1,5 +1,6 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from .capacity_rules import closest_batch_multiple
 
 SLOTS = [('S1', 'S1 - 05.00 WIB'), ('S2', 'S2 - 09.00 WIB'), ('S3', 'S3 - 11.00 WIB')]
 
@@ -55,6 +56,20 @@ class YaProductionPlanning(models.Model):
             raise UserError(_('Only Draft planning can be published.'))
         if not self.line_ids:
             raise UserError(_('Cannot publish planning without SKU lines.'))
+        for line in self.line_ids:
+            try:
+                bom = line._capacity_bom()
+                expected = closest_batch_multiple(line.max_capacity, bom.product_qty)
+            except (ValueError, UserError) as exc:
+                raise UserError(_('Cannot publish SKU %s: %s') % (line.reference, exc))
+            if expected != line.max_capacity:
+                raise UserError(_(
+                    'SKU %(sku)s has Max %(max)s; BoM output %(batch)s requires '
+                    'a multiple. Edit Draft Max to %(expected)s before Publish.'
+                ) % {
+                    'sku': line.reference, 'max': line.max_capacity,
+                    'batch': bom.product_qty, 'expected': expected,
+                })
         self.write({
             'state': 'published',
             'published_at': fields.Datetime.now(),
@@ -94,6 +109,7 @@ class YaProductionPlanningLine(models.Model):
     reference = fields.Char(required=True, readonly=True)
     max_capacity = fields.Integer(required=True)
     uom_id = fields.Many2one('uom.uom', required=True, readonly=True)
+    bom_id = fields.Many2one('mrp.bom', string='BoM', readonly=True)
     source_sheet = fields.Char(readonly=True)
     source_row = fields.Integer(readonly=True)
     line_row = fields.Integer(string='Line Row', compute='_compute_line_row')
@@ -107,11 +123,75 @@ class YaProductionPlanningLine(models.Model):
     _capacity_nonnegative = models.Constraint(
         'CHECK(max_capacity >= 0)', 'Max capacity must not be negative.')
 
+    def _capacity_bom(self):
+        self.ensure_one()
+        if self.bom_id:
+            return self.bom_id
+        # Legacy Draft rows created before BoM ID was stored:
+        # resolve only the kitchen-specific BoM, never a random global BoM.
+        workcenter = self.planning_id.workcenter_id
+        expected_warehouse = ('Dapur ' + (workcenter.name or '')).casefold().strip()
+        candidates = self.env['mrp.bom'].with_context(active_test=False).search([
+            ('type', '=', 'normal'),
+            '|', ('product_id', '=', self.product_id.id),
+            '&', ('product_id', '=', False),
+            ('product_tmpl_id', '=', self.product_id.product_tmpl_id.id),
+        ])
+        matched = candidates.filtered(
+            lambda b: b.product_uom_id == self.uom_id
+            and b.picking_type_id.warehouse_id
+            and ' '.join((b.picking_type_id.warehouse_id.name or '').casefold().split())
+                == ' '.join(expected_warehouse.split())
+        )
+        if len(matched) != 1:
+            raise UserError(_(
+                'Cannot identify exactly one BoM for SKU %s in kitchen %s; found %s.'
+            ) % (self.reference, workcenter.name, len(matched)))
+        return matched
+
+    @api.onchange('max_capacity')
+    def _onchange_max_capacity_batch(self):
+        if not self.max_capacity or not self.product_id or not self.planning_id:
+            return
+        try:
+            bom = self._capacity_bom()
+            original = self.max_capacity
+            corrected = closest_batch_multiple(original, bom.product_qty)
+        except (ValueError, UserError) as exc:
+            return {'warning': {'title': _('Max Capacity validation'),
+                                'message': str(exc)}}
+        if original != corrected:
+            self.max_capacity = corrected
+            return {'warning': {
+                'title': _('Max adjusted to BoM batch multiple'),
+                'message': _(
+                    'SKU %(sku)s: requested %(original)s %(unit)s, '
+                    'BoM output %(batch)s %(unit)s, adjusted to %(adjusted)s %(unit)s.'
+                ) % {
+                    'sku': self.reference, 'original': original,
+                    'batch': bom.product_qty, 'adjusted': corrected,
+                    'unit': self.uom_id.name,
+                },
+            }}
+
     @api.constrains('max_capacity')
     def _check_capacity(self):
         for rec in self:
             if rec.max_capacity < 0:
                 raise ValidationError(_('Max capacity must not be negative.'))
+            if not rec.planning_id or rec.planning_id.state != 'draft':
+                continue
+            try:
+                bom = rec._capacity_bom()
+                adjusted = closest_batch_multiple(rec.max_capacity, bom.product_qty)
+            except (ValueError, UserError) as exc:
+                raise ValidationError(str(exc))
+            if rec.max_capacity != adjusted:
+                raise ValidationError(_(
+                    'SKU %(sku)s Max %(max)s is not a multiple of BoM output %(batch)s. '
+                    'Use %(adjusted)s (nearest).'
+                ) % {'sku': rec.reference, 'max': rec.max_capacity,
+                     'batch': bom.product_qty, 'adjusted': adjusted})
 
     @api.model_create_multi
     def create(self, vals_list):
