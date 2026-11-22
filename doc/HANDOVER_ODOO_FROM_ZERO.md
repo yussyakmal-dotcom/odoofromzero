@@ -202,3 +202,16 @@ Ketiganya memiliki alasan **Rusak**, Source Document `YA-E2E-3SKU-ROLLBACK`, sum
 **Kode dibuat di GitHub `ya_production_planning` v19.0.1.4.0, status belum diuji di server.** Import XLSX: Preview memperlihatkan `Excel Max`, `BoM Output`, `Adjusted Max`, `Adjusted?` dan aksi Create/Replace/Skip. **Save Draft** menggunakan nilai adjusted yang telah ditinjau; Published yang di-SKIP tidak berubah. Edit Max langsung di Draft: `@api.onchange` mengubah ke kelipatan terdekat dan memunculkan warning; validasi ORM menolak angka yang tidak sesuai jika onchange dilewati. Sebelum Publish per dapur, semua Max diperiksa. **Data Draft/Published lama tidak dinormalisasi massal secara diam-diam**; Draft lama yang tidak kelipatan perlu diedit sebelum Publish.
 
 **Batasan:** karena field `Max` Integer, BoM output dengan pecahan/<=0 belum dapat dinormalisasi otomatis; importer menampilkan error agar data diperiksa. Konversi UoM stok dan pembuatan MO tetap belum diimplementasikan. Tidak boleh menganggap kode lulus UI sampai `script/test_planning_capacity_batch_pure_ya.py`, preflight, deploy, upgrade, restart, dan GUI test PASS. Skill instalasi: [SKILL_ODOO19_ADDON_WORKFLOW.md](SKILL_ODOO19_ADDON_WORKFLOW.md).
+
+## Koreksi RO Toko dan konsolidasi Packing — 22 November 2026
+
+**Keputusan eksplisit user:** **Qty Pesan RO Toko BEBAS (integer sesuai satuan SKU), TIDAK perlu kelipatan Qty BoM dan TIDAK dibulatkan saat input/Confirm RO**. Kelipatan BoM berlaku pada **Qty Max Planning** (kapasitas), dan **Qty Produksi** yang dihitung **setelah semua RO toko digabung oleh Gudang Packing** untuk dapur, tanggal dan slot yang sama. Bila ada SO, kebutuhan SO masuk dalam konsolidasi sesuai prioritas SO yang telah disepakati. Jangan mengaplikasikan fungsi `closest_batch_multiple` ke Qty Pesan individual toko.
+
+**Tiga kuantitas terpisah:**
+1. **Planning Max Capacity:** batas produksi, telah disesuaikan ke kelipatan output BoM.
+2. **RO Qty Pesan per toko:** permintaan asli, bebas dari kelipatan BoM; tetap tercatat dan tidak diam-diam diganti setelah konsolidasi.
+3. **Packing Consolidated Production Qty:** jumlah kebutuhan gabungan toko (plus SO yang perlu diprioritaskan) yang disesuaikan menjadi kelipatan batch BoM untuk dasar MO, tetap dibatasi kapasitas Planning dan aturan alokasi.
+
+**Belum diputuskan secara eksplisit:** pada konsolidasi, bila total kebutuhan tidak kelipatan BoM, apakah harus selalu pembulatan **ke atas** untuk memenuhi semua pesanan, ke kelipatan **terdekat**, atau kebijakan lain bila kena batas Max/kapasitas. **Jangan menyamakan secara otomatis** kebijakan Max Planning (kelipatan terdekat) dengan kebijakan pembulatan Qty Produksi konsolidasi. Harus disepakati sebelum implementasi/koding Packing.
+
+Contoh BoM 24 Pcs: RO Toko A=13, B=27, C=32 → total=72, produksi 72 (3 batch). Jika total=70, hasil bergantung pada kebijakan konsolidasi yang belum final. RO masing-masing tetap 13/27/32.
