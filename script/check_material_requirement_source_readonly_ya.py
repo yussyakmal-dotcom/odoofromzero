@@ -7,9 +7,10 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.1.1.0'",
+        "'version': '19.0.2.0.0'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
+        "'report/cdc_picking_list_report.xml'",
         "'security/ir.model.access.csv'",
     ],
     'models/__init__.py': ['from . import material_requirement'],
