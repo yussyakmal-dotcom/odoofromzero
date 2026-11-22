@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_production_planning_import_form" model="ir.ui.view">
+    <field name="name">ya.production.planning.import.form</field>
+    <field name="model">ya.production.planning.import</field>
+    <field name="arch" type="xml">
+      <form string="Upload Production Capacity XLSX">
+        <group>
+          <group>
+            <field name="delivery_date" readonly="state == 'preview'"/>
+            <field name="slot" readonly="state == 'preview'"/>
+            <field name="file" filename="filename" readonly="state == 'preview'"/>
+            <field name="filename" invisible="1"/>
+          </group>
+          <group>
+            <field name="state" readonly="1"/>
+            <field name="line_count" readonly="1"/>
+            <field name="report" readonly="1"/>
+          </group>
+        </group>
+        <field name="errors" readonly="1" nolabel="1" invisible="not errors"/>
+        <field name="preview_line_ids" readonly="1" invisible="state != 'preview'">
+          <list create="false" delete="false">
+            <field name="kitchen_code"/>
+            <field name="reference"/>
+            <field name="product_id"/>
+            <field name="max_capacity"/>
+            <field name="uom_id"/>
+            <field name="source_row"/>
+          </list>
+        </field>
+        <footer>
+          <button name="action_validate_preview" type="object" string="Validate &amp; Preview"
+                  class="btn-primary" invisible="state == 'preview'"/>
+          <button name="action_save_draft" type="object" string="Save Draft"
+                  class="btn-primary" invisible="state != 'preview'"/>
+          <button string="Cancel" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_production_planning_import" model="ir.actions.act_window">
+    <field name="name">Upload Planning XLSX</field>
+    <field name="res_model">ya.production.planning.import</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+  <menuitem id="menu_ya_capacity_upload" name="Upload Planning XLSX"
+            parent="menu_ya_capacity_root" action="action_ya_production_planning_import"
+            sequence="5" groups="mrp.group_mrp_manager"/>
+</odoo>
