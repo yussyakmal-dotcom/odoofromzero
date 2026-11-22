@@ -48,6 +48,22 @@ Belum diputuskan: siapa yang membuat/mengunci/membuka jadwal, apakah RO boleh di
 
 **Belum ada addon/skrip khusus RO/Allocation Engine yang dikerjakan, belum ada konfigurasi/rute/DB yang diubah oleh diskusi ini, dan belum ada tes implementasi.** Langkah terdekat adalah menyelesaikan detail RO Excel per dapur dan konsolidasi toko dahulu, kemudian **hanya bila diminta** buat implementasi di DB erp-yussyakmal-mrp-test dengan tes kecil/rollback. Tidak perlu audit besar ulang struktur Odoo default.
 
+
+## Integrasi Accounting wajib sejak desain (22 November 2026)
+
+**Keputusan/arah pengguna:** semua proses **RO, SO, Inventory, Internal Transfer, MO, WO, Packing, pengiriman, Scrap dan penyesuaian stok** harus ditelaah bersamaan dengan Accounting di belakangnya. **Jangan mendesain hanya kuantitas dan kemudian menambahkan akuntansi belakangan**. Ini kewajiban desain; **belum ada perubahan DB atau tes akuntansi produksi**.
+
+- **RO/Allocation/Production Plan dan SO Confirm** adalah tahap permintaan/komitmen, **bukan otomatis jurnal persediaan atau HPP**.
+- **Receipt pembelian, Central → Transit → Dapur, konsumsi bahan ke WIP/produksi, MO Done, Dapur → Packing, Packing → Toko, pengiriman SO ke customer, Scrap/opname/return** masing-masing harus dipetakan dampaknya ke **saldo stok, nilai stok, biaya MO, HPP, akun produksi, dan pencatatan akuntansi/closing yang benar**.
+- **Transfer toko bukan otomatis penjualan**, apabila tetap berada dalam perusahaan/pemilik stok yang sama; status lintas perusahaan dan tipe lokasi perlu diverifikasi, bukan diasumsikan.
+- **Odoo 19 mengubah cara/timing pencatatan valuation vs accounting** dari versi lama: **jangan anggap tiap stock move pasti membuat journal entry**. Periksa metode valuation/costing dan modul/accounting setup aktual di Odoo 19 Community + OCA yang terpasang sebelum mengambil keputusan teknis.
+- Untuk tiap skenario uji nanti, periksa **(1) qty dan status move** serta **(2) inventory valuation, costing MO/WIP, dampak accounting dan rekonsiliasi** jika relevan. Stok awal pada MRP test belum ada; lakukan pengujian terkendali/rollback dan jangan sentuh DB utama.
+- **Status integrasi Accounting Inventory–Manufacturing: BELUM DIUJI END-TO-END**. Keberhasilan audit jurnal Vendor Bill atau stok dalam pengujian Scrap tidak membuktikan siklus accounting produksi sudah benar.
+
+**Jalur pekerjaan tetap: RO toko per dapur + Excel → konsolidasi RO → kapasitas/prorata → MO → distribusi; lalu SO.** Pada **setiap langkah** tambahkan *accounting impact check* yang relevan, bukan membuat modul Accounting terpisah di ujung proyek.
+
+Rincian matriks dampak tiap transaksi dan sumber Odoo 19 ada di [STATUS_PENGEMBANGAN_MRP.md](STATUS_PENGEMBANGAN_MRP.md) bagian **Integrasi Accounting pada Inventory dan Manufacturing**.
+
 ## 3. Yang sudah selesai
 
 ### Manufacturing master
@@ -111,4 +127,4 @@ Ketiganya memiliki alasan **Rusak**, Source Document `YA-E2E-3SKU-ROLLBACK`, sum
 
 ## 7. Pesan singkat untuk sesi berikut
 
-> Lanjutkan ODOO FROM ZERO dari **desain Replenishment Toko (RO) dahulu**, bukan dari SO: **satu RO per toko per dapur, multi-SKU**, template Excel **Reference/Nama Produk/Qty Pesan** dengan operator hanya mengisi Qty, lalu **konsolidasi toko per dapur/SKU/jadwal → kapasitas PPIC + BoM → prorata toko → MO per SKU**. Gudang Packing menjadi titik konsolidasi hasil dan pengiriman. **SO adalah tambahan berikutnya**: multi-SKU lintas dapur, semua baris harus lolos, **cek Production/Delivery Schedule Open sebagai langkah pertama saat Confirm**, SO dapat mengambil alokasi toko yang belum dikirim walau MO sudah dibuat, dan **prorata otomatis tanpa approval PPIC**; SO biasa 10–50/hari dengan lead time 2–3 hari. **Semua ini baru desain, belum addon atau tes.** Modul `ya_scrap_multi` sebelumnya telah installed dan lulus E2E 3 native Scrap rollback; **Excel/GUI masih pending**. Baca bagian desain terbaru di `doc/STATUS_PENGEMBANGAN_MRP.md`; jangan ulangi audit default, jangan ubah policy tanpa keputusan pengguna, dan **jangan sentuh DB utama/Purchasing test**.
+> Lanjutkan ODOO FROM ZERO dari **desain Replenishment Toko (RO) dahulu**, bukan dari SO: **satu RO per toko per dapur, multi-SKU**, template Excel **Reference/Nama Produk/Qty Pesan** dengan operator hanya mengisi Qty, lalu **konsolidasi toko per dapur/SKU/jadwal → kapasitas PPIC + BoM → prorata toko → MO per SKU**. Gudang Packing menjadi titik konsolidasi hasil dan pengiriman. **SO adalah tambahan berikutnya**: multi-SKU lintas dapur, semua baris harus lolos, **cek Production/Delivery Schedule Open sebagai langkah pertama saat Confirm**, SO dapat mengambil alokasi toko yang belum dikirim walau MO sudah dibuat, dan **prorata otomatis tanpa approval PPIC**; SO biasa 10–50/hari dengan lead time 2–3 hari. **Semua ini baru desain, belum addon atau tes.** **WAJIB: setiap tahap inventory/MRP juga memperhitungkan Accounting (stock valuation, biaya MO/WIP, HPP, serta jurnal/closing yang benar menurut Odoo 19); status end-to-end Accounting belum diuji.** Modul `ya_scrap_multi` sebelumnya telah installed dan lulus E2E 3 native Scrap rollback; **Excel/GUI masih pending**. Baca bagian desain terbaru di `doc/STATUS_PENGEMBANGAN_MRP.md`; jangan ulangi audit default, jangan ubah policy tanpa keputusan pengguna, dan **jangan sentuh DB utama/Purchasing test**.
