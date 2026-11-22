@@ -7,13 +7,28 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.2.1.0'",
+        "'version': '19.0.3.0.0'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
+        "'views/material_requirement_batch_views.xml'",
         "'report/cdc_picking_list_report.xml'",
         "'security/ir.model.access.csv'",
     ],
-    'models/__init__.py': ['from . import material_requirement'],
+    'models/__init__.py': ['from . import material_requirement',
+                           'from . import material_requirement_batch'],
+    'models/material_requirement_batch.py': [
+        "_inherit = 'ya.packing.batch'",
+        "TEST_DB = 'erp-yussyakmal-mrp-test'",
+        "def action_mr_refresh(self):",
+        "def action_mr_print(self):",
+        "def _mr_calculate_wizard(self):",
+        "def _mr_store_snapshot(self, wizard):",
+        "_name = 'ya.material.requirement.snapshot.line'",
+        "Line.search([('batch_id', '=', self.id)]).unlink()",
+        "Line.create(values)",
+        "if self.env.cr.dbname != TEST_DB:",
+        "def _mr_reopen(self):",
+    ],
     'models/material_rules.py': [
         'def shortage_bounds(',
         'def cdc_shortage_bounds(',
@@ -68,6 +83,22 @@ required = {
         'AUDIT SAJA',
         'PERINGATAN STOK CDC',
     ],
+    'views/material_requirement_batch_views.xml': [
+        'view_ya_material_batch_list',
+        'view_ya_material_batch_form',
+        'action_ya_material_batch',
+        'menu_ya_material_requirement',
+        'Material Requirement - Batch Produksi OK',
+        '<field name="res_model">ya.packing.batch</field>',
+        '<field name="view_mode">list,form</field>',
+        '<field name="domain">[(\'state\', \'=\', \'production_ok\')]</field>',
+        'create="false" edit="false" delete="false"',
+        '<header>',
+        'name="action_mr_refresh"',
+        'name="action_mr_print"',
+        'mr_kitchen_line_ids',
+        'mr_cdc_line_ids',
+    ],
     'report/cdc_picking_list_report.xml': [
         'action_report_ya_cdc_picking_list',
         'report_ya_cdc_picking_list_document',
@@ -79,6 +110,7 @@ required = {
         'model_ya_material_requirement_wizard',
         'model_ya_material_requirement_kitchen_line',
         'model_ya_material_requirement_cdc_line',
+        'model_ya_material_requirement_snapshot_line',
     ],
 }
 errors = []
@@ -114,6 +146,26 @@ for node in ast.walk(parsed):
         if node.func.attr == 'write':
             if not isinstance(node.func.value, ast.Name) or node.func.value.id != 'self':
                 errors.append('UNSAFE NON-WIZARD WRITE at line %s' % node.lineno)
+# Persistent model is allowed to update ONLY its own saved report snapshots.
+# No stock, purchase, manufacturing, or warehouse operation can be invoked.
+batch_source = (root / 'models/material_requirement_batch.py').read_text(encoding='utf-8')
+batch_ast = ast.parse(batch_source)
+for node in ast.walk(batch_ast):
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+        if node.func.attr in (
+                'button_validate', 'action_confirm', 'action_assign',
+                '_action_done', 'action_done', '_update_available_quantity',
+                'commit', 'sudo'):
+            errors.append('UNSAFE BATCH METHOD: %s at line %s' %
+                          (node.func.attr, node.lineno))
+batch_view = (root / 'views/material_requirement_batch_views.xml').read_text(
+    encoding='utf-8')
+if batch_view.find('action_ya_material_batch') < 0:
+    errors.append('BATCH LIST MISSING')
+if '<footer>' in batch_view:
+    errors.append('FORM BUTTONS MUST BE IN HEADER, NOT FOOTER')
+if '<field name="res_model">ya.material.requirement.wizard</field>' in batch_view:
+    errors.append('MENU MUST POINT TO EXISTING PACKING, NOT TRANSIENT WIZARD')
 for needle in ('need_purchasing_count', 'purchase_gap_min_qty',
                'purchase_gap_max_qty', "status = 'purchase'"):
     if needle in model:
