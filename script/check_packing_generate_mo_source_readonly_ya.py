@@ -54,7 +54,7 @@ checks = {
         'model_ya_packing_batch_allocation',
     ],
     '__manifest__.py': [
-        '19.0.6.1.0',
+        '19.0.7.0.0',
         'views/packing_batch_views.xml',
         'views/packing_ro_selection_views.xml',
     ],
