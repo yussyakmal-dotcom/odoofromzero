@@ -191,16 +191,11 @@ class YaPackingPreview(models.TransientModel):
         return self._reopen()
 
 
-    def action_production_ok_generate_mo(self):
-        """All-or-nothing RO-only release using standard Odoo manufacturing orders.
-
-        Must recompute from current Confirmed RO under a date/slot mutex.
-        Never start any work orders. Odoo standard confirmation establishes
-        component requirements; kitchen receipt/availability gate remains next.
-        """
+    def action_move_to_preproduction(self):
+        """Persist consolidated Confirmed RO to Pre Produksi; NO MO here."""
         self.ensure_one()
         if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin'):
-            raise UserError(_('Only Packing Admin can release Production OK and MO.'))
+            raise UserError(_('Only Packing Admin can move consolidation to Pre Produksi.'))
         try:
             delivery_date = parse_ymondd(self.delivery_date_yyyymmdd)
         except ValueError:
@@ -215,8 +210,8 @@ class YaPackingPreview(models.TransientModel):
             ('delivery_date', '=', delivery_date), ('slot', '=', self.slot),
         ]):
             raise UserError(_(
-                'Produksi OK already exists for this date and slot. '
-                'MO cannot be generated a second time.'
+                'Pre Produksi already exists for this date and slot. '
+                'Return to Pre Produksi list instead.'
             ))
 
         # Crucial: never use possibly stale preview lines from a modal.
@@ -237,7 +232,7 @@ class YaPackingPreview(models.TransientModel):
         # Final release covers the COMPLETE delivery slot; refuse a partial list.
         if not orders or set(orders.ids) != set(current_all.ids):
             raise UserError(_(
-                'Produksi OK requires ALL Confirmed RO for this delivery date and slot. '
+                'Pre Produksi requires ALL Confirmed RO for this delivery date and slot. '
                 'Return to the RO list, select all matching Confirmed RO, then consolidate.'
             ))
         # Every allocation from preview must have an originating Confirmed RO.
@@ -284,14 +279,14 @@ class YaPackingPreview(models.TransientModel):
                 'uom_id': row.uom_id.id,
             }))
 
-        # Creating snapshot and MOs happens in the SAME database transaction.
-        # Any exception from standard MO create/confirm rolls everything back.
+        # Stage immutable source snapshot. No MO and no stock move here.
         batch = Batch.with_context(ya_create_production_batch=True).create({
             'delivery_date': delivery_date, 'slot': self.slot,
             'ro_ids': [(6, 0, orders.ids)],
             'line_ids': line_commands,
-            'released_by': self.env.user.id,
-            'released_at': fields.Datetime.now(),
+            'staged_by': self.env.user.id,
+            'staged_at': fields.Datetime.now(),
+            'state': 'pre_production',
         })
         by_key = {(l.planning_id.id, l.product_id.id): l for l in batch.line_ids}
         for allocation in self.allocation_ids:
@@ -314,51 +309,13 @@ class YaPackingPreview(models.TransientModel):
                 'qty_allocated': allocation.qty_allocated,
             })
 
-        for line in batch.line_ids.sorted(lambda l: (
-                l.kitchen_code or '', l.reference or '', l.id)):
-            bom = line.bom_id
-            pt = bom.picking_type_id
-            if line.qty_production > line.max_capacity:
-                raise UserError(_('Qty exceeds Max Planning: %s') % line.reference)
-            if not pt.company_id or pt.company_id != self.env.company:
-                raise UserError(_(
-                    'Manufacturing Operation Type company differs from active company: %s'
-                ) % pt.display_name)
-
-            mo = self.env['mrp.production'].create({
-                'product_id': line.product_id.id,
-                'product_qty': float(line.qty_production),
-                'product_uom_id': line.uom_id.id,
-                'bom_id': bom.id,
-                'picking_type_id': pt.id,
-                'location_src_id': pt.default_location_src_id.id,
-                'location_dest_id': pt.default_location_dest_id.id,
-                'company_id': pt.company_id.id,
-                'date_start': fields.Datetime.now(),
-                'origin': '%s / %s / %s' % (
-                    batch.name, line.kitchen_code, line.reference,
-                ),
-                'ya_packing_batch_line_id': line.id,
-            })
-            mo.action_confirm()  # Standard Odoo: component requirements, NOT production start.
-            if mo.state in ('draft', 'cancel', 'done'):
-                raise UserError(_('MO %s confirmation failed for SKU %s.')
-                                % (mo.display_name, line.reference))
-            line.with_context(ya_create_production_batch=True).write({'mo_id': mo.id})
-
-        if len(batch.line_ids) != len(batch.line_ids.mapped('mo_id')):
-            raise UserError(_('Not all expected MO were created; release cancelled.'))
-        if sum(batch.allocation_ids.mapped('qty_allocated')) != sum(
-                batch.line_ids.mapped('qty_production')):
-            raise UserError(_('Final allocation does not equal total production.'))
-
-        # Batch exists and all MOs confirmed; status Produksi OK is derived
-        # from this immutable, committed release, never from manual flag change.
         return {
             'type': 'ir.actions.act_window',
-            'name': _('Produksi OK'),
-            'res_model': 'ya.packing.batch', 'res_id': batch.id,
-            'view_mode': 'form', 'views': [(False, 'form')],
+            'name': _('Pre Produksi'),
+            'res_model': 'ya.packing.batch.line',
+            'view_mode': 'list,form',
+            'domain': [('batch_id', '=', batch.id)],
+            'context': {'search_default_group_by_kitchen': 1},
             'target': 'current',
         }
 
