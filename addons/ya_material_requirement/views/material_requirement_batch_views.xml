@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Reuse existing Packing batch data. Users never create a Material Requirement
+       record: Menu -> Produksi OK Packing LIST -> batch FORM -> buttons. -->
+  <record id="view_ya_material_batch_list" model="ir.ui.view">
+    <field name="name">ya.packing.batch.material.requirement.list</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="arch" type="xml">
+      <list string="Material Requirement - Batch Produksi OK"
+            create="false" edit="false" delete="false">
+        <field name="name"/>
+        <field name="delivery_date_label"/>
+        <field name="slot"/>
+        <field name="state"/>
+        <field name="mo_count"/>
+        <field name="kitchen_count"/>
+        <field name="mr_component_count"/>
+        <field name="mr_cdc_shortage_count"/>
+        <field name="mr_last_refresh_label"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_ya_material_batch_form" model="ir.ui.view">
+    <field name="name">ya.packing.batch.material.requirement.form</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="arch" type="xml">
+      <form string="Material Requirement - Batch Produksi OK"
+            create="false" edit="false" delete="false">
+        <header>
+          <button name="action_mr_refresh" type="object"
+                  string="Hitung / Refresh Kebutuhan" class="btn-primary"/>
+          <button name="action_mr_print" type="object"
+                  string="Cetak Picking List CDC (Draft)"
+                  invisible="mr_component_count == 0"/>
+          <field name="state" widget="statusbar" statusbar_visible="production_ok"/>
+        </header>
+        <sheet>
+          <div class="alert alert-info" role="alert">
+            Pilih batch yang sudah Produksi OK dari daftar. Tombol Hitung /
+            Refresh menghitung ulang bahan dari MO; dokumen ini belum memindahkan
+            stok. Petugas CDC mengambil barang berdasarkan Picking List yang
+            dicetak setelah pengecekan stok dan reservasi.
+          </div>
+          <group>
+            <group>
+              <field name="name" readonly="1"/>
+              <field name="delivery_date_label" string="Tanggal Kirim" readonly="1"/>
+              <field name="slot" readonly="1"/>
+              <field name="mo_count" readonly="1"/>
+              <field name="kitchen_count" readonly="1"/>
+            </group>
+            <group>
+              <field name="mr_last_refresh_label" readonly="1"/>
+              <field name="mr_component_count" readonly="1"/>
+              <field name="mr_product_count" readonly="1"/>
+              <field name="mr_cdc_shortage_count" readonly="1"/>
+            </group>
+          </group>
+          <div class="alert alert-warning" role="alert"
+               invisible="mr_component_count != 0">
+            Belum dihitung. Klik Hitung / Refresh Kebutuhan di bagian atas form.
+          </div>
+          <div class="alert alert-danger" role="alert"
+               invisible="mr_cdc_shortage_count == 0">
+            Stok CDC kurang: pengadaan ditindaklanjuti Admin Gudang melalui
+            proses standar Odoo di luar alur Material Requirement.
+          </div>
+          <notebook>
+            <page string="Kebutuhan Bahan per Dapur">
+              <field name="mr_kitchen_line_ids" readonly="1" nolabel="1">
+                <list create="false" edit="false" delete="false"
+                      decoration-danger="status == 'short'"
+                      decoration-warning="status == 'review'">
+                  <field name="warehouse_id" string="Dapur"/>
+                  <field name="product_id" string="Bahan"/>
+                  <field name="required_qty"/>
+                  <field name="on_hand_qty"/>
+                  <field name="reserved_qty"/>
+                  <field name="free_qty"/>
+                  <field name="short_min_qty"/>
+                  <field name="short_max_qty"/>
+                  <field name="uom_id"/>
+                  <field name="status"/>
+                </list>
+              </field>
+            </page>
+            <page string="Ringkasan CDC per Bahan">
+              <field name="mr_cdc_line_ids" readonly="1" nolabel="1">
+                <list create="false" edit="false" delete="false"
+                      decoration-danger="status == 'cdc_short'"
+                      decoration-warning="status == 'review'">
+                  <field name="product_id"/>
+                  <field name="kitchen_count"/>
+                  <field name="required_qty"/>
+                  <field name="kitchen_short_min_qty"/>
+                  <field name="kitchen_short_max_qty"/>
+                  <field name="cdc_on_hand_qty"/>
+                  <field name="cdc_reserved_qty"/>
+                  <field name="cdc_free_qty"/>
+                  <field name="cdc_short_min_qty"/>
+                  <field name="cdc_short_max_qty"/>
+                  <field name="uom_id"/>
+                  <field name="status"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_ya_material_batch" model="ir.actions.act_window">
+    <field name="name">Material Requirement - Batch Produksi OK</field>
+    <field name="res_model">ya.packing.batch</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('state', '=', 'production_ok')]</field>
+    <field name="target">current</field>
+  </record>
+  <record id="action_ya_material_batch_list" model="ir.actions.act_window.view">
+    <field name="sequence" eval="1"/>
+    <field name="view_mode">list</field>
+    <field name="view_id" ref="view_ya_material_batch_list"/>
+    <field name="act_window_id" ref="action_ya_material_batch"/>
+  </record>
+  <record id="action_ya_material_batch_form" model="ir.actions.act_window.view">
+    <field name="sequence" eval="2"/>
+    <field name="view_mode">form</field>
+    <field name="view_id" ref="view_ya_material_batch_form"/>
+    <field name="act_window_id" ref="action_ya_material_batch"/>
+  </record>
+
+  <!-- Override existing menu action: NO transient wizard list, NO New. -->
+  <menuitem id="menu_ya_material_requirement"
+            name="Material Requirement"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_material_batch"
+            sequence="45"
+            groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
+</odoo>
