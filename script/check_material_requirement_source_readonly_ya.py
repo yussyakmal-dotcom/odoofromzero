@@ -7,15 +7,17 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.3.0.0'",
+        "'version': '19.0.4.1.0'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
         "'views/material_requirement_batch_views.xml'",
+        "'views/cdc_pick_confirmation_views.xml'",
         "'report/cdc_picking_list_report.xml'",
         "'security/ir.model.access.csv'",
     ],
     'models/__init__.py': ['from . import material_requirement',
-                           'from . import material_requirement_batch'],
+                           'from . import material_requirement_batch',
+                           'from . import cdc_pick_confirmation'],
     'models/material_requirement_batch.py': [
         "_inherit = 'ya.packing.batch'",
         "TEST_DB = 'erp-yussyakmal-mrp-test'",
@@ -28,6 +30,20 @@ required = {
         "Line.create(values)",
         "if self.env.cr.dbname != TEST_DB:",
         "def _mr_reopen(self):",
+    ],
+    'models/cdc_pick_confirmation.py': [
+        "_name = 'ya.cdc.pick.confirmation'",
+        "_name = 'ya.cdc.pick.confirmation.line'",
+        "TEST_DB = 'erp-yussyakmal-mrp-test'",
+        "def action_confirm_qty(self):",
+        "def _compute_special_qty(self):",
+        "if is_extra and not line.special_transfer:",
+        "if is_extra and not (line.special_reason or '').strip():",
+        "'state': 'confirmed'",
+        "special_reference = fields.Char(",
+        "('state', '=', 'confirmed')",
+        "('location_id', 'child_of', self.cdc_warehouse_id.lot_stock_id.id)",
+        "'SELECT id FROM stock_warehouse WHERE id = %s FOR UPDATE'",
     ],
     'models/material_rules.py': [
         'def shortage_bounds(',
@@ -96,8 +112,20 @@ required = {
         '<header>',
         'name="action_mr_refresh"',
         'name="action_mr_print"',
+        'name="action_mr_open_pick_confirmations"',
         'mr_kitchen_line_ids',
         'mr_cdc_line_ids',
+    ],
+    'views/cdc_pick_confirmation_views.xml': [
+        'view_ya_cdc_pick_confirmation_list',
+        'view_ya_cdc_pick_confirmation_form',
+        'Konfirmasi Qty Picking',
+        'special_qty',
+        'special_transfer',
+        'special_reason',
+        'special_reference',
+        '<header>',
+        'create="false"',
     ],
     'report/cdc_picking_list_report.xml': [
         'action_report_ya_cdc_picking_list',
@@ -111,6 +139,8 @@ required = {
         'model_ya_material_requirement_kitchen_line',
         'model_ya_material_requirement_cdc_line',
         'model_ya_material_requirement_snapshot_line',
+        'model_ya_cdc_pick_confirmation',
+        'model_ya_cdc_pick_confirmation_line',
     ],
 }
 errors = []
@@ -166,6 +196,18 @@ if '<footer>' in batch_view:
     errors.append('FORM BUTTONS MUST BE IN HEADER, NOT FOOTER')
 if '<field name="res_model">ya.material.requirement.wizard</field>' in batch_view:
     errors.append('MENU MUST POINT TO EXISTING PACKING, NOT TRANSIENT WIZARD')
+# Confirmation is a document, not an inventory write. Reject any stock
+# reservation, transfer validation or explicit DB commits in this source.
+confirmation = (root / 'models/cdc_pick_confirmation.py').read_text(encoding='utf-8')
+confirmation_ast = ast.parse(confirmation)
+for node in ast.walk(confirmation_ast):
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+        if node.func.attr in (
+                'button_validate', '_action_done', 'action_done',
+                '_update_available_quantity', 'action_assign',
+                'action_confirm', 'commit', 'sudo'):
+            errors.append('UNSAFE CONFIRMATION METHOD: %s line %s' %
+                          (node.func.attr, node.lineno))
 for needle in ('need_purchasing_count', 'purchase_gap_min_qty',
                'purchase_gap_max_qty', "status = 'purchase'"):
     if needle in model:
