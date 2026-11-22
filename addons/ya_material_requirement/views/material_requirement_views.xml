@@ -9,8 +9,9 @@
         <sheet>
           <div class="alert alert-info" role="alert">
             <strong>AUDIT SAJA — BELUM MEMBUAT TRANSFER.</strong>
-            Menghitung kebutuhan bahan dari MO Confirmed, membandingkan stok dapur,
-            dan menggabungkan seluruh kebutuhan CDC per SKU.
+            Menghitung kebutuhan bahan dari MO Confirmed dan stok dapur/CDC.
+            Kekurangan CDC hanya menjadi informasi Admin Gudang; tidak ada
+            proses pengadaan atau pembelian baru di menu ini.
           </div>
           <group>
             <group>
@@ -29,12 +30,13 @@
             </group>
           </group>
           <div class="alert alert-danger" role="alert"
-               invisible="state != 'preview' or need_purchasing_count == 0">
+               invisible="state != 'preview' or cdc_shortage_count == 0">
             <strong>PERINGATAN STOK CDC:</strong>
-            <field name="need_purchasing_count" readonly="1" nolabel="1"/>
+            <field name="cdc_shortage_count" readonly="1" nolabel="1"/>
             <span> bahan memiliki kekurangan CDC bahkan pada perkiraan minimum.
-              Belum boleh melakukan transfer melebihi stok CDC yang tersedia.
-              Lihat tab Ringkasan CDC per Bahan.
+              Admin Gudang menindaklanjuti kekurangan di luar alur ini,
+              memakai pembelian standar Odoo. Tidak boleh transfer melebihi
+              stok CDC tersedia. Lihat tab Ringkasan CDC per Bahan.
             </span>
           </div>
           <div class="alert alert-warning" role="alert"
@@ -73,7 +75,7 @@
             <page string="Ringkasan CDC per Bahan">
               <field name="cdc_line_ids" readonly="1" nolabel="1">
                 <list create="false" edit="false" delete="false"
-                      decoration-danger="status == 'purchase'"
+                      decoration-danger="status == 'cdc_short'"
                       decoration-warning="status == 'review'">
                   <field name="product_id" string="Bahan"/>
                   <field name="kitchen_count"/>
@@ -83,11 +85,11 @@
                   <field name="cdc_on_hand_qty"/>
                   <field name="cdc_reserved_qty"/>
                   <field name="cdc_free_qty"/>
-                  <field name="purchase_gap_min_qty"/>
-                  <field name="purchase_gap_max_qty"/>
+                  <field name="cdc_short_min_qty"/>
+                  <field name="cdc_short_max_qty"/>
                   <field name="uom_id"/>
                   <field name="status" widget="badge"
-                         decoration-danger="status == 'purchase'"
+                         decoration-danger="status == 'cdc_short'"
                          decoration-warning="status == 'review'"
                          decoration-success="status == 'ready' or status == 'enough'"/>
                 </list>
