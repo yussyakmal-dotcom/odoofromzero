@@ -1,0 +1,128 @@
+from odoo import api, fields, models, _
+from odoo.exceptions import UserError, ValidationError
+
+
+class YaStoreRO(models.Model):
+    _name = 'ya.store.ro'
+    _description = 'YA Store Replenishment Order'
+    _order = 'delivery_date desc, slot, kitchen_code, id desc'
+
+    name = fields.Char(compute='_compute_name', string='RO')
+    planning_id = fields.Many2one('ya.production.planning', required=True, readonly=True,
+                                   index=True, ondelete='restrict')
+    delivery_date = fields.Date(related='planning_id.delivery_date', store=True, readonly=True)
+    slot = fields.Selection(related='planning_id.slot', store=True, readonly=True)
+    kitchen_code = fields.Char(related='planning_id.kitchen_code', store=True, readonly=True)
+    store_warehouse_id = fields.Many2one('stock.warehouse', required=True,
+                                         readonly=True, ondelete='restrict', index=True)
+    state = fields.Selection([('draft', 'Draft'), ('confirmed', 'Confirmed')],
+                             required=True, default='draft', index=True)
+    line_ids = fields.One2many('ya.store.ro.line', 'ro_id', copy=False)
+    qty_total = fields.Integer(compute='_compute_qty_total')
+    line_count = fields.Integer(compute='_compute_qty_total')
+    source_filename = fields.Char(readonly=True)
+    confirmed_at = fields.Datetime(readonly=True)
+    confirmed_by = fields.Many2one('res.users', readonly=True)
+    _unique_ro_planning_store = models.Constraint(
+        'UNIQUE(planning_id, store_warehouse_id)',
+        'One RO per store, kitchen, delivery date and slot.'
+    )
+
+    @api.depends('planning_id', 'store_warehouse_id')
+    def _compute_name(self):
+        for ro in self:
+            p = ro.planning_id
+            ro.name = ('RO %s %s %s %s' % (
+                p.delivery_date or '-', p.slot or '-', p.kitchen_code or '-',
+                ro.store_warehouse_id.code or ro.store_warehouse_id.name or '-'))
+
+    @api.depends('line_ids.qty_requested')
+    def _compute_qty_total(self):
+        for ro in self:
+            ro.line_count = len(ro.line_ids)
+            ro.qty_total = sum(ro.line_ids.mapped('qty_requested'))
+
+    @api.model
+    def action_open_upload(self, *args, **kwargs):
+        if not self.env.user.has_group('mrp.group_mrp_manager'):
+            raise UserError(_('Only a Manufacturing Manager may upload RO at this phase.'))
+        return self.env.ref('ya_store_ro.action_ya_store_ro_import').read()[0]
+
+    def action_confirm(self):
+        self.ensure_one()
+        if not self.env.user.has_group('mrp.group_mrp_manager'):
+            raise UserError(_('Only a Manufacturing Manager may confirm RO at this phase.'))
+        if self.state != 'draft':
+            raise UserError(_('Only Draft RO can be confirmed.'))
+        if self.planning_id.state != 'published':
+            raise UserError(_('Source Planning must still be Published.'))
+        if not self.line_ids.filtered(lambda r: r.qty_requested > 0):
+            raise UserError(_('At least one SKU must have Qty Pesan greater than zero.'))
+        eligible = {line.product_id.id for line in self.planning_id.line_ids
+                    if line.max_capacity > 0}
+        for line in self.line_ids:
+            if line.product_id.id not in eligible:
+                raise UserError(_('SKU %s is not eligible in Published Planning.') % line.reference)
+        self.write({'state': 'confirmed', 'confirmed_at': fields.Datetime.now(),
+                    'confirmed_by': self.env.user.id})
+        return {'type': 'ir.actions.act_window', 'res_model': self._name,
+                'res_id': self.id, 'view_mode': 'form',
+                'views': [(False, 'form')], 'target': 'current'}
+
+    def write(self, vals):
+        if any(ro.state != 'draft' for ro in self):
+            raise UserError(_('Confirmed RO is immutable.'))
+        if vals.get('state') == 'confirmed' and not self.env.user.has_group('mrp.group_mrp_manager'):
+            raise UserError(_('Only a Manufacturing Manager may confirm RO.'))
+        protected = {'planning_id', 'store_warehouse_id', 'delivery_date', 'slot', 'kitchen_code'}
+        if protected.intersection(vals) and any(ro.line_ids for ro in self):
+            raise UserError(_('Cannot change store or Planning of an existing RO.'))
+        return super().write(vals)
+
+    def unlink(self):
+        if any(ro.state != 'draft' for ro in self):
+            raise UserError(_('Confirmed RO cannot be deleted.'))
+        return super().unlink()
+
+
+class YaStoreROLine(models.Model):
+    _name = 'ya.store.ro.line'
+    _description = 'YA Store Replenishment Order Line'
+    _order = 'id'
+
+    ro_id = fields.Many2one('ya.store.ro', required=True, ondelete='cascade', index=True)
+    product_id = fields.Many2one('product.product', required=True, readonly=True)
+    reference = fields.Char(required=True, readonly=True)
+    qty_requested = fields.Integer(string='Qty Pesan', required=True, default=0)
+    uom_id = fields.Many2one('uom.uom', required=True, readonly=True)
+
+    _unique_ro_product = models.Constraint(
+        'UNIQUE(ro_id, product_id)', 'Duplicate SKU in the same RO.'
+    )
+    _qty_nonnegative = models.Constraint(
+        'CHECK(qty_requested >= 0)', 'Qty Pesan cannot be negative.'
+    )
+
+    @api.constrains('qty_requested')
+    def _check_qty(self):
+        if any(line.qty_requested < 0 for line in self):
+            raise ValidationError(_('Qty Pesan cannot be negative.'))
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        ids = [vals['ro_id'] for vals in vals_list if vals.get('ro_id')]
+        if ids and any(ro.state != 'draft' for ro in self.env['ya.store.ro'].browse(ids)):
+            raise UserError(_('Confirmed RO cannot be changed.'))
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if set(vals) - {'qty_requested'}:
+            raise UserError(_('Only Qty Pesan can be edited in a Draft RO.'))
+        if any(line.ro_id.state != 'draft' for line in self):
+            raise UserError(_('Confirmed RO cannot be changed.'))
+        return super().write(vals)
+
+    def unlink(self):
+        if any(line.ro_id.state != 'draft' for line in self):
+            raise UserError(_('Confirmed RO cannot be changed.'))
+        return super().unlink()
