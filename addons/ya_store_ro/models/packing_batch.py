@@ -93,7 +93,7 @@ class YaPackingBatch(models.Model):
         lock_ro_slot(self.env.cr, self.delivery_date, self.slot)
         if self.state != 'pre_production' or self.line_ids.mapped('mo_id'):
             raise UserError(_('Cannot reset after Produksi OK.'))
-        self.ro_ids.with_context(ya_stage_or_reset_packing=True).write({
+        self.ro_ids.sudo().with_context(ya_stage_or_reset_packing=True).write({
             'packing_batch_id': False,
         })
         self.allocation_ids.sudo().with_context(ya_reset_preproduction=True).unlink()
@@ -293,7 +293,7 @@ class YaPackingBatchLine(models.Model):
         if sum(batch.allocation_ids.mapped('qty_allocated')) != sum(
                 batch.line_ids.mapped('qty_production')):
             raise UserError(_('Final allocations do not match MO production total.'))
-        batch.with_context(ya_release_production_batch=True).write({
+        batch.sudo().with_context(ya_release_production_batch=True).write({
             'state': 'production_ok', 'released_at': fields.Datetime.now(),
             'released_by': self.env.user.id,
         })
