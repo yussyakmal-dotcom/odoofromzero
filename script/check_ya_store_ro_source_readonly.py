@@ -23,6 +23,7 @@ required = [
     "views/ro_template_wizard_views.xml", "views/ro_import_wizard_views.xml",
     "views/ro_documents_views.xml", "views/packing_preview_views.xml",
     "views/packing_correction_views.xml", "views/packing_batch_views.xml",
+    "views/packing_ro_selection_views.xml",
 ]
 errors = []
 for relative in required:
