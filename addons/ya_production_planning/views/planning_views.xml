@@ -21,7 +21,7 @@
       <form string="Production Planning" create="false" delete="false">
         <header>
           <button name="action_publish_batch" type="object" string="Publish Entire Upload"
-                  class="btn-primary" invisible="state != 'draft'"/>
+                  class="btn-primary" groups="mrp.group_mrp_manager" invisible="state != 'draft'"/>
           <field name="state" widget="statusbar" statusbar_visible="draft,published"/>
         </header>
         <sheet>
@@ -63,7 +63,7 @@
     <field name="view_mode">list,form</field>
   </record>
   <menuitem id="menu_ya_capacity_root" name="YA Production Capacity"
-            parent="mrp.menu_mrp_root" sequence="60" groups="mrp.group_mrp_manager"/>
+            parent="mrp.menu_mrp_root" sequence="60" groups="mrp.group_mrp_user,mrp.group_mrp_manager"/>
   <menuitem id="menu_ya_capacity_plans" name="Production Planning"
             parent="menu_ya_capacity_root" action="action_ya_production_planning" sequence="10"/>
 </odoo>
