@@ -152,16 +152,17 @@ def audit(env):
     print('COMPONENT_GROUP_COUNT:', len(rows))
     print('RAW_MOVE_COUNT:', sum(row[9]['move_count'] for row in rows))
     print('MO_COMPONENT_SOURCE_LOCATION_MISMATCHES:')
+    kitchen_child_locations = {
+        wh.id: set(env['stock.location'].search([
+            ('id', 'child_of', wh.lot_stock_id.id),
+        ]).ids)
+        for wh in kitchens.values()
+    }
     for wh, product, *_, requirement in rows:
         source_locations = env['stock.location'].browse(
             sorted(requirement['source_location_ids']))
         outside = source_locations.filtered(
-            lambda location: not (
-                location.id == wh.lot_stock_id.id or
-                location.id in env['stock.location'].search([
-                    ('id', 'child_of', wh.lot_stock_id.id)
-                ]).ids
-            )
+            lambda location: location.id not in kitchen_child_locations[wh.id]
         )
         if outside:
             print('SOURCE_OUTSIDE_KITCHEN_STOCK:', wh.name, product.default_code,
