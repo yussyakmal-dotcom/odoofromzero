@@ -1,6 +1,6 @@
 # YA Store RO — Phase 1 (Odoo 19 Community)
 
-**Checkpoint: 22 November 2026. Source candidate only; NOT installed or tested on the Odoo server.**
+**Checkpoint: 22 November 2026. Feri melaporkan addon sudah berhasil dijalankan di MRP test; XLSX berhasil diunduh dan SKU sesuai Published Planning. Generator smoke test PASS, fitur upload/Confirm RO belum dibuat.**
 
 ## Scope implemented
 
@@ -31,3 +31,7 @@ python3 script/check_ya_store_ro_source_readonly.py
 ```
 
 Do NOT run `-i` for this candidate until source preflight and permission/UX assumptions have been reviewed. See [skill](../../doc/SKILL_ODOO19_ADDON_WORKFLOW.md) for first-install process after explicit checkpoint.
+
+## Hasil uji GUI Feri (22 November 2026)
+
+**PASS (laporan user):** form generator template dapat dipakai, XLSX berhasil diunduh, SKU pada XLSX cocok dengan SKU dapur Published. Dengan demikian **status addon bukan lagi sekadar source candidate**, melainkan terpasang dan generator bekerja di MRP test menurut pengguna. Tidak ada bukti proses upload RO atau order Confirmed karena keduanya belum diimplementasikan. **Lanjutkan fitur import XLSX → Draft/Confirmed**, bukan mengulang instalasi pertama.
