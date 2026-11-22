@@ -5,7 +5,7 @@ Read-only for all persistent business documents; no MO or stock move here.
 """
 from collections import defaultdict
 
-from odoo import fields, models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
 from ..models.allocation_rules import allocate_surplus_prorata
