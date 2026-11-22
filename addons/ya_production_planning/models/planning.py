@@ -37,39 +37,25 @@ class YaProductionPlanning(models.Model):
         for rec in self:
             rec.line_count = len(rec.line_ids)
 
-    def action_publish_batch(self):
+    def action_publish(self):
+        """Publish only the selected kitchen planning, never its siblings."""
         self.ensure_one()
         if not self.env.user.has_group('mrp.group_mrp_manager'):
             raise UserError(_('Only a Manufacturing Manager may publish planning.'))
-        if self.state != 'draft' or not self.import_batch:
-            raise UserError(_('Only a Draft with an import batch may be published.'))
-        batch = self.search([('import_batch', '=', self.import_batch)])
-        siblings = self.search([
-            ('delivery_date', '=', self.delivery_date),
-            ('slot', '=', self.slot)])
-        if set(batch.ids) != set(siblings.ids):
-            raise UserError(_('The selected date and slot contain other planning documents.'))
-        batch.action_publish()
+        if self.state != 'draft':
+            raise UserError(_('Only Draft planning can be published.'))
+        if not self.line_ids:
+            raise UserError(_('Cannot publish planning without SKU lines.'))
+        self.write({
+            'state': 'published',
+            'published_at': fields.Datetime.now(),
+            'published_by': self.env.user.id,
+        })
         return {'type': 'ir.actions.act_window',
                 'res_model': 'ya.production.planning',
-                'domain': [('id', 'in', batch.ids)],
-                'view_mode': 'list,form'}
-
-    def action_publish(self):
-        if not self.env.user.has_group('mrp.group_mrp_manager'):
-            raise UserError(_('Only a Manufacturing Manager may publish planning.'))
-        if not self:
-            return True
-        dates = {(p.delivery_date, p.slot, p.import_batch) for p in self}
-        if len(dates) != 1:
-            raise UserError(_('Publish only one complete delivery-slot batch at a time.'))
-        for rec in self:
-            if rec.state != 'draft' or not rec.line_ids:
-                raise UserError(_('All planning documents must be nonempty Drafts.'))
-        self.write({'state': 'published',
-                    'published_at': fields.Datetime.now(),
-                    'published_by': self.env.user.id})
-        return True
+                'res_id': self.id,
+                'view_mode': 'form',
+                'target': 'current'}
 
     def write(self, vals):
         if vals.get('state') == 'published' and not self.env.user.has_group('mrp.group_mrp_manager'):
