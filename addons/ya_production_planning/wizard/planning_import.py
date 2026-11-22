@@ -266,15 +266,15 @@ class YaProductionPlanningImport(models.TransientModel):
                     'report': (
                         '%s kitchens; %s SKU lines. PREVIEW ONLY.\n'
                         'CREATE Draft: %s\nREPLACE Draft: %s\n'
-                        'SKIP Published (unchanged): %s\\n'
-                        'MAX BATCH ADJUSTMENTS: %s\\n%s'
+                        'SKIP Published (unchanged): %s\n'
+                        'MAX BATCH ADJUSTMENTS: %s\n%s'
                     ) % (len(sheet_map), len(resolved),
                          ', '.join(expected['create']) or '-',
                          ', '.join(expected['replace']) or '-',
                          ', '.join(expected['skip']) or '-',
                          len(adjusted_rows),
-                         '\\n'.join(adjusted_rows[:25]) +
-                         ('\\n...see preview rows for more changes'
+                         '\n'.join(adjusted_rows[:25]) +
+                         ('\n...see preview rows for more changes'
                           if len(adjusted_rows) > 25 else '')),
                     'line_count': len(resolved)})
         return self._reopen()
