@@ -245,8 +245,8 @@ class YaProductionPlanningImport(models.TransientModel):
                  for r in resolved]
         self.write({'preview_line_ids': lines, 'state': 'preview', 'errors': False,
                     'report': (
-                        '%s kitchens; %s SKU lines. PREVIEW ONLY.\\n'
-                        'CREATE Draft: %s\\nREPLACE Draft: %s\\n'
+                        '%s kitchens; %s SKU lines. PREVIEW ONLY.\n'
+                        'CREATE Draft: %s\nREPLACE Draft: %s\n'
                         'SKIP Published (unchanged): %s'
                     ) % (len(sheet_map), len(resolved),
                          ', '.join(expected['create']) or '-',
