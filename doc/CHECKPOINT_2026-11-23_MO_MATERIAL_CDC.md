@@ -91,3 +91,16 @@ sudo -u odoo19 env YA_DEV_CDC_STOCK_APPLY=YES_I_CONFIRM_TEST_DB \
  < script/dev_seed_cdc_material_10x_ya.py
 ```
 Expected `APPLY_COMMITTED_TEST_DB_ONLY`, else stop and inspect error. No module install, no service restart; Python script only. Last known state is source-only and unverified on actual Odoo inventory flow. In development this populates **CDC**, not kitchen, so internal transfer CDC→kitchen remains testable.
+
+## 7. Verifikasi stok dummy CDC dari Feri — 23 Nov 2026
+
+Setelah script dev-only `dev_seed_cdc_material_10x_ya.py` dijalankan terpisah dalam APPLY (user tidak mengirim log APPLY), Feri memberikan **output verifikasi DRY RUN** pada `erp-yussyakmal-mrp-test` untuk batch `2026-11-27 S1`:
+```text
+MODE: DRY_RUN_READ_ONLY
+CONFIRMED_MOS: 20
+KITCHENS: Dapur Asin, Dapur Gorengan
+MO_KITCHEN_COMPONENT_GROUPS: 97
+PRODUCTS_TO_ADJUST: 0
+PREVIEW_ONLY_OK: No stock changes.
+```
+Interpretasi yang dibuktikan: perhitungan saat audit ulang tidak membutuhkan tambahan stok CDC berdasarkan target multiplier 10× di script. Ini kuat mengindikasikan seeding stok CDC sudah terlaksana, namun **tidak menggantikan** audit Inventory Odoo maupun bukti log `APPLY_COMMITTED_TEST_DB_ONLY`, dan tidak menunjukkan semua stok efektif/lot/FEFO bebas dipindah. Jangan apply ulang. Tahap berikutnya: preflight + instalasi/uji GUI `ya_material_requirement` versi `19.0.1.1.0` di DB test saja; lalu lanjut desain permintaan Internal Transfer CDC→dapur dengan kontrol stok tersedia. Replenishment CDC, Premik dan WIP tetap dilakukan di luar flow melalui Odoo standar.
