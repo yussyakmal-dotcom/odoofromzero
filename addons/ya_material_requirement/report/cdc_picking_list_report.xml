@@ -6,7 +6,7 @@
     <field name="report_type">qweb-pdf</field>
     <field name="report_name">ya_material_requirement.report_ya_cdc_picking_list_document</field>
     <field name="report_file">ya_material_requirement.report_ya_cdc_picking_list_document</field>
-    <field name="print_report_name">'CDC-PICKING-DRAFT-%s-%s' % (object.delivery_date, object.slot)</field>
+    <field name="print_report_name">'CDC-PICKING-DRAFT-%s-%s' % (object.delivery_date.strftime('%Y-%b-%d'), object.slot)</field>
   </record>
 
   <template id="report_ya_cdc_picking_list_document">
@@ -22,8 +22,8 @@
               <table class="table table-sm table-borderless" style="font-size:12px">
                 <tbody>
                   <tr>
-                    <td><strong>Referensi:</strong> <span t-esc="'CDC-DRAFT-%s-%s-%s' % (doc.delivery_date, doc.slot, group['warehouse'].code)"/></td>
-                    <td><strong>Tanggal kirim:</strong> <span t-field="doc.delivery_date"/></td>
+                    <td><strong>Referensi:</strong> <span t-esc="'CDC-DRAFT-%s-%s-%s' % (doc.delivery_date.strftime('%Y-%b-%d'), doc.slot, group['warehouse'].code)"/></td>
+                    <td><strong>Tanggal kirim:</strong> <span t-esc="doc.delivery_date.strftime('%Y-%b-%d')"/></td>
                   </tr>
                   <tr>
                     <td><strong>Dari:</strong> <span t-esc="doc.cdc_warehouse_id.display_name"/></td>
@@ -35,7 +35,7 @@
                   </tr>
                   <tr>
                     <td><strong>Status:</strong> DRAFT — BUKAN BUKTI PENGIRIMAN</td>
-                    <td><strong>Snapshot:</strong> <span t-field="doc.write_date"/></td>
+                    <td><strong>Snapshot:</strong> <span t-esc="doc.write_date.strftime('%Y-%b-%d %H:%M') if doc.write_date else '-'"/></td>
                   </tr>
                 </tbody>
               </table>
