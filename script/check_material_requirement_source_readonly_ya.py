@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.1.0.0'",
+        "'version': '19.0.1.1.0'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
         "'security/ir.model.access.csv'",
@@ -38,6 +38,12 @@ required = {
         'cdc_shortage_bounds(',
         "'kitchen_line_ids': [(5, 0, 0)] + kitchen_commands",
         "'cdc_line_ids': [(5, 0, 0)] + cdc_commands",
+        "'cdc_shortage_count': cdc_shortage_count",
+        "'cdc_short_min_qty': gap_min",
+        "'cdc_short_max_qty': gap_max",
+        "status = 'cdc_short'",
+        "DI LUAR alur ini",
+
     ],
     'views/material_requirement_views.xml': [
         'menu_ya_material_requirement',
@@ -88,6 +94,10 @@ for node in ast.walk(parsed):
         if node.func.attr == 'write':
             if not isinstance(node.func.value, ast.Name) or node.func.value.id != 'self':
                 errors.append('UNSAFE NON-WIZARD WRITE at line %s' % node.lineno)
+for needle in ('need_purchasing_count', 'purchase_gap_min_qty',
+               'purchase_gap_max_qty', "status = 'purchase'"):
+    if needle in model:
+        errors.append('UNWANTED PROCUREMENT FIELD IN CDC-ONLY FLOW: '+needle)
 print('ERROR_COUNT:', len(errors))
 for err in errors:
     print(err)
