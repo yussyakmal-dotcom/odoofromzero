@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ya_store_ro_template_manager,ya.store.ro.template manager,model_ya_store_ro_template,mrp.group_mrp_manager,1,1,1,1
