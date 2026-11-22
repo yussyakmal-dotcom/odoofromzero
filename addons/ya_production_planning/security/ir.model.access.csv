@@ -3,3 +3,5 @@ access_ya_production_planning_manager,ya.production.planning manager,model_ya_pr
 access_ya_production_planning_line_manager,ya.production.planning.line manager,model_ya_production_planning_line,mrp.group_mrp_manager,1,1,1,1
 access_ya_production_planning_import_manager,ya.production.planning.import manager,model_ya_production_planning_import,mrp.group_mrp_manager,1,1,1,1
 access_ya_production_planning_import_line_manager,ya.production.planning.import.line manager,model_ya_production_planning_import_line,mrp.group_mrp_manager,1,1,1,1
+access_ya_production_planning_user,ya.production.planning operator,model_ya_production_planning,mrp.group_mrp_user,1,1,0,0
+access_ya_production_planning_line_user,ya.production.planning.line operator,model_ya_production_planning_line,mrp.group_mrp_user,1,1,0,0
