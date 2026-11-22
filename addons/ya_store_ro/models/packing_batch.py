@@ -16,6 +16,7 @@ class YaPackingBatch(models.Model):
 
     name = fields.Char(compute='_compute_name')
     delivery_date = fields.Date(required=True, index=True, readonly=True)
+    delivery_date_label = fields.Char(string='Tgl Kirim (YYYY-Mon-DD)', compute='_compute_name')
     slot = fields.Selection(
         [('S1', 'S1 - 05.00 WIB'), ('S2', 'S2 - 09.00 WIB'),
          ('S3', 'S3 - 11.00 WIB')], required=True, readonly=True,
@@ -44,8 +45,9 @@ class YaPackingBatch(models.Model):
     @api.depends('delivery_date', 'slot')
     def _compute_name(self):
         for record in self:
+            record.delivery_date_label = format_ymondd(record.delivery_date)
             record.name = 'Produksi OK %s %s' % (
-                format_ymondd(record.delivery_date), record.slot or '-',
+                record.delivery_date_label, record.slot or '-',
             )
 
     @api.depends('line_ids.mo_id', 'line_ids.kitchen_code',
