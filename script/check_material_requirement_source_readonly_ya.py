@@ -44,6 +44,11 @@ required = {
         "'cdc_short_max_qty': gap_max",
         "status = 'cdc_short'",
         "DI LUAR alur ini",
+        "def action_print_picking_list(self):",
+        "def _get_print_picking_groups(self):",
+        "self.action_calculate()",
+        "if self.cdc_shortage_count:",
+        "action_report_ya_cdc_picking_list",
 
     ],
     'views/material_requirement_views.xml': [
@@ -53,8 +58,16 @@ required = {
         'Kebutuhan Bahan per Dapur',
         'Ringkasan CDC per Bahan',
         'Hitung / Refresh Kebutuhan',
+        'Cetak Picking List CDC (Draft)',
         'AUDIT SAJA',
         'PERINGATAN STOK CDC',
+    ],
+    'report/cdc_picking_list_report.xml': [
+        'action_report_ya_cdc_picking_list',
+        'report_ya_cdc_picking_list_document',
+        'CDC PICKING LIST',
+        'Qty Disiapkan',
+        'CEK RESERVASI',
     ],
     'security/ir.model.access.csv': [
         'model_ya_material_requirement_wizard',
