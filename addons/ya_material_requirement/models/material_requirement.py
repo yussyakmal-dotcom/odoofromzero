@@ -63,8 +63,8 @@ class YaMaterialRequirementWizard(models.TransientModel):
         string='Kombinasi Dapur-Bahan', readonly=True,
     )
     product_count = fields.Integer(string='Bahan Unik CDC', readonly=True)
-    need_purchasing_count = fields.Integer(
-        string='Bahan Kekurangan di CDC', readonly=True,
+    cdc_shortage_count = fields.Integer(
+        string='Bahan Stok CDC Kurang', readonly=True,
     )
     reservation_review_count = fields.Integer(
         string='Bahan Perlu Cek Reservasi', readonly=True,
@@ -240,7 +240,7 @@ class YaMaterialRequirementWizard(models.TransientModel):
             grp['kitchens'].add(wh_id)
 
         cdc_commands = []
-        purchasing_count = reservation_review_count = 0
+        cdc_shortage_count = reservation_review_count = 0
         for product_id, grp in sorted(grouped_cdc.items()):
             product = product_by_id[product_id]
             on_hand, reserved = cdc_stock.get(product_id, (0.0, 0.0))
@@ -249,8 +249,8 @@ class YaMaterialRequirementWizard(models.TransientModel):
                 [(grp['short_min'], grp['short_max'])], free,
             )
             if gap_min > 0:
-                status = 'purchase'
-                purchasing_count += 1
+                status = 'cdc_short'
+                cdc_shortage_count += 1
             elif grp['short_max'] > grp['short_min']:
                 status = 'review'
                 reservation_review_count += 1
@@ -268,8 +268,8 @@ class YaMaterialRequirementWizard(models.TransientModel):
                 'cdc_on_hand_qty': on_hand,
                 'cdc_reserved_qty': reserved,
                 'cdc_free_qty': free,
-                'purchase_gap_min_qty': gap_min,
-                'purchase_gap_max_qty': gap_max,
+                'cdc_short_min_qty': gap_min,
+                'cdc_short_max_qty': gap_max,
                 'status': status,
             }))
 
@@ -282,7 +282,7 @@ class YaMaterialRequirementWizard(models.TransientModel):
             'raw_move_count': move_count,
             'component_count': len(requirements),
             'product_count': len(grouped_cdc),
-            'need_purchasing_count': purchasing_count,
+            'cdc_shortage_count': cdc_shortage_count,
             'reservation_review_count': reservation_review_count,
             'kitchen_line_ids': [(5, 0, 0)] + kitchen_commands,
             'cdc_line_ids': [(5, 0, 0)] + cdc_commands,
@@ -292,9 +292,11 @@ class YaMaterialRequirementWizard(models.TransientModel):
                 'kekurangan maksimum = kebutuhan - stok bebas dapur. '
                 'Selisih menunjukkan reservasi yang harus direkonsiliasi '
                 'dengan MO. CDC Free adalah stok bersama semua dapur, '
-                'dihitung hanya SEKALI per bahan. Belum membuat permintaan '
-                'transfer, picking, reservasi, pembelian, atau mutasi stok. '
-                'Periksa lot/FEFO dan transfer masuk sebelum pemenuhan.'
+                'dihitung hanya SEKALI per bahan. Stok CDC kurang ditampilkan '
+                'sebagai informasi untuk Admin Gudang; tindak lanjut pembelian '
+                'menggunakan Odoo Purchasing standar DI LUAR alur ini. '
+                'Belum membuat permintaan transfer, picking, reservasi, '
+                'PO atau mutasi stok. Periksa lot/FEFO dan transfer masuk.'
             ),
         })
         return self._reopen()
@@ -341,11 +343,11 @@ class YaMaterialRequirementCdcLine(models.TransientModel):
     cdc_on_hand_qty = fields.Float(string='Stok Fisik CDC', readonly=True, digits='Product Unit of Measure')
     cdc_reserved_qty = fields.Float(string='Reservasi CDC', readonly=True, digits='Product Unit of Measure')
     cdc_free_qty = fields.Float(string='Stok Bebas CDC', readonly=True, digits='Product Unit of Measure')
-    purchase_gap_min_qty = fields.Float(string='Potensi Kurang CDC Min', readonly=True, digits='Product Unit of Measure')
-    purchase_gap_max_qty = fields.Float(string='Potensi Kurang CDC Max', readonly=True, digits='Product Unit of Measure')
+    cdc_short_min_qty = fields.Float(string='Kekurangan CDC Min', readonly=True, digits='Product Unit of Measure')
+    cdc_short_max_qty = fields.Float(string='Kekurangan CDC Max', readonly=True, digits='Product Unit of Measure')
     status = fields.Selection([
         ('ready', 'Dapur Cukup'),
         ('enough', 'CDC Berpotensi Cukup'),
         ('review', 'Cek Reservasi'),
-        ('purchase', 'CDC Belum Cukup'),
+        ('cdc_short', 'CDC Kurang - Info Gudang'),
     ], readonly=True)
