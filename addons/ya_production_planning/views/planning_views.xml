@@ -41,14 +41,14 @@
           </group>
           <notebook>
             <page string="Max Capacity by SKU">
-              <field name="line_ids" readonly="1">
-                <list create="false" delete="false">
-                  <field name="reference"/>
-                  <field name="product_id"/>
-                  <field name="max_capacity"/>
-                  <field name="uom_id"/>
-                  <field name="source_sheet"/>
-                  <field name="source_row"/>
+              <field name="line_ids" readonly="state == 'published'">
+                <list editable="bottom" create="false" delete="false">
+                  <field name="line_row" string="Line Row" readonly="1" width="75px"/>
+                  <field name="reference" readonly="1"/>
+                  <field name="product_id" readonly="1"/>
+                  <field name="max_capacity" string="Max Capacity"/>
+                  <field name="uom_id" readonly="1"/>
+                  <field name="source_sheet" readonly="1"/>
                 </list>
               </field>
             </page>
