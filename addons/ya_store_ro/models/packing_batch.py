@@ -82,6 +82,20 @@ class YaPackingBatch(models.Model):
     def unlink(self):
         raise UserError(_('Pre Produksi and Produksi OK cannot be deleted.'))
 
+    @api.model
+    def action_open_packing_queue(self, *args, **kwargs):
+        if not (self.env.user.has_group('mrp.group_mrp_manager') or
+                self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):
+            raise UserError(_('Packing access required.'))
+        return self.env.ref('ya_store_ro.action_ya_packing_confirmed_ro').read()[0]
+
+    @api.model
+    def action_open_packing_preproduction(self, *args, **kwargs):
+        if not (self.env.user.has_group('mrp.group_mrp_manager') or
+                self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):
+            raise UserError(_('Packing access required.'))
+        return self.env.ref('ya_store_ro.action_ya_packing_preproduction').read()[0]
+
     def action_open_mos(self):
         self.ensure_one()
         return {
@@ -137,6 +151,20 @@ class YaPackingBatchLine(models.Model):
     def unlink(self):
         raise UserError(_('Pre Produksi SKU lines cannot be deleted.'))
 
+
+    @api.model
+    def action_open_packing_queue(self, *args, **kwargs):
+        if not (self.env.user.has_group('mrp.group_mrp_manager') or
+                self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):
+            raise UserError(_('Packing access required.'))
+        return self.env.ref('ya_store_ro.action_ya_packing_confirmed_ro').read()[0]
+
+    @api.model
+    def action_open_packing_done(self, *args, **kwargs):
+        if not (self.env.user.has_group('mrp.group_mrp_manager') or
+                self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):
+            raise UserError(_('Packing access required.'))
+        return self.env.ref('ya_store_ro.action_ya_packing_batch').read()[0]
 
     @api.model
     def action_generate_selected_mo(self, *args, **kwargs):
