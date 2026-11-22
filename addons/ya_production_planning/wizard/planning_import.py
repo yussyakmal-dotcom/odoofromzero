@@ -135,8 +135,8 @@ class YaProductionPlanningImport(models.TransientModel):
                     if not unit:
                         errors.append('%s!D%s: Unit required' % (sheet, rownum))
                     parsed.append({'sheet': sheet, 'code': code, 'row': rownum,
-                                   'reference': reference, 'name': name,
-                                   'max': int(value), 'unit': unit})
+                                   'dapur': dapur, 'reference': reference,
+                                   'name': name, 'max': int(value), 'unit': unit})
                 if len(labels) > 1:
                     errors.append('%s: inconsistent DAPUR names' % sheet)
             if not parsed:
@@ -165,6 +165,17 @@ class YaProductionPlanningImport(models.TransientModel):
         for uom in uom_model.search([('name', 'in', list({
                 r['unit'] for r in parsed}))]):
             uom_map[uom.name].append(uom)
+        # The spreadsheet's Unit is the finished-good UoM on the BoM header.
+        # Warehouse on the BoM must match the DAPUR value in that sheet.
+        bom_map = defaultdict(list)
+        bom_model = self.env['mrp.bom'].with_context(active_test=False)
+        for bom in bom_model.search([('type', '=', 'normal')]):
+            if not bom.picking_type_id or not bom.picking_type_id.warehouse_id:
+                continue
+            warehouse = norm(bom.picking_type_id.warehouse_id.name).casefold()
+            key = ('variant', bom.product_id.id) if bom.product_id else (
+                'template', bom.product_tmpl_id.id)
+            bom_map[(key, warehouse)].append(bom)
         for row in parsed:
             where = '%s!%s' % (row['sheet'], row['row'])
             products = product_map[row['reference']]
@@ -180,9 +191,22 @@ class YaProductionPlanningImport(models.TransientModel):
             if len(units) != 1:
                 errors.append('%s: Unit %s missing or ambiguous' % (where, row['unit']))
                 continue
-            if units[0] != product.uom_id:
-                errors.append('%s: Unit %s differs from stock UoM %s (conversion not enabled)' % (
-                    where, row['unit'], product.uom_id.display_name))
+            warehouse = norm(row['dapur']).casefold()
+            candidates = (
+                bom_map.get((('variant', product.id), warehouse), [])
+                + bom_map.get((('template', product.product_tmpl_id.id), warehouse), [])
+            )
+            if len(candidates) != 1:
+                errors.append(
+                    '%s: expected exactly one BoM for reference %s at %s; found %s'
+                    % (where, row['reference'], row['dapur'], len(candidates)))
+                continue
+            bom = candidates[0]
+            if units[0] != bom.product_uom_id:
+                errors.append(
+                    '%s: Unit %s differs from BoM output UoM %s (stock UoM: %s)'
+                    % (where, row['unit'], bom.product_uom_id.display_name,
+                       product.uom_id.display_name))
                 continue
             centers = workcenters[row['code']]
             if len(centers) != 1 or not centers[0].active:
