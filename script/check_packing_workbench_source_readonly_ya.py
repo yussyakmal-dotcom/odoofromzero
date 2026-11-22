@@ -81,6 +81,35 @@ for name, tokens in files.items():
             errors.append('XML: %s: %s' % (name, exc))
     print('SOURCE_CHECK:', name)
 preview = (addon / 'wizard/packing_preview.py').read_text(encoding='utf8')
+preview_ast = ast.parse(preview, filename='wizard/packing_preview.py')
+preview_methods = [
+    node for cls in preview_ast.body if isinstance(cls, ast.ClassDef)
+    and cls.name == 'YaPackingPreview'
+    for node in cls.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    and node.name == 'action_preview'
+]
+if len(preview_methods) != 1:
+    errors.append('MISSING/AMBIGUOUS action_preview METHOD')
+else:
+    method = preview_methods[0]
+    assignments = [
+        node for node in ast.walk(method)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == 'source_line_values'
+                for t in node.targets)
+    ]
+    appends = [
+        node for node in ast.walk(method)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        and node.func.attr == 'append'
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == 'source_line_values'
+    ]
+    if len(assignments) != 1 or not appends or not isinstance(assignments[0].value, ast.List):
+        errors.append('PREVIEW SOURCE LINE LIST MUST BE INITIALIZED ONCE')
+    elif assignments[0].lineno >= min(node.lineno for node in appends):
+        errors.append('PREVIEW SOURCE LINE LIST INITIALIZED AFTER FIRST APPEND')
+
 if "self.env['mrp.production'].create({" in preview:
     errors.append('PREVIEW MUST NOT CREATE MO')
 if 'def action_production_ok_generate_mo' in preview:
