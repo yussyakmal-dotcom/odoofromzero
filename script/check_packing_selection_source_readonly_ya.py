@@ -12,6 +12,7 @@ checks = {
         'Select RO with the SAME Tanggal Kirim and Slot.',
     ),
     'wizard/packing_preview.py': (
+        'from odoo import api, fields, models, _',
         'selected_ro_ids = fields.Many2many(',
         'orders = self.selected_ro_ids.exists()',
         'set(orders.ids) != set(current_all.ids)',
