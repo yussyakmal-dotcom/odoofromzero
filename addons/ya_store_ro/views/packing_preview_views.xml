@@ -64,11 +64,11 @@
                   string="Calculate Preview" invisible="state == 'preview'"/>
           <button name="action_preview" type="object"
                   string="Recalculate" invisible="state != 'preview'"/>
-          <button name="action_production_ok_generate_mo" type="object"
-                  string="Produksi OK + Generate MO"
+          <button name="action_move_to_preproduction" type="object"
+                  string="Pindahkan ke Pre Produksi"
                   class="btn-primary"
                   groups="ya_store_ro.group_ya_packing_admin"
-                  confirm="Generate and confirm all Manufacturing Orders from the latest Confirmed RO quantities? This will lock all RO Qty for this delivery date and slot. MO production will NOT start automatically."
+                  confirm="Pindahkan konsolidasi Confirmed RO ini ke daftar Pre Produksi per dapur dan SKU? Langkah ini BELUM membuat MO."
                   invisible="state != 'preview' or blocked_count != 0"/>
           <button string="Close" special="cancel"/>
         </footer>
