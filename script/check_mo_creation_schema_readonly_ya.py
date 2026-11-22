@@ -29,4 +29,25 @@ print('MO_DEFAULT_GET:', {
 })
 for name in ['ya.production.planning', 'ya.store.ro', 'ya.packing.preview']:
     print('CUSTOM_MODEL:', name, name in env.registry)
+print('MAPPING_SAMPLE_CONFIRMED_RO:')
+RO = env['ya.store.ro']
+orders = RO.search([('state', '=', 'confirmed')], limit=3, order='id desc')
+for ro in orders:
+    p = ro.planning_id
+    print('RO', ro.id, 'date', p.delivery_date, 'slot', p.slot,
+          'kitchen', p.kitchen_code, 'workcenter', p.workcenter_id.name)
+    for line in ro.line_ids.filtered(lambda line: line.qty_requested > 0)[:3]:
+        matching = p.line_ids.filtered(lambda x: x.product_id == line.product_id)
+        if len(matching) != 1:
+            print('  SKU', line.reference, 'PLAN_LINE_MISMATCH', len(matching))
+            continue
+        bom = matching._capacity_bom()
+        pt = bom.picking_type_id
+        print('  SKU', line.reference, 'RO_QTY', line.qty_requested,
+              'BOM', bom.id, 'BoM_Output', bom.product_qty,
+              'BoM_UoM', bom.product_uom_id.name,
+              'PickingType', pt.id, pt.name,
+              'Warehouse', pt.warehouse_id.name,
+              'PT_Source', pt.default_location_src_id.complete_name,
+              'PT_Dest', pt.default_location_dest_id.complete_name)
 print('MO_SCHEMA_READONLY_OK')
