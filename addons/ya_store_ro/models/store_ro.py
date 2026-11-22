@@ -93,6 +93,12 @@ class YaStoreRO(models.Model):
                 'res_id': self.id, 'view_mode': 'form',
                 'views': [(False, 'form')], 'target': 'current'}
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        if any('production_ok' in vals for vals in vals_list):
+            raise UserError(_('Produksi OK cannot be set when creating RO.'))
+        return super().create(vals_list)
+
     def write(self, vals):
         if 'production_ok' in vals:
             raise UserError(_('Produksi OK requires the future atomic MO generation action.'))
@@ -159,7 +165,7 @@ class YaStoreROLine(models.Model):
             old_qty = confirmed.qty_requested
             result = super().write(vals)
             if old_qty != new_qty:
-                self.env['ya.store.ro.qty.audit'].create({
+                self.env['ya.store.ro.qty.audit'].sudo().with_context(packing_qty_correction_reason=reason).create({
                     'ro_id': confirmed.ro_id.id,
                     'ro_line_id': confirmed.id,
                     'product_id': confirmed.product_id.id,
@@ -190,8 +196,8 @@ class YaStoreROQtyAudit(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin'):
-            raise UserError(_('Only Packing Admin may log Qty corrections.'))
+        if not self.env.su:
+            raise UserError(_('Audit records are created only by the correction service.'))
         reason = (self.env.context.get('packing_qty_correction_reason') or '').strip()
         if not reason:
             raise UserError(_('Correction reason is required for audit.'))
