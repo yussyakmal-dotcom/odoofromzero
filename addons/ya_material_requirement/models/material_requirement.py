@@ -125,6 +125,22 @@ class YaMaterialRequirementWizard(models.TransientModel):
             raise UserError(_('Manufacturing Manager or Packing Admin required.'))
         if self.state != 'preview' or not self.batch_id or not self.kitchen_line_ids:
             raise UserError(_('Hitung / Refresh Kebutuhan before printing.'))
+        # Refresh actual MO and CDC balances before producing a field instruction.
+        # No business stock changes; only transient report rows are recalculated.
+        self.action_calculate()
+        if self.cdc_shortage_count:
+            raise UserError(_(
+                'CDC stock is insufficient for the combined kitchen demand. '
+                'Warehouse Admin handles shortages outside this flow. '
+                'Do not issue a picking list until CDC stock is available.'
+            ))
+        if any(line.short_max_qty > line.short_min_qty + (
+                line.uom_id.rounding or 0.00001) / 2.0
+               for line in self.kitchen_line_ids):
+            raise UserError(_(
+                'Kitchen stock reservations make the requested pickup '
+                'quantity ambiguous. Reconcile MO reservations first.'
+            ))
         groups = self._get_print_picking_groups()
         if not groups:
             raise UserError(_('Tidak ada kekurangan bahan yang perlu diambil CDC.'))
