@@ -48,6 +48,7 @@
               <field name="qty_total" readonly="1"/>
               <field name="confirmed_at" readonly="1"/>
               <field name="confirmed_by" readonly="1"/>
+              <field name="packing_batch_id" readonly="1"/>
             </group>
           </group>
           <notebook>
