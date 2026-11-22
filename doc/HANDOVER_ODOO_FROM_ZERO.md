@@ -233,3 +233,9 @@ Contoh BoM 24 Pcs: RO Toko A=13, B=27, C=32 → total=72, produksi 72 (3 batch).
 **Aturan Packing dari keputusan user:** saat konsolidasi semua RO dan SO terkait, Qty Produksi dibulatkan **SELALU KE ATAS** ke kelipatan output BoM; surplus dikirim/alokasikan ke toko dengan Qty RO asli tetap dipertahankan dan jejak tambahan terpisah. Tidak menggunakan aturan Max Planning kelipatan terdekat untuk Qty RO individual.
 
 **Langkah berikut yang aman:** `cd ~/odoofromzero && git pull && python3 script/check_ya_store_ro_source_readonly.py`. Harap `RO_TEMPLATE_SOURCE_PREFLIGHT_OK`. **Jangan install dulu** sampai kode/UX dan daftar gudang toko diperiksa. Baca `addons/ya_store_ro/README.md` dan `doc/SKILL_ODOO19_ADDON_WORKFLOW.md`.
+
+## Hasil uji Feri — generator template RO XLSX berhasil (22 November 2026)
+
+**Bukti laporan Feri:** addon `ya_store_ro` sudah dijalankan di Odoo server MRP test; Feri berhasil **Generate dan Download XLSX**, serta memeriksa isi template: **SKU sesuai daftar SKU pada dapur yang Published**. Ini **PASS untuk smoke test unduh dan kecocokan SKU menurut pemeriksaan pengguna**, bukan uji penuh akses toko atau alur RO. Jangan mengulang source preflight maupun instalasi pertama addon ini pada sesi baru; status instalasi sebaiknya tetap diverifikasi pada DB bila diperlukan. Source preflight sebelumnya `RO_TEMPLATE_SOURCE_PREFLIGHT_OK`.
+
+**Checkpoint selanjutnya:** buat proses upload XLSX RO → Draft (toko + dapur + tanggal kirim + slot); validasi Reference hanya dari Published Planning, Qty Pesan bebas integer tanpa pembulatan, pengelolaan hak akses toko, lalu Confirm RO. Pembulatan Qty produksi **selalu ke atas** hanya nanti pada konsolidasi Packing. Tetap database `erp-yussyakmal-mrp-test`.
