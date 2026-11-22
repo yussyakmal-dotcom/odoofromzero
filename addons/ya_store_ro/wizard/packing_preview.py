@@ -10,6 +10,7 @@ from odoo.exceptions import UserError
 
 from ..models.allocation_rules import allocate_surplus_prorata
 from ..models.date_labels import format_ymondd, parse_ymondd
+from ..models.packing_lock import lock_ro_slot
 
 SLOTS = [('S1', 'S1 - 05.00 WIB'), ('S2', 'S2 - 09.00 WIB'),
          ('S3', 'S3 - 11.00 WIB')]
@@ -182,6 +183,163 @@ class YaPackingPreview(models.TransientModel):
                  if blocked else 'All within Planning Max.'),
         })
         return self._reopen()
+
+
+    def action_production_ok_generate_mo(self):
+        """All-or-nothing RO-only release using standard Odoo manufacturing orders.
+
+        Must recompute from current Confirmed RO under a date/slot mutex.
+        Never start any work orders. Odoo standard confirmation establishes
+        component requirements; kitchen receipt/availability gate remains next.
+        """
+        self.ensure_one()
+        if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin'):
+            raise UserError(_('Only Packing Admin can release Production OK and MO.'))
+        try:
+            delivery_date = parse_ymondd(self.delivery_date_yyyymmdd)
+        except ValueError:
+            raise UserError(_('Tanggal Kirim must be YYYY-Mon-DD.'))
+        if not self.slot:
+            raise UserError(_('Choose Slot.'))
+
+        # Same lock is taken by Confirmed RO correction and RO confirmation.
+        lock_ro_slot(self.env.cr, delivery_date, self.slot)
+        Batch = self.env['ya.packing.batch']
+        if Batch.search_count([
+            ('delivery_date', '=', delivery_date), ('slot', '=', self.slot),
+        ]):
+            raise UserError(_(
+                'Produksi OK already exists for this date and slot. '
+                'MO cannot be generated a second time.'
+            ))
+
+        # Crucial: never use possibly stale preview lines from a modal.
+        self.action_preview()
+        if self.blocked_count:
+            raise UserError(_(
+                'Blocked: %s SKU exceed Planning Max. '
+                'Correct RO/capacity before generating any MO.'
+            ) % self.blocked_count)
+        if not self.line_ids or any(line.qty_production <= 0 for line in self.line_ids):
+            raise UserError(_('No positive consolidated SKU quantities to produce.'))
+
+        orders = self.env['ya.store.ro'].search([
+            ('delivery_date', '=', delivery_date),
+            ('slot', '=', self.slot), ('state', '=', 'confirmed'),
+        ])
+        # Every allocation from preview must have an originating Confirmed RO.
+        if not orders:
+            raise UserError(_('No Confirmed RO for release.'))
+        for allocation in self.allocation_ids:
+            if allocation.ro_id not in orders:
+                raise UserError(_('Packing allocation references an RO that is not Confirmed.'))
+
+        line_commands = []
+        for row in self.line_ids:
+            bom = row.bom_id
+            pt = bom.picking_type_id
+            if not bom or not pt or not pt.warehouse_id:
+                raise UserError(_('Kitchen Manufacturing Operation Type missing: %s') % row.reference)
+            if not pt.default_location_src_id or not pt.default_location_dest_id:
+                raise UserError(_('Manufacturing stock locations missing for kitchen %s.')
+                                % row.kitchen_code)
+            if bom.product_uom_id != row.uom_id:
+                raise UserError(_('BoM UoM differs from RO/Planning UoM: %s') % row.reference)
+            if (bom.product_id and bom.product_id != row.product_id) or (
+                    bom.product_tmpl_id != row.product_id.product_tmpl_id):
+                raise UserError(_('BoM product mismatch for SKU %s') % row.reference)
+            if int(bom.product_qty) != row.bom_output:
+                raise UserError(_('BoM output changed since preview: %s') % row.reference)
+            line_commands.append((0, 0, {
+                'planning_id': row.planning_id.id,
+                'kitchen_code': row.kitchen_code,
+                'product_id': row.product_id.id,
+                'reference': row.reference,
+                'bom_id': bom.id,
+                'qty_requested': row.qty_requested,
+                'qty_production': row.qty_production,
+                'qty_surplus': row.qty_surplus,
+                'max_capacity': row.max_capacity,
+                'uom_id': row.uom_id.id,
+            }))
+
+        # Creating snapshot and MOs happens in the SAME database transaction.
+        # Any exception from standard MO create/confirm rolls everything back.
+        batch = Batch.with_context(ya_create_production_batch=True).create({
+            'delivery_date': delivery_date, 'slot': self.slot,
+            'ro_ids': [(6, 0, orders.ids)],
+            'line_ids': line_commands,
+            'released_by': self.env.user.id,
+            'released_at': fields.Datetime.now(),
+        })
+        by_key = {(l.planning_id.id, l.product_id.id): l for l in batch.line_ids}
+        for allocation in self.allocation_ids:
+            key = (allocation.planning_id.id, allocation.product_id.id)
+            line = by_key.get(key)
+            if not line:
+                raise UserError(_('Cannot match store allocation to MO line: %s')
+                                % allocation.reference)
+            self.env['ya.packing.batch.allocation'].with_context(
+                ya_create_production_batch=True
+            ).create({
+                'batch_id': batch.id, 'line_id': line.id,
+                'ro_id': allocation.ro_id.id,
+                'kitchen_code': allocation.kitchen_code,
+                'reference': allocation.reference,
+                'product_id': allocation.product_id.id,
+                'store_warehouse_id': allocation.store_warehouse_id.id,
+                'qty_requested': allocation.qty_requested,
+                'qty_surplus': allocation.qty_surplus,
+                'qty_allocated': allocation.qty_allocated,
+            })
+
+        for line in batch.line_ids.sorted(lambda l: (
+                l.kitchen_code or '', l.reference or '', l.id)):
+            bom = line.bom_id
+            pt = bom.picking_type_id
+            if line.qty_production > line.max_capacity:
+                raise UserError(_('Qty exceeds Max Planning: %s') % line.reference)
+            if not pt.company_id or pt.company_id != self.env.company:
+                raise UserError(_(
+                    'Manufacturing Operation Type company differs from active company: %s'
+                ) % pt.display_name)
+
+            mo = self.env['mrp.production'].create({
+                'product_id': line.product_id.id,
+                'product_qty': float(line.qty_production),
+                'product_uom_id': line.uom_id.id,
+                'bom_id': bom.id,
+                'picking_type_id': pt.id,
+                'location_src_id': pt.default_location_src_id.id,
+                'location_dest_id': pt.default_location_dest_id.id,
+                'company_id': pt.company_id.id,
+                'date_start': fields.Datetime.now(),
+                'origin': '%s / %s / %s' % (
+                    batch.name, line.kitchen_code, line.reference,
+                ),
+                'ya_packing_batch_line_id': line.id,
+            })
+            mo.action_confirm()  # Standard Odoo: component requirements, NOT production start.
+            if mo.state in ('draft', 'cancel', 'done'):
+                raise UserError(_('MO %s confirmation failed for SKU %s.')
+                                % (mo.display_name, line.reference))
+            line.with_context(ya_create_production_batch=True).write({'mo_id': mo.id})
+
+        if len(batch.line_ids) != len(batch.line_ids.mapped('mo_id')):
+            raise UserError(_('Not all expected MO were created; release cancelled.'))
+        if sum(batch.allocation_ids.mapped('qty_allocated')) != sum(
+                batch.line_ids.mapped('qty_production')):
+            raise UserError(_('Final allocation does not equal total production.'))
+
+        # Batch exists and all MOs confirmed; status Produksi OK is derived
+        # from this immutable, committed release, never from manual flag change.
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Produksi OK'),
+            'res_model': 'ya.packing.batch', 'res_id': batch.id,
+            'view_mode': 'form', 'views': [(False, 'form')],
+            'target': 'current',
+        }
 
 
 class YaPackingPreviewLine(models.TransientModel):
