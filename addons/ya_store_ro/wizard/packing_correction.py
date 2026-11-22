@@ -8,7 +8,7 @@ class YaPackingQtyCorrection(models.TransientModel):
 
     ro_id = fields.Many2one(
         'ya.store.ro', string='RO Confirmed', required=True,
-        domain=[('state', '=', 'confirmed')],
+        domain=[('state', '=', 'confirmed'), ('packing_batch_id', '=', False)],
     )
     line_id = fields.Many2one(
         'ya.store.ro.line', string='SKU', required=True,
@@ -33,8 +33,8 @@ class YaPackingQtyCorrection(models.TransientModel):
             raise UserError(_('Only Packing Admin can revise Confirmed RO.'))
         if not self.ro_id or self.ro_id.state != 'confirmed':
             raise UserError(_('Choose a Confirmed RO.'))
-        if self.ro_id.production_ok:
-            raise UserError(_('Produksi OK: corrections are closed.'))
+        if self.ro_id.packing_batch_id or self.ro_id.production_ok:
+            raise UserError(_('Pre Produksi / Produksi OK: corrections are closed.'))
         if self.line_id.ro_id != self.ro_id:
             raise UserError(_('The selected SKU does not belong to this RO.'))
         reason = (self.reason or '').strip()
