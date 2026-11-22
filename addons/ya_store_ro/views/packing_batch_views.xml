@@ -24,11 +24,6 @@
         <header>
           <button name="action_open_mos" type="object" string="Lihat MO"
                   class="btn-primary" invisible="state != 'production_ok'"/>
-          <button name="action_reset_preproduction" type="object"
-                  string="Batalkan Pre Produksi (Konsolidasi Ulang)"
-                  groups="ya_store_ro.group_ya_packing_admin"
-                  confirm="Batalkan seluruh baris Pre Produksi untuk jadwal ini? Tidak ada MO yang akan dihapus."
-                  invisible="state != 'pre_production'"/>
           <field name="state" widget="statusbar"/>
         </header>
         <sheet>
@@ -107,10 +102,6 @@
                   class="btn-primary" display="always"
                   groups="ya_store_ro.group_ya_packing_admin"
                   confirm="Buat dan konfirmasi seluruh MO standar untuk semua baris Pre Produksi yang dipilih? Status akan berubah menjadi Produksi OK hanya setelah SEMUA MO berhasil. Tidak menjalankan WO otomatis."/>
-          <button name="action_reset_selected_preproduction" type="object"
-                  string="Konsolidasi Ulang" display="always"
-                  groups="ya_store_ro.group_ya_packing_admin"
-                  confirm="Batalkan seluruh Pre Produksi pada tanggal dan slot baris yang dipilih? Ini tidak menghapus MO apa pun."/>
         </header>
         <field name="batch_id" string="Jadwal"/>
         <field name="kitchen_code" string="Dapur"/>
