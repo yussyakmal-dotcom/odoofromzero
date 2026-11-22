@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_store_ro_import_form" model="ir.ui.view">
+    <field name="name">ya.store.ro.import.form</field>
+    <field name="model">ya.store.ro.import</field>
+    <field name="arch" type="xml">
+      <form string="Upload RO Toko XLSX">
+        <group>
+          <group>
+            <field name="file" filename="filename" readonly="state == 'preview'"/>
+            <field name="filename" invisible="1"/>
+            <field name="state" readonly="1"/>
+          </group>
+          <group>
+            <field name="planning_id" readonly="1" invisible="state != 'preview'"/>
+            <field name="store_warehouse_id" readonly="1" invisible="state != 'preview'"/>
+            <field name="report" readonly="1"/>
+          </group>
+        </group>
+        <field name="errors" readonly="1" nolabel="1" invisible="not errors"/>
+        <field name="preview_line_ids" readonly="1" invisible="state != 'preview'">
+          <list create="false" delete="false">
+            <field name="reference"/>
+            <field name="product_id"/>
+            <field name="qty_requested"/>
+            <field name="uom_id"/>
+          </list>
+        </field>
+        <footer>
+          <button name="action_validate_preview" type="object"
+                  string="Validate &amp; Preview" class="btn-primary"
+                  invisible="state == 'preview'"/>
+          <button name="action_save_draft" type="object"
+                  string="Save Draft RO" class="btn-primary"
+                  invisible="state != 'preview'"/>
+          <button string="Cancel" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_store_ro_import" model="ir.actions.act_window">
+    <field name="name">Upload RO XLSX</field>
+    <field name="res_model">ya.store.ro.import</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+</odoo>
