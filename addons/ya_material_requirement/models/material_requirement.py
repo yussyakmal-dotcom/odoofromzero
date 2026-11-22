@@ -10,7 +10,6 @@ from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
 from .material_rules import shortage_bounds, cdc_shortage_bounds
-from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
 
 SLOTS = [('S1', 'S1 - 05.00 WIB'),
          ('S2', 'S2 - 09.00 WIB'),
@@ -56,7 +55,7 @@ class YaMaterialRequirementWizard(models.TransientModel):
     @api.depends('delivery_date')
     def _compute_delivery_date_label(self):
         for rec in self:
-            rec.delivery_date_label = format_ymondd(rec.delivery_date)
+            rec.delivery_date_label = rec.delivery_date.strftime('%Y-%b-%d') if rec.delivery_date else ''
     state = fields.Selection(
         [('choose', 'Pilih Jadwal'), ('preview', 'Hasil Audit')],
         required=True, default='choose',
