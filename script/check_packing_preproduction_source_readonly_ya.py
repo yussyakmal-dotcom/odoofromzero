@@ -23,6 +23,7 @@ checks = {
         "set(current.ids) != set(batch.ro_ids.ids)",
         'lock_ro_slot(self.env.cr, batch.delivery_date, batch.slot)',
         "self.env['mrp.production'].create({",
+        "batch.sudo().with_context(ya_release_production_batch=True).write(",
         'mo.action_confirm()',
         "'state': 'production_ok'",
     ],
@@ -30,7 +31,7 @@ checks = {
         'def action_move_to_preproduction',
         'self.action_preview()',
         "'state': 'pre_production'",
-        "orders.with_context(ya_stage_or_reset_packing=True).write(",
+        "orders.sudo().with_context(ya_stage_or_reset_packing=True).write(",
         "'ya_store_ro.view_ya_packing_preproduction_line_list'",
     ],
     'views/packing_preview_views.xml': [
