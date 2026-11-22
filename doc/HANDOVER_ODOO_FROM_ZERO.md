@@ -243,3 +243,9 @@ Contoh BoM 24 Pcs: RO Toko A=13, B=27, C=32 → total=72, produksi 72 (3 batch).
 ## Decision confirmed by Feri — RO Draft editable; Confirm is final validation
 
 Excel **only speeds up input**. Once imported and saved as Draft RO, operator may **edit Qty Pesan directly in Odoo** and save repeatedly. No batch rounding on individual store quantities. **Confirm RO is the last validation/commit point**: verify Published Planning, eligible SKU, Qty integer/nonnegative, and at least one positive Qty. Confirmed RO immutable; reupload cannot overwrite Confirmed. Source implementation in addon `ya_store_ro` `19.0.2.0.0` committed to GitHub but **has not yet passed server install/upgrade or GUI tests**. Packing consolidation and internal transfer remain next stages; Qty production rounded UP to BoM multiple only in Packing.
+
+## Checkpoint laporan uji Feri — RO Tahap 2 PASS (22 November 2026)
+
+**Feri melaporkan seluruh flow RO Toko berhasil di GUI MRP test:** (1) upload XLSX, (2) Save Draft, (3) edit Qty Pesan pada Draft, (4) Confirm RO. Artinya **smoke test fungsional alur RO Tahap 2 PASS menurut laporan user**; belum ada bukti uji edge cases (file rusak, duplicate, pembatasan hak toko, Confirmed immutable via API, atau akuntansi). Jangan mengulang instalasi/upgrade tahap ini tanpa perubahan kode.
+
+**Tahap 3 berikutnya: konsolidasi oleh Packing** untuk semua RO Confirmed per tanggal kirim + slot + dapur + SKU; pertahankan requested per toko, hitung kebutuhan gabungan, Qty Produksi **ceil ke kelipatan BoM** (bukan nearest/bukan down), catat surplus terpisah untuk dialokasikan ke toko, rancang penanganan Max Capacity dan prioritas SO, lalu MO dan DO/internal transfer pada tahap berikutnya. **Belum diimplementasi.** Jangan membuat transfer atau MO saat Confirm RO. Detail algoritma alokasi surplus dan kasus kapasitas belum final.
