@@ -309,7 +309,7 @@ class YaPackingPreview(models.TransientModel):
                 'qty_allocated': allocation.qty_allocated,
             })
 
-        orders.with_context(ya_stage_or_reset_packing=True).write({
+        orders.sudo().with_context(ya_stage_or_reset_packing=True).write({
             'packing_batch_id': batch.id,
         })
         return {
