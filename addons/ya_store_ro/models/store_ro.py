@@ -30,6 +30,11 @@ class YaStoreRO(models.Model):
     source_filename = fields.Char(readonly=True)
     confirmed_at = fields.Datetime(readonly=True)
     confirmed_by = fields.Many2one('res.users', readonly=True)
+    # Set only by future atomic MO generation, NOT by this release.
+    production_ok = fields.Boolean(string='Produksi OK', default=False, readonly=True)
+    correction_ids = fields.One2many(
+        'ya.store.ro.qty.audit', 'ro_id', string='Riwayat Koreksi Qty', readonly=True,
+    )
     _unique_ro_planning_store = models.Constraint(
         'UNIQUE(planning_id, store_warehouse_id)',
         'One RO per store, kitchen, delivery date and slot.'
@@ -89,6 +94,8 @@ class YaStoreRO(models.Model):
                 'views': [(False, 'form')], 'target': 'current'}
 
     def write(self, vals):
+        if 'production_ok' in vals:
+            raise UserError(_('Produksi OK requires the future atomic MO generation action.'))
         if any(ro.state != 'draft' for ro in self):
             raise UserError(_('Confirmed RO is immutable.'))
         if vals.get('state') == 'confirmed' and not self.env.user.has_group('mrp.group_mrp_manager'):
@@ -137,11 +144,64 @@ class YaStoreROLine(models.Model):
     def write(self, vals):
         if set(vals) - {'qty_requested'}:
             raise UserError(_('Only Qty Pesan can be edited in a Draft RO.'))
-        if any(line.ro_id.state != 'draft' for line in self):
-            raise UserError(_('Confirmed RO cannot be changed.'))
+        confirmed = self.filtered(lambda line: line.ro_id.state == 'confirmed')
+        if confirmed:
+            reason = (self.env.context.get('packing_qty_correction_reason') or '').strip()
+            if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin') or not reason:
+                raise UserError(_('Only Packing Admin may edit Confirmed Qty with a reason.'))
+            if any(line.ro_id.production_ok for line in confirmed):
+                raise UserError(_('Produksi OK: RO Qty is locked.'))
+            if set(vals) != {'qty_requested'} or len(self) != 1:
+                raise UserError(_('Correct one RO line at a time.'))
+            new_qty = vals['qty_requested']
+            if not isinstance(new_qty, int) or isinstance(new_qty, bool) or new_qty < 0:
+                raise UserError(_('Qty Pesan must be a nonnegative integer.'))
+            old_qty = confirmed.qty_requested
+            result = super().write(vals)
+            if old_qty != new_qty:
+                self.env['ya.store.ro.qty.audit'].create({
+                    'ro_id': confirmed.ro_id.id,
+                    'ro_line_id': confirmed.id,
+                    'product_id': confirmed.product_id.id,
+                    'qty_before': old_qty, 'qty_after': new_qty,
+                    'reason': reason,
+                })
+            return result
         return super().write(vals)
 
     def unlink(self):
         if any(line.ro_id.state != 'draft' for line in self):
             raise UserError(_('Confirmed RO cannot be changed.'))
         return super().unlink()
+
+class YaStoreROQtyAudit(models.Model):
+    _name = 'ya.store.ro.qty.audit'
+    _description = 'YA Store RO Packing Qty Correction Audit'
+    _order = 'changed_at desc, id desc'
+
+    ro_id = fields.Many2one('ya.store.ro', required=True, ondelete='restrict', readonly=True)
+    ro_line_id = fields.Many2one('ya.store.ro.line', required=True, ondelete='restrict', readonly=True)
+    product_id = fields.Many2one('product.product', required=True, readonly=True)
+    qty_before = fields.Integer(readonly=True)
+    qty_after = fields.Integer(readonly=True)
+    reason = fields.Text(required=True, readonly=True)
+    changed_by = fields.Many2one('res.users', default=lambda self: self.env.user, readonly=True)
+    changed_at = fields.Datetime(default=fields.Datetime.now, readonly=True)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin'):
+            raise UserError(_('Only Packing Admin may log Qty corrections.'))
+        reason = (self.env.context.get('packing_qty_correction_reason') or '').strip()
+        if not reason:
+            raise UserError(_('Correction reason is required for audit.'))
+        for vals in vals_list:
+            if (vals.get('reason') or '').strip() != reason:
+                raise UserError(_('Correction reason mismatch.'))
+        return super().create(vals_list)
+
+    def write(self, vals):
+        raise UserError(_('RO Qty audit records cannot be modified.'))
+
+    def unlink(self):
+        raise UserError(_('RO Qty audit records cannot be deleted.'))
