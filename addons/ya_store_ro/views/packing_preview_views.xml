@@ -25,12 +25,24 @@
             Pindahkan ke Pre Produksi belum tersedia sampai Blocked Count = 0.
           </span>
         </div>
+        <div class="alert alert-warning" role="alert"
+             invisible="state != 'preview' or prorated_count == 0">
+          <strong>PRORATA KAPASITAS:</strong>
+          <field name="prorated_count" readonly="1" nolabel="1"/>
+          <span> SKU dibatasi Planning Max. Total kekurangan toko </span>
+          <field name="total_shortage" readonly="1" nolabel="1"/>
+          <span> pcs. Cek jatah final dan kekurangan pada tab Prorata per Toko.
+            Qty RO asli tidak berubah. Setujui pembagian sebelum Pre Produksi.
+          </span>
+        </div>
         <group invisible="state != 'preview'">
           <group>
             <field name="ro_count" readonly="1"/>
             <field name="kitchen_count" readonly="1"/>
             <field name="sku_count" readonly="1"/>
             <field name="blocked_count" readonly="1"/>
+            <field name="prorated_count" readonly="1"/>
+            <field name="total_shortage" readonly="1"/>
           </group>
           <group>
             <field name="total_requested" readonly="1"/>
@@ -42,7 +54,8 @@
           <page string="Consolidated SKU">
             <field name="line_ids" readonly="1" nolabel="1">
               <list create="false" delete="false"
-                    decoration-danger="capacity_status == 'blocked'">
+                    decoration-danger="capacity_status == 'blocked'"
+                    decoration-warning="capacity_status == 'prorated'">
                 <field name="kitchen_code" string="Dapur"/>
                 <field name="reference"/>
                 <field name="product_id"/>
@@ -50,9 +63,11 @@
                 <field name="bom_output" string="BoM Output"/>
                 <field name="qty_production" string="Production (Round Up)"/>
                 <field name="qty_surplus" string="Surplus"/>
+                <field name="qty_shortage" string="Kekurangan"/>
                 <field name="max_capacity" string="Planning Max"/>
                 <field name="capacity_status" string="Capacity" widget="badge"
                        decoration-danger="capacity_status == 'blocked'"
+                       decoration-warning="capacity_status == 'prorated'"
                        decoration-success="capacity_status == 'ok'"/>
                 <field name="uom_id"/>
               </list>
@@ -82,11 +97,16 @@
                 <field name="delivery_date_yyyymmdd" string="Tgl Kirim"/>
                 <field name="qty_requested" string="RO Qty"/>
                 <field name="qty_surplus" string="Surplus Prorata"/>
-                <field name="qty_allocated" string="Final Allocation"/>
+                <field name="qty_shortage" string="Kekurangan" decoration-danger="qty_shortage &gt; 0"/>
+                <field name="qty_allocated" string="Jatah Final"/>
               </list>
             </field>
           </page>
         </notebook>
+        <group invisible="state != 'preview' or prorated_count == 0">
+          <field name="accept_shortage"
+                 string="Saya menyetujui jatah prorata dan kekurangan toko yang ditampilkan."/>
+        </group>
         <footer>
           <span class="text-danger fw-bold"
                 invisible="state != 'preview' or blocked_count == 0">
@@ -100,11 +120,15 @@
                   invisible="state != 'preview'"/>
           <button name="action_preview" type="object"
                   string="Recalculate" invisible="state != 'preview'"/>
+          <span class="text-warning fw-bold"
+                invisible="state != 'preview' or prorated_count == 0">
+            Periksa dan setujui prorata kekurangan toko sebelum Pre Produksi.
+          </span>
           <button name="action_move_to_preproduction" type="object"
                   string="Pindahkan ke Pre Produksi"
                   class="btn-primary"
                   groups="ya_store_ro.group_ya_packing_admin"
-                  confirm="Pindahkan konsolidasi Confirmed RO ini ke daftar Pre Produksi per dapur dan SKU? Langkah ini BELUM membuat MO."
+                  confirm="Pindahkan konsolidasi ke Pre Produksi dan KUNCI Qty? Jika kapasitas kurang, Qty permintaan toko tidak berubah, tetapi jatah final masing-masing toko berkurang dan kekurangan dicatat. MO BELUM dibuat."
                   invisible="state != 'preview' or blocked_count != 0"/>
           <button string="Close" special="cancel"/>
         </footer>
