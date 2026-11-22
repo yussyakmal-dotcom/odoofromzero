@@ -34,6 +34,10 @@ class YaStoreRO(models.Model):
     # Display release status from immutable Packing batch, never set manually.
     production_ok = fields.Boolean(string='Produksi OK', compute='_compute_production_ok',
                                    compute_sudo=True, readonly=True)
+    packing_batch_id = fields.Many2one(
+        'ya.packing.batch', string='Packing Pre Produksi/Produksi OK',
+        readonly=True, copy=False, ondelete='restrict', index=True,
+    )
     correction_ids = fields.One2many(
         'ya.store.ro.qty.audit', 'ro_id', string='Riwayat Koreksi Qty', readonly=True,
     )
@@ -103,6 +107,8 @@ class YaStoreRO(models.Model):
             raise UserError(_('One or more selected RO records no longer exist.'))
         if any(ro.state != 'confirmed' for ro in orders):
             raise UserError(_('Only Confirmed RO may be consolidated.'))
+        if any(ro.packing_batch_id for ro in orders):
+            raise UserError(_('One or more selected RO already moved to Pre Produksi.'))
         dates_slots = {(ro.delivery_date, ro.slot) for ro in orders}
         if len(dates_slots) != 1:
             raise UserError(_('Select RO with the SAME Tanggal Kirim and Slot.'))
@@ -153,6 +159,27 @@ class YaStoreRO(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        if set(vals) == {'packing_batch_id'}:
+            if not (self.env.context.get('ya_stage_or_reset_packing') and
+                    self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):
+                raise UserError(_('Only Packing workflow may move RO to/from Pre Produksi.'))
+            batch_id = vals['packing_batch_id']
+            if any(ro.state != 'confirmed' for ro in self):
+                raise UserError(_('Only Confirmed RO can be staged.'))
+            if batch_id:
+                batch = self.env['ya.packing.batch'].browse(batch_id).exists()
+                if len(batch) != 1 or batch.state != 'pre_production':
+                    raise UserError(_('Target Pre Produksi batch is invalid.'))
+                if any(ro.packing_batch_id or
+                       ro.delivery_date != batch.delivery_date or ro.slot != batch.slot
+                       for ro in self):
+                    raise UserError(_('RO staging conflicts with date/slot or prior batch.'))
+            else:
+                if any(not ro.packing_batch_id or
+                       ro.packing_batch_id.state != 'pre_production'
+                       for ro in self):
+                    raise UserError(_('Cannot remove RO from Produksi OK.'))
+            return super().write(vals)
         if 'production_ok' in vals:
             raise UserError(_('Produksi OK requires the future atomic MO generation action.'))
         if any(ro.state != 'draft' for ro in self):
