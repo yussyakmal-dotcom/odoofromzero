@@ -91,6 +91,12 @@ class YaStoreRO(models.Model):
             raise UserError(_('Only a Manufacturing Manager may confirm RO at this phase.'))
         if self.state != 'draft':
             raise UserError(_('Only Draft RO can be confirmed.'))
+        lock_ro_slot(self.env.cr, self.delivery_date, self.slot)
+        if self.env['ya.packing.batch'].sudo().search_count([
+            ('delivery_date', '=', self.delivery_date),
+            ('slot', '=', self.slot), ('state', '=', 'production_ok'),
+        ]):
+            raise UserError(_('Produksi OK already released: cannot add new Confirmed RO.'))
         if self.planning_id.state != 'published':
             raise UserError(_('Source Planning must still be Published.'))
         if not self.line_ids.filtered(lambda r: r.qty_requested > 0):
