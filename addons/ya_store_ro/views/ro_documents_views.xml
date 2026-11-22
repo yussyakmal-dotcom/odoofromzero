@@ -48,6 +48,7 @@
               <field name="qty_total" readonly="1"/>
               <field name="confirmed_at" readonly="1"/>
               <field name="confirmed_by" readonly="1"/>
+              <field name="production_ok" readonly="1"/>
             </group>
           </group>
           <notebook>
@@ -58,6 +59,18 @@
                   <field name="product_id" readonly="1"/>
                   <field name="qty_requested" string="Qty Pesan"/>
                   <field name="uom_id" readonly="1"/>
+                </list>
+              </field>
+            </page>
+            <page string="Riwayat Koreksi Packing">
+              <field name="correction_ids" readonly="1">
+                <list create="false" delete="false">
+                  <field name="product_id"/>
+                  <field name="qty_before"/>
+                  <field name="qty_after"/>
+                  <field name="reason"/>
+                  <field name="changed_by"/>
+                  <field name="changed_at"/>
                 </list>
               </field>
             </page>
