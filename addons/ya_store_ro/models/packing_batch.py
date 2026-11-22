@@ -93,9 +93,9 @@ class YaPackingBatch(models.Model):
         lock_ro_slot(self.env.cr, self.delivery_date, self.slot)
         if self.state != 'pre_production' or self.line_ids.mapped('mo_id'):
             raise UserError(_('Cannot reset after Produksi OK.'))
-        self.allocation_ids.with_context(ya_reset_preproduction=True).unlink()
-        self.line_ids.with_context(ya_reset_preproduction=True).unlink()
-        self.with_context(ya_reset_preproduction=True).unlink()
+        self.allocation_ids.sudo().with_context(ya_reset_preproduction=True).unlink()
+        self.line_ids.sudo().with_context(ya_reset_preproduction=True).unlink()
+        self.sudo().with_context(ya_reset_preproduction=True).unlink()
         return self.env.ref('ya_store_ro.action_ya_packing_confirmed_ro').read()[0]
 
     def action_open_mos(self):
