@@ -104,3 +104,26 @@ PRODUCTS_TO_ADJUST: 0
 PREVIEW_ONLY_OK: No stock changes.
 ```
 Interpretasi yang dibuktikan: perhitungan saat audit ulang tidak membutuhkan tambahan stok CDC berdasarkan target multiplier 10× di script. Ini kuat mengindikasikan seeding stok CDC sudah terlaksana, namun **tidak menggantikan** audit Inventory Odoo maupun bukti log `APPLY_COMMITTED_TEST_DB_ONLY`, dan tidak menunjukkan semua stok efektif/lot/FEFO bebas dipindah. Jangan apply ulang. Tahap berikutnya: preflight + instalasi/uji GUI `ya_material_requirement` versi `19.0.1.1.0` di DB test saja; lalu lanjut desain permintaan Internal Transfer CDC→dapur dengan kontrol stok tersedia. Replenishment CDC, Premik dan WIP tetap dilakukan di luar flow melalui Odoo standar.
+
+## 8. KOREKSI URUTAN: Picking List CETAK CDC sebelum Internal Transfer (23 Nov 2026)
+
+Feri menegaskan ada **tahap wajib antara kebutuhan bahan/permintaan CDC dan transfer stok**: CDC membuat **Picking List** untuk petugas lapangan yang mengambil barang dari rak/stok CDC; list harus **bisa dicetak**. Picking List adalah dokumen kerja fisik, **BUKAN** bukti perpindahan stok, dan saat dicetak tidak boleh otomatis menambah/mengurangi stok.
+
+**Urutan final operasional:**
+```
+MO Confirmed
+→ Material Requirement per dapur
+→ Permintaan Bahan ke CDC
+→ CDC memeriksa kebutuhan dan stok tersedia bersama
+→ Buat Picking List CDC per dapur (tanggal kirim + slot)
+→ CETAK Picking List, petugas gudang mengambil dan mengecek fisik
+→ Admin CDC mengonfirmasi Qty yang benar-benar disiapkan
+→ Standard Odoo Internal Transfer CDC → dapur
+→ Dapur menerima bahan; stok bertambah hanya saat validasi pemindahan/penerimaan menurut route
+→ cek kesiapan MO
+```
+**Format cetak picking list yang direncanakan:** nomor dokumen, tanggal/slot, dapur tujuan, petugas, waktu cetak, baris berurut lokasi rak/bin CDC (jika terdata), kode SKU, nama bahan, UoM, Qty diminta, Qty disiapkan (kolom kosong untuk tulisan tangan), lot/expired FEFO bila tersedia, kolom centang/tanda tangan petugas dan pemeriksa. Satu SKU bahan per dapur dikonsolidasikan dari banyak MO; stok CDC diperhitungkan satu kali melintasi semua dapur, tidak dibuat Qty minus. Jika tidak cukup, tandai kekurangan dan lanjutkan terpisah oleh Admin Gudang menggunakan Purchase standar Odoo tanpa membuat workflow pengadaan di modul YA. Picking list harus berasal dari snapshot permintaan yang ditandai tanggal/slot dan referensi MO; jangan membuat dua kali untuk permintaan yang sama; perubahan sebelum konfirmasi harus audit/revisi.
+
+**PENTING:** `stock.picking` adalah dokumen operasional native Odoo dan dapat memiliki status/reservasi sendiri; kebutuhan cetak **"Picking List"** tidak berarti kita boleh langsung membuat/memvalidasi `stock.picking` yang memindah stok. Pilih secara eksplisit tahap cetak/penyiapan, lalu validasi transfer/penerimaan setelah cek fisik. Pada implementasi pastikan routing antarwarehouse dan FEFO; jangan membuat stock move selesai hanya dengan print.
+
+**Implementasi:** aturan flow dan rancangan format ini sudah dikunci di dokumentasi; modul `ya_material_requirement` versi `19.0.1.1.0` yang ada sekarang masih *read-only* dan **belum memiliki** tombol generate/cetak Picking List atau transfer. Jangan klaim fitur print sudah tersedia. Tahap berikutnya implementasi picking list dan QWeb PDF print, diuji hanya pada `erp-yussyakmal-mrp-test` setelah source review/backup.
