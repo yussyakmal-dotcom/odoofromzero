@@ -1,11 +1,31 @@
 # ODOO FROM ZERO — Status Pengembangan dan Handoff Manufacturing
 
-**Pembaruan:** 22 November 2026 — termasuk keputusan desain RO toko, konsolidasi MO, dan SO (belum implementasi)  
+**Pembaruan:** 22 November 2026 — addon Production Planning sudah terpasang/digunakan di MRP test; RO toko, konsolidasi MO, SO, DO tetap belum implementasi  
 **Cakupan:** ringkasan teknis aman untuk repository publik. Detail lingkungan, daftar akun, identitas transaksi dan konfigurasi internal disimpan terpisah secara privat.
 
 > **Dokumen ini adalah acuan status terbaru.** Catatan handoff sebelumnya adalah riwayat pengerjaan dan dapat memuat status lama yang sudah diselesaikan.
 
-> **STATUS TERBARU (22 November 2026):** Multi-SKU Scrap `ya_scrap_multi` **terinstal dan form sudah muncul di `erp-yussyakmal-mrp-test`** menurut verifikasi pengguna. Konfigurasi Scrap bersama dan alasan Rusak/Expired **APPLY committed**. Pengujian end-to-end `3 SKU → 3 native Scrap → 3 Stock Move → 1 batch` **PASS** dan **rollback terkonfirmasi**. Belum ada hasil uji impor Excel terpisah atau promosi ke DB utama. Lihat checkpoint paling akhir dan `doc/HANDOVER_ODOO_FROM_ZERO.md`.
+> **STATUS HISTORIS SCRAP (22 November 2026):** Multi-SKU Scrap `ya_scrap_multi` **terinstal dan form sudah muncul di `erp-yussyakmal-mrp-test`** menurut verifikasi pengguna. Konfigurasi Scrap bersama dan alasan Rusak/Expired **APPLY committed**. Pengujian end-to-end `3 SKU → 3 native Scrap → 3 Stock Move → 1 batch` **PASS** dan **rollback terkonfirmasi**. Belum ada hasil uji impor Excel terpisah atau promosi ke DB utama. Lihat checkpoint paling akhir dan `doc/HANDOVER_ODOO_FROM_ZERO.md`.
+
+## CHECKPOINT TERBARU — 22 November 2026: YA Production Planning IMPLEMENTASI MRP TEST
+
+> **Checkpoint ini mengesampingkan pernyataan lama dalam dokumen bahwa Master Capacity Template masih akan dibuat atau tidak ada addon Planning.** Rencana 3×dapur master template permanen **diganti** oleh Excel XLSX multi-sheet untuk tiap jadwal. Semua rancangan RO/MO/SO/DO di bagian bawah tetap belum diimplementasikan.
+
+**Bukti server dan GUI:** addon `ya_production_planning` sudah terinstal pada `erp-yussyakmal-mrp-test`, empat model tercatat ada, source preflight lulus, Odoo service menerima deploy addon ke `/opt/odoo19/custom-addons/`. File input: `info` memetakan sheet→kode dapur; sheet dapur `DAPUR | Product | Max | Unit`. Ada sepuluh dapur dalam template contoh dengan 588 baris SKU. SOP menentukan SKU yang masuk sheet; importer memvalidasi teknisnya. Input tanggal kirim + S1 05.00 / S2 09.00 / S3 11.00 WIB.
+
+**Alur UI final yang pengguna menyatakan sesuai:** **Upload Planning (menu) → list Planning Draft/Published → Upload Baru → Upload XLSX → Validate & Preview → Save Draft**, kemudian buka satu dapur untuk **Publish This Kitchen**. **Bukan** Publish Entire Upload. Pada Draft operator dapat mengedit Max, Published terkunci. Kosmetik minor UI ditunda. Menu Planning harus menampilkan keduanya dengan filter Draft/Published.
+
+**Reupload:** kunci `delivery_date + slot + kitchen_code`. Belum ada → CREATE Draft; masih Draft → REPLACE SKU dan Max dapur; Published → SKIP dan tidak mengubah; dapur di luar file tidak tersentuh. Preview/notifikasi menampilkan CREATE/REPLACE/SKIP. Yang telah terlihat pada GUI antara lain notifikasi lima dapur Created Draft untuk jadwal baru; semua kombinasi tidak boleh diklaim E2E PASS tanpa tes tersendiri.
+
+**UoM:** `Unit` Excel berasal dari **BoM Header UoM** produk, bukan dari stok master. Audit global menunjukkan 955 BoM, 902 satuan sama master, 53 berbeda; dari impor ada 29 mismatch vs master yang mengarah pada kebutuhan validasi BoM output UoM. Importer sekarang memeriksa BoM produk pada warehouse dapur dan Unit sama dengan BoM output. Tidak membuat konversi jumlah atau mengubah master. Premik, Trial, Dahlia 5 tidak masuk 10 dapur jadwal; Packing merakit produk paket dan penanganannya dirancang terpisah.
+
+**Masalah teknis yang telah dipelajari:** `line_row field undefined` karena servis belum membaca Python terbaru walau XML sudah di-upgrade. `Cannot read properties of undefined (reading 'map')` sesudah Save Draft terjadi pada navigasi hasil upload; data sudah disimpan dan kode action ditambahkan `views`. Saat muncul popup, cek record dahulu, jangan upload ulang langsung. `git pull` tidak otomatis deploy custom-addons; kode Python, XML, ACL dapat memerlukan `-u` pada DB test dan restart `odoo19.service`. Lihat [SKILL_ODOO19_ADDON_WORKFLOW.md](SKILL_ODOO19_ADDON_WORKFLOW.md).
+
+**BATAS:** Produksi/RO toko belum dijalankan oleh addon Planning. Published Planning Max > 0 adalah sumber daftar yang **akan** dipakai RO. Belum ada booking capacity RO, RO Confirm, MO ataupun accounting end-to-end. DB `erp-yussyakmal` dan `erp-yussyakmal-integer-test` tidak disentuh. Status akuntansi dan distribusi dalam dokumen adalah desain, bukan bukti tes.
+
+**Next:** modul RO toko per toko + dapur + tanggal kirim + slot, dengan Excel Qty Pesan dan hanya SKU Published Max>0. Tidak perlu mengaudit 955 BoM lagi untuk mulai desain RO; kosmetik Planning pending.
+
+---
 
 ## Status tahapan
 
