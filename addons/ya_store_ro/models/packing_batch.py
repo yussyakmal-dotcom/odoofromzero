@@ -126,6 +126,7 @@ class YaPackingBatchLine(models.Model):
     qty_requested = fields.Integer(readonly=True)
     qty_production = fields.Integer(readonly=True)
     qty_surplus = fields.Integer(readonly=True)
+    qty_shortage = fields.Integer(string='Kekurangan Toko', readonly=True)
     max_capacity = fields.Integer(readonly=True)
     uom_id = fields.Many2one('uom.uom', required=True, readonly=True)
     mo_id = fields.Many2one('mrp.production', readonly=True, index=True,
@@ -237,6 +238,22 @@ class YaPackingBatchLine(models.Model):
                 'SKU demand changed after Pre Produksi. Reset and consolidate again.'
             ))
 
+        # Each store shortage is explicit and backed by original RO Qty.
+        for allocation in batch.allocation_ids:
+            if (allocation.qty_allocated < 0 or allocation.qty_shortage < 0 or
+                    allocation.qty_surplus < 0 or
+                    allocation.qty_allocated + allocation.qty_shortage !=
+                    allocation.qty_requested + allocation.qty_surplus):
+                raise UserError(_('Invalid store allocation/shortage for %s.')
+                                % allocation.reference)
+        for line in batch.line_ids:
+            rows = batch.allocation_ids.filtered(lambda row: row.line_id == line)
+            if (sum(rows.mapped('qty_allocated')) != line.qty_production or
+                    sum(rows.mapped('qty_requested')) != line.qty_requested or
+                    sum(rows.mapped('qty_shortage')) != line.qty_shortage):
+                raise UserError(_('Store prorata / shortage mismatch for %s.')
+                                % line.reference)
+
         for line in batch.line_ids.sorted(lambda row: (
                 row.kitchen_code or '', row.reference or '', row.id)):
             bom = line.bom_id
@@ -308,6 +325,7 @@ class YaPackingBatchAllocation(models.Model):
                                          readonly=True)
     qty_requested = fields.Integer(readonly=True)
     qty_surplus = fields.Integer(readonly=True)
+    qty_shortage = fields.Integer(string='Kekurangan', readonly=True)
     qty_allocated = fields.Integer(readonly=True)
 
     _unique_batch_line_store = models.Constraint(
