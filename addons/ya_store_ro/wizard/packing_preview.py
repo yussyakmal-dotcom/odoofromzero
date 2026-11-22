@@ -46,8 +46,9 @@ class YaPackingPreview(models.TransientModel):
 
     def action_preview(self):
         self.ensure_one()
-        if not self.env.user.has_group('mrp.group_mrp_manager'):
-            raise UserError(_('Only a Manufacturing Manager may preview Packing consolidation.'))
+        if not (self.env.user.has_group('mrp.group_mrp_manager') or
+                self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):
+            raise UserError(_('Only a Manufacturing Manager or Packing Admin may preview consolidation.'))
         try:
             delivery_date = parse_ymondd(self.delivery_date_yyyymmdd)
         except ValueError:
