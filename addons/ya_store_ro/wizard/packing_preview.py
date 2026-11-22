@@ -1,7 +1,7 @@
-"""Read-only Packing consolidation preview for one Published kitchen/date/slot.
+"""RO-only Packing Preview: all Confirmed store RO for a delivery date and slot.
 
-No MO, transfer, stock reservation, or persistent consolidated document is made.
-Only confirmed RO records are included; Drafts are excluded.
+Group per kitchen + SKU. Each group becomes the BASIS for one eventual MO.
+Read-only for all persistent business documents; no MO or stock move here.
 """
 from collections import defaultdict
 
@@ -10,16 +10,19 @@ from odoo.exceptions import UserError
 
 from ..models.allocation_rules import allocate_surplus_prorata
 
+SLOTS = [('S1', 'S1 - 05.00 WIB'), ('S2', 'S2 - 09.00 WIB'),
+         ('S3', 'S3 - 11.00 WIB')]
+
 
 class YaPackingPreview(models.TransientModel):
     _name = 'ya.packing.preview'
     _description = 'YA Packing RO-only Consolidation Preview'
 
-    planning_id = fields.Many2one(
-        'ya.production.planning', string='Published Planning', required=True,
-        domain=[('state', '=', 'published')],
-    )
+    delivery_date = fields.Date(string='Tanggal Kirim', required=True,
+                                default=fields.Date.context_today)
+    slot = fields.Selection(SLOTS, string='Slot Pengiriman', required=True)
     ro_count = fields.Integer(readonly=True)
+    kitchen_count = fields.Integer(readonly=True)
     sku_count = fields.Integer(readonly=True)
     blocked_count = fields.Integer(readonly=True)
     total_requested = fields.Integer(readonly=True)
@@ -42,109 +45,136 @@ class YaPackingPreview(models.TransientModel):
         self.ensure_one()
         if not self.env.user.has_group('mrp.group_mrp_manager'):
             raise UserError(_('Only a Manufacturing Manager may preview Packing consolidation.'))
-        plan = self.planning_id
-        if not plan or plan.state != 'published':
-            raise UserError(_('Choose one Published Planning.'))
+        if not self.delivery_date or not self.slot:
+            raise UserError(_('Select Tanggal Kirim and Slot Pengiriman.'))
+
+        # Critical: start from CONFIRMED RO (all stores and kitchens), never
+        # from PPIC Planning list. No Draft RO participates.
         orders = self.env['ya.store.ro'].search([
-            ('planning_id', '=', plan.id), ('state', '=', 'confirmed'),
+            ('delivery_date', '=', self.delivery_date),
+            ('slot', '=', self.slot),
+            ('state', '=', 'confirmed'),
         ])
         if not orders:
-            raise UserError(_('No Confirmed RO for this kitchen, date and slot.'))
+            raise UserError(_('No Confirmed RO for the selected delivery date and slot.'))
 
-        # One Confirmed RO per store + Planning by SQL constraint.
-        store_ids = orders.mapped('store_warehouse_id').ids
-        if len(store_ids) != len(orders):
-            raise UserError(_('Duplicate store RO detected; abort consolidation.'))
-
-        by_product = defaultdict(dict)
-        plan_lines = {line.product_id.id: line for line in plan.line_ids
-                      if line.max_capacity > 0}
+        # Group by Published Planning ID and SKU ID. One Planning = one kitchen
+        # for date+slot by the Planning unique DB constraint.
+        by_group = defaultdict(dict)
+        planning_lines = {}
+        included_kitchens = set()
         for ro in orders:
+            plan = ro.planning_id
+            if plan.state != 'published':
+                raise UserError(_('Confirmed RO %s is linked to non-Published Planning.')
+                                % ro.display_name)
+            included_kitchens.add(plan.kitchen_code)
+            eligible = planning_lines.setdefault(
+                plan.id,
+                {line.product_id.id: line for line in plan.line_ids
+                 if line.max_capacity > 0},
+            )
             for order_line in ro.line_ids:
+                source = eligible.get(order_line.product_id.id)
+                if not source:
+                    raise UserError(_('Confirmed RO %s has SKU outside Published Planning: %s')
+                                    % (ro.display_name, order_line.reference))
+                if order_line.uom_id != source.uom_id:
+                    raise UserError(_('RO SKU UoM mismatch: %s') % order_line.reference)
                 if order_line.qty_requested < 0:
                     raise UserError(_('RO Qty cannot be negative.'))
-                if order_line.product_id.id not in plan_lines:
-                    raise UserError(_('Confirmed RO has SKU not in eligible Published Planning: %s')
-                                    % order_line.reference)
-                if order_line.uom_id != plan_lines[order_line.product_id.id].uom_id:
-                    raise UserError(_('RO SKU UoM disagrees with Planning: %s')
-                                    % order_line.reference)
                 if order_line.qty_requested:
-                    by_product[order_line.product_id.id][ro.store_warehouse_id.id] = (
-                        order_line.qty_requested
-                    )
+                    group = (plan.id, order_line.product_id.id)
+                    store_id = ro.store_warehouse_id.id
+                    # Guard against duplicate lines/store across RO documents.
+                    if store_id in by_group[group]:
+                        raise UserError(_('Duplicate store Qty for kitchen %s SKU %s.')
+                                        % (plan.kitchen_code, order_line.reference))
+                    by_group[group][store_id] = order_line.qty_requested
 
-        if not by_product:
+        if not by_group:
             raise UserError(_('All Confirmed RO quantities are zero.'))
 
-        line_values = []
-        alloc_values = []
-        blocked = []
+        line_values, allocation_values, blocked = [], [], []
         total_requested = total_production = 0
-        for product_id in sorted(by_product, key=lambda p: (plan_lines[p].reference, p)):
-            source = plan_lines[product_id]
+        sort_key = lambda item: (
+            self.env['ya.production.planning'].browse(item[0]).kitchen_code,
+            planning_lines[item[0]][item[1]].reference or '', item[1],
+        )
+        for plan_id, product_id in sorted(by_group, key=sort_key):
+            plan = self.env['ya.production.planning'].browse(plan_id)
+            source = planning_lines[plan_id][product_id]
             try:
                 bom = source._capacity_bom()
             except UserError as exc:
-                raise UserError(_('SKU %s: Cannot resolve kitchen-specific BoM: %s')
-                                % (source.reference, exc))
+                raise UserError(_('Dapur %s SKU %s: Cannot resolve BoM: %s') %
+                                (plan.kitchen_code, source.reference, exc))
             batch = bom.product_qty
             if batch <= 0 or int(batch) != batch:
-                raise UserError(_('SKU %s has non-integer BoM output %s; cannot consolidate.')
-                                % (source.reference, batch))
-            requests = by_product[product_id]
+                raise UserError(_('Dapur %s SKU %s: BoM output %s must be a positive integer.')
+                                % (plan.kitchen_code, source.reference, batch))
+
+            requests = by_group[(plan_id, product_id)]
             produced, allocations = allocate_surplus_prorata(requests, int(batch))
             requested = sum(requests.values())
-            surplus = produced - requested
-            is_blocked = produced > source.max_capacity
-            if is_blocked:
-                blocked.append(source.reference)
+            blocked_capacity = produced > source.max_capacity
+            if blocked_capacity:
+                blocked.append('%s / %s' % (plan.kitchen_code, source.reference))
             total_requested += requested
             total_production += produced
             line_values.append((0, 0, {
-                'product_id': product_id, 'reference': source.reference,
-                'uom_id': source.uom_id.id, 'bom_id': bom.id,
-                'bom_output': int(batch), 'max_capacity': source.max_capacity,
-                'qty_requested': requested, 'qty_production': produced,
-                'qty_surplus': surplus,
-                'capacity_status': 'blocked' if is_blocked else 'ok',
+                'planning_id': plan_id,
+                'kitchen_code': plan.kitchen_code,
+                'product_id': product_id,
+                'reference': source.reference,
+                'uom_id': source.uom_id.id,
+                'bom_id': bom.id,
+                'bom_output': int(batch),
+                'max_capacity': source.max_capacity,
+                'qty_requested': requested,
+                'qty_production': produced,
+                'qty_surplus': produced - requested,
+                'capacity_status': 'blocked' if blocked_capacity else 'ok',
             }))
             for store_id in sorted(allocations):
-                row = allocations[store_id]
-                alloc_values.append((0, 0, {
-                    'product_id': product_id, 'reference': source.reference,
+                a = allocations[store_id]
+                allocation_values.append((0, 0, {
+                    'planning_id': plan_id,
+                    'kitchen_code': plan.kitchen_code,
+                    'product_id': product_id,
+                    'reference': source.reference,
                     'store_warehouse_id': store_id,
-                    'qty_requested': row['requested'],
-                    'qty_surplus': row['surplus'],
-                    'qty_allocated': row['allocated'],
+                    'qty_requested': a['requested'],
+                    'qty_surplus': a['surplus'],
+                    'qty_allocated': a['allocated'],
                 }))
-        # Preview is a scratchpad only. Recompute on every click, never modify RO.
         self.write({
             'line_ids': [(5, 0, 0)] + line_values,
-            'allocation_ids': [(5, 0, 0)] + alloc_values,
-            'state': 'preview', 'ro_count': len(orders),
+            'allocation_ids': [(5, 0, 0)] + allocation_values,
+            'state': 'preview',
+            'ro_count': len(orders), 'kitchen_count': len(included_kitchens),
             'sku_count': len(line_values), 'blocked_count': len(blocked),
-            'total_requested': total_requested,
-            'total_production': total_production,
+            'total_requested': total_requested, 'total_production': total_production,
             'info': (
-                'RO-only preview: %s Confirmed RO; %s SKU; requested %s; '
-                'rounded-up production %s; capacity exceptions %s. '
-                'SO, MO, internal transfer and stock are NOT processed. %s'
-            ) % (
-                len(orders), len(line_values), total_requested,
-                total_production, len(blocked),
-                ('BLOCKED SKUs: ' + ', '.join(blocked[:20]))
-                if blocked else 'Capacity preview OK.',
-            ),
+                'Sumber: %s RO Confirmed / %s dapur / %s kombinasi dapur-SKU '
+                '(dasar %s MO). Qty RO %s; Qty Produksi (ROUND UP) %s; '
+                'Exceeded Planning Max %s. Draft RO excluded. '
+                'This preview creates NO MO, stock moves, or reservations. %s'
+            ) % (len(orders), len(included_kitchens), len(line_values),
+                 len(line_values), total_requested, total_production, len(blocked),
+                 ('EXCEEDS MAX: ' + ', '.join(blocked[:20]))
+                 if blocked else 'All within Planning Max.'),
         })
         return self._reopen()
 
 
 class YaPackingPreviewLine(models.TransientModel):
     _name = 'ya.packing.preview.line'
-    _description = 'Packing Consolidation Preview SKU'
+    _description = 'Packing Consolidation Preview Kitchen SKU'
 
     wizard_id = fields.Many2one('ya.packing.preview', required=True, ondelete='cascade')
+    planning_id = fields.Many2one('ya.production.planning', readonly=True)
+    kitchen_code = fields.Char(readonly=True)
     product_id = fields.Many2one('product.product', readonly=True)
     reference = fields.Char(readonly=True)
     uom_id = fields.Many2one('uom.uom', readonly=True)
@@ -155,8 +185,7 @@ class YaPackingPreviewLine(models.TransientModel):
     qty_production = fields.Integer(readonly=True)
     qty_surplus = fields.Integer(readonly=True)
     capacity_status = fields.Selection(
-        [('ok', 'Within Max'), ('blocked', 'Exceeds Max')],
-        readonly=True,
+        [('ok', 'Within Max'), ('blocked', 'Exceeds Max')], readonly=True,
     )
 
 
@@ -165,6 +194,8 @@ class YaPackingPreviewAllocation(models.TransientModel):
     _description = 'Packing Consolidation Preview Store Allocation'
 
     wizard_id = fields.Many2one('ya.packing.preview', required=True, ondelete='cascade')
+    planning_id = fields.Many2one('ya.production.planning', readonly=True)
+    kitchen_code = fields.Char(readonly=True)
     product_id = fields.Many2one('product.product', readonly=True)
     reference = fields.Char(readonly=True)
     store_warehouse_id = fields.Many2one('stock.warehouse', readonly=True)
