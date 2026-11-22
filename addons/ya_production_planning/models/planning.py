@@ -7,8 +7,10 @@ SLOTS = [('S1', 'S1 - 05.00 WIB'), ('S2', 'S2 - 09.00 WIB'), ('S3', 'S3 - 11.00 
 class YaProductionPlanning(models.Model):
     _name = 'ya.production.planning'
     _description = 'YA Production Capacity Planning'
+    _rec_name = 'name'
     _order = 'delivery_date desc, slot, kitchen_code'
 
+    name = fields.Char(string='Planning', compute='_compute_name')
     delivery_date = fields.Date(required=True, index=True)
     slot = fields.Selection(SLOTS, required=True, index=True)
     kitchen_code = fields.Char(required=True, readonly=True, index=True)
@@ -24,6 +26,11 @@ class YaProductionPlanning(models.Model):
     _unique_delivery_slot_kitchen = models.Constraint(
         'UNIQUE(delivery_date, slot, kitchen_code)',
         'Only one planning is allowed per delivery date, slot, and kitchen.')
+
+    @api.depends('delivery_date', 'slot', 'kitchen_code')
+    def _compute_name(self):
+        for rec in self:
+            rec.name = 'Planning'
 
     @api.depends('line_ids')
     def _compute_line_count(self):
@@ -88,6 +95,12 @@ class YaProductionPlanningLine(models.Model):
     uom_id = fields.Many2one('uom.uom', required=True, readonly=True)
     source_sheet = fields.Char(readonly=True)
     source_row = fields.Integer(readonly=True)
+    line_row = fields.Integer(string='Line Row', compute='_compute_line_row')
+
+    @api.depends('source_row')
+    def _compute_line_row(self):
+        for rec in self:
+            rec.line_row = max(0, rec.source_row - 1)
     _unique_planning_product = models.Constraint(
         'UNIQUE(planning_id, product_id)', 'Duplicate SKU in planning.')
     _capacity_nonnegative = models.Constraint(
@@ -108,6 +121,8 @@ class YaProductionPlanningLine(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        if set(vals) - {'max_capacity'}:
+            raise UserError(_('Only Max Capacity may be edited on planning lines.'))
         if any(r.planning_id.state != 'draft' for r in self):
             raise UserError(_('Cannot change Published planning lines.'))
         return super().write(vals)
