@@ -14,7 +14,7 @@ root = pathlib.Path(__file__).resolve().parents[1]
 addon = root / "addons" / "ya_store_ro"
 required = [
     "__init__.py", "__manifest__.py",
-    "models/__init__.py", "models/store_ro.py", "models/allocation_rules.py",
+    "models/__init__.py", "models/store_ro.py", "models/allocation_rules.py", "models/date_labels.py",
     "wizard/__init__.py", "wizard/ro_template_wizard.py",
     "wizard/ro_import.py", "wizard/packing_preview.py",
     "security/ir.model.access.csv",
@@ -56,7 +56,7 @@ packing_file = addon / "wizard/packing_preview.py"
 if packing_file.is_file():
     packing = packing_file.read_text(encoding="utf-8")
     required_tokens = (
-        "('delivery_date', '=', self.delivery_date)",
+        "('delivery_date', '=', delivery_date)",
         "('slot', '=', self.slot)",
         "('state', '=', 'confirmed')",
         "group = (plan.id, order_line.product_id.id)",
@@ -70,19 +70,19 @@ if packing_file.is_file():
 view = addon / "views/packing_preview_views.xml"
 if view.is_file():
     view_text = view.read_text(encoding="utf-8")
-    if '<field name="delivery_date"' not in view_text or '<field name="slot"' not in view_text:
+    if '<field name="delivery_date_yyyymmdd"' not in view_text or '<field name="slot"' not in view_text:
         errors.append("PACKING_DATE_SLOT_PICKER_MISSING")
-# Date display must be explicit YYYYMMDD, never locale-formatted "Nov 22".
+# Date display must be YYYY-Mon-DD, e.g. 2026-Nov-22.
 for relative, required_tokens in {
-    "models/store_ro.py": ("delivery_date_yyyymmdd", "ro_date_yyyymmdd", "strftime('%Y%m%d')"),
-    "wizard/packing_preview.py": ("delivery_date_yyyymmdd", "ro_date_yyyymmdd", "datetime.strptime("),
+    "models/store_ro.py": ("delivery_date_yyyymmdd", "ro_date_yyyymmdd", "format_ymondd"),
+    "wizard/packing_preview.py": ("delivery_date_yyyymmdd", "ro_date_yyyymmdd", "parse_ymondd("),
     "views/ro_documents_views.xml": ('name="delivery_date_yyyymmdd"', 'name="ro_date_yyyymmdd"'),
     "views/packing_preview_views.xml": ('name="delivery_date_yyyymmdd"', 'name="ro_date_yyyymmdd"'),
 }.items():
     body = (addon / relative).read_text(encoding="utf-8")
     for token in required_tokens:
         if token not in body:
-            errors.append("YYYYMMDD_DISPLAY_MISSING: " + relative + ": " + token)
+            errors.append("YYYY_MON_DD_DISPLAY_MISSING: " + relative + ": " + token)
 print("ERROR_COUNT:", len(errors))
 for issue in errors:
     print(issue)
