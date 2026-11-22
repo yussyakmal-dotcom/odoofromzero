@@ -119,6 +119,8 @@ class YaPackingBatchLine(models.Model):
                                readonly=True, ondelete='restrict', index=True)
     planning_id = fields.Many2one('ya.production.planning', required=True,
                                   readonly=True, ondelete='restrict')
+    state = fields.Selection(related='batch_id.state', string='Status Produksi',
+                             store=True, readonly=True)
     kitchen_code = fields.Char(required=True, readonly=True)
     product_id = fields.Many2one('product.product', required=True, readonly=True)
     reference = fields.Char(required=True, readonly=True)
