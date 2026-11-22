@@ -1,3 +1,5 @@
+> **CHECKPOINT AKTIF / START HERE (23 Nov 2026):** [doc/CHECKPOINT_2026-11-23_MO_MATERIAL_CDC.md](CHECKPOINT_2026-11-23_MO_MATERIAL_CDC.md). Resume MO→Material Requirement→CDC di DB test. 20 MO Confirmed, 247 raw moves, 97 kombinasi dapur-bahan; source `ya_material_requirement` 19.0.1.1.0 belum dibuktikan terinstal; replenishment CDC via standar Purchase oleh Admin Gudang **DI LUAR** workflow. Catatan bawah adalah sejarah, bukan status terbaru.
+
 # SKILL — Workflow Odoo 19 Addon: GitHub → Feri Server → MRP Test
 
 **Tujuan:** panduan praktik untuk sesi ChatGPT berikutnya agar tidak mengulang trial-and-error deploy/install addon. **Baca file ini bersama [HANDOVER_ODOO_FROM_ZERO.md](HANDOVER_ODOO_FROM_ZERO.md) sebelum menulis/memasang addon.** Ini petunjuk operasional proyek, bukan konfigurasi skill otomatis pada ChatGPT.
