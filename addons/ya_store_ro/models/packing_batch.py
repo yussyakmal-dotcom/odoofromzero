@@ -204,6 +204,27 @@ class YaPackingBatchLine(models.Model):
                     'RO Qty changed after Pre Produksi (%s). '
                     'Reset and consolidate again.'
                 ) % allocation.reference)
+        for line in batch.line_ids:
+            actual_requested = sum(
+                row.qty_requested for ro in current
+                if ro.planning_id == line.planning_id
+                for row in ro.line_ids if row.product_id == line.product_id
+            )
+            if actual_requested != line.qty_requested:
+                raise UserError(_(
+                    'Consolidated Qty changed after Pre Produksi (%s). '
+                    'Reset and consolidate again.'
+                ) % line.reference)
+        planned_keys = {(line.planning_id.id, line.product_id.id)
+                        for line in batch.line_ids}
+        current_keys = {
+            (ro.planning_id.id, row.product_id.id)
+            for ro in current for row in ro.line_ids if row.qty_requested > 0
+        }
+        if planned_keys != current_keys:
+            raise UserError(_(
+                'SKU demand changed after Pre Produksi. Reset and consolidate again.'
+            ))
 
         for line in batch.line_ids.sorted(lambda row: (
                 row.kitchen_code or '', row.reference or '', row.id)):
