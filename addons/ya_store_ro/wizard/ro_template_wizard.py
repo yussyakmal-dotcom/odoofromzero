@@ -11,7 +11,6 @@ from odoo.exceptions import UserError
 try:
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
-    from openpyxl.utils import get_column_letter
 except ImportError:
     Workbook = None
 
@@ -49,8 +48,6 @@ class YaStoreRoTemplate(models.TransientModel):
             raise UserError(_('Choose a Published Planning document.'))
         if not self.store_warehouse_id or not self.store_warehouse_id.active:
             raise UserError(_('Choose an active store warehouse.'))
-        if plan.company_id and self.store_warehouse_id.company_id != plan.company_id:
-            raise UserError(_('Store and Planning must belong to the same company.'))
 
         lines = plan.line_ids.filtered(lambda r: r.max_capacity > 0).sorted(
             key=lambda r: (r.reference or '', r.id)
