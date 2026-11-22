@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_packing_batch_list" model="ir.ui.view">
+    <field name="name">ya.packing.batch.list</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="arch" type="xml">
+      <list string="Produksi OK - Batch per Jadwal" create="false" delete="false">
+        <field name="name" string="Batch Produksi"/>
+        <field name="ro_count" string="RO Confirmed"/>
+        <field name="kitchen_count" string="Dapur"/>
+        <field name="mo_count" string="Jumlah MO"/>
+        <field name="state"/>
+        <field name="released_at"/>
+        <field name="released_by"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_ya_packing_batch_form" model="ir.ui.view">
+    <field name="name">ya.packing.batch.form</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="arch" type="xml">
+      <form string="Produksi OK" create="false" edit="false" delete="false">
+        <header>
+          <button name="action_open_mos" type="object" string="Lihat MO"
+                  class="btn-primary"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="name" readonly="1"/>
+              <field name="delivery_date" readonly="1"/>
+              <field name="slot" readonly="1"/>
+              <field name="ro_count" readonly="1"/>
+              <field name="kitchen_count" readonly="1"/>
+              <field name="mo_count" readonly="1"/>
+            </group>
+            <group>
+              <field name="released_by" readonly="1"/>
+              <field name="released_at" readonly="1"/>
+              <field name="production_qty_total" readonly="1"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="MO per Dapur + SKU">
+              <field name="line_ids" readonly="1">
+                <list create="false" delete="false">
+                  <field name="kitchen_code" string="Dapur"/>
+                  <field name="reference" string="SKU"/>
+                  <field name="product_id"/>
+                  <field name="qty_requested" string="Total RO"/>
+                  <field name="qty_production" string="Qty MO"/>
+                  <field name="qty_surplus" string="Surplus"/>
+                  <field name="max_capacity" string="Planning Max"/>
+                  <field name="uom_id"/>
+                  <field name="mo_id" string="MO"/>
+                </list>
+              </field>
+            </page>
+            <page string="Alokasi Final Toko">
+              <field name="allocation_ids" readonly="1">
+                <list create="false" delete="false">
+                  <field name="kitchen_code" string="Dapur"/>
+                  <field name="reference" string="SKU"/>
+                  <field name="store_warehouse_id" string="Toko"/>
+                  <field name="ro_id" string="RO Sumber"/>
+                  <field name="qty_requested" string="Qty RO"/>
+                  <field name="qty_surplus" string="Prorata"/>
+                  <field name="qty_allocated" string="Qty Alokasi"/>
+                </list>
+              </field>
+            </page>
+            <page string="RO Terkait">
+              <field name="ro_ids" readonly="1">
+                <list create="false" delete="false">
+                  <field name="delivery_date_yyyymmdd" string="Tgl Kirim"/>
+                  <field name="ro_date_yyyymmdd" string="Tgl RO"/>
+                  <field name="kitchen_code" string="Dapur"/>
+                  <field name="store_warehouse_id" string="Toko"/>
+                  <field name="qty_total" string="Qty RO"/>
+                  <field name="state"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_packing_batch" model="ir.actions.act_window">
+    <field name="name">Packing - Produksi OK</field>
+    <field name="res_model">ya.packing.batch</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <menuitem id="menu_ya_packing_batch" name="Packing - Produksi OK"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_packing_batch" sequence="40"
+            groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
+</odoo>
