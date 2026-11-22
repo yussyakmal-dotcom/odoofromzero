@@ -600,3 +600,23 @@ sudo -u odoo19 /opt/odoo19/venv/bin/python3 \
  < script/audit_mo_material_cdc_readonly_ya.py
 ```
 No module upgrade or service restart required for these reports. Source commit and reports are not evidence of actual inventory balances until shell output arrives.
+
+## 23 Nov 2026 — New `ya_material_requirement` 19.0.1.0.0 (SOURCE ONLY)
+
+After user reported `AUDIT_READ_ONLY_OK` on `erp-yussyakmal-mrp-test` 2026-11-27 S1 (20 Confirmed linked MO, 247 raw moves, 97 kitchen/product combinations from Dapur Asin and Dapur Gorengan, CDC uniquely `Gudang Central` code `CDC` at `CDC/Stock`), developed a new addon: `addons/ya_material_requirement`.
+
+Important precision: the stdout printed only 75 of 97 groups; all 75 printed were zero in kitchen physical/reserved and CDC free, but 22 weren't shown; do not assert all 97 have zero stock without the new full view.
+
+**Single UI menu:** `Manufacturing → YA Production Capacity → Material Requirement` (under `ya_production_planning.menu_ya_capacity_root`). Wizard date/slot and `Hitung / Refresh Kebutuhan`, two list tabs:
+1. `Kebutuhan Bahan per Dapur`: consolidated from linked confirmed MO `move_raw_ids`, stock WH/Stock internal subtree, need/onhand/reserved/free and min/max shortage per base UoM.
+2. `Ringkasan CDC per Bahan`: aggregates shortages from **ALL kitchens for same product BEFORE subtracting CDC free stock ONCE**, displays projected CDC purchasing gap min/max and warning badges.
+
+**Reservation caveat:** This is a report only, not an automatic requisition: when reservations exist, `need - free` may double count those already belonging to the same MO. Display shortage interval `min=max(need-onhand,0)`, `max=max(need-(onhand-reserved),0)`, no definitive transfer until reservation ownership/incoming stock/FEFO reconciled. Rejects non-confirmed MO and ambiguous CDC/kitchen routing. Only test DB allowed in pilot runtime. Snapshot writes only ephemeral TransientModel reports, never stock/MO/picking/PO.
+
+Source files: `models/material_requirement.py`, `models/material_rules.py`, `views/material_requirement_views.xml`, `security/ir.model.access.csv`, `README.md`, source/test scripts `script/check_material_requirement_source_readonly_ya.py`, `script/test_material_requirement_rules_ya.py`. **NOT YET installed, upgraded or user tested.** Do not claim new menu exists on server before Feri's `-i` success and GUI validation. User must use GUI backup of test DB, no production DB. Tests before install:
+```bash
+cd ~/odoofromzero && git pull
+python3 script/check_material_requirement_source_readonly_ya.py
+python3 script/test_material_requirement_rules_ya.py
+```
+If both PASS, install new addon to test DB using `-i ya_material_requirement`, coordinated restart of shared Odoo service, inspect menu and compare counts with earlier audit. No CDC transfers yet, no purchase generation.
