@@ -94,3 +94,7 @@ Koreksi ini menggantikan instruksi lama yang menyuruh memilih satu Published Pla
 ## Tampilan tanggal RO dan Packing — YYYYMMDD (22 Nov 2026)
 
 Keputusan Feri: tanggal yang ditampilkan tidak boleh format locale seperti `Nov 22`; gunakan **`YYYYMMDD`** (mis. `20261122`). Source addon `ya_store_ro` versi **19.0.3.2.0** telah diperbarui (**belum di-upgrade/GUI tested**): RO list/detail menampilkan **Tgl Kirim** dan **Tgl RO** format YYYYMMDD sebagai field string computed; Tgl RO diambil dari waktu pembuatan RO `create_date` dikonversi ke timezone pengguna, sedangkan Tgl Kirim dari jadwal Planning. Pada Packing Preview, input tanggal kirim berupa teks YYYYMMDD dengan validasi ketat; tab Prorata per Toko menampilkan **RO sumber, Tgl RO, Tgl Kirim**. Tanggal internal Odoo/DB tetap bertipe Date/Datetime, hanya format tampilannya yang diubah. Konsolidasi tetap hanya berasal dari RO Confirmed, tidak dari Draft Planning. Uji preflight lalu upgrade hanya di `erp-yussyakmal-mrp-test`.
+
+## Date format correction (2026-11-22)
+
+User explicitly requested visible format **`2026-Nov-22`**, not `20261122`. Source addon v`19.0.3.3.0`: RO date, delivery date, RO name and Packing date input/allocation display use deterministic English `YYYY-Mon-DD` labels. Existing XLSX metadata remains ISO `YYYY-MM-DD` to preserve template import compatibility. Upgrade and test still pending.
