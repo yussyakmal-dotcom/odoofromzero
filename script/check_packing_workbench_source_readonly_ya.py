@@ -65,7 +65,7 @@ files = {
         '<field name="active" eval="False"/>',
     ],
     '__manifest__.py': [
-        "'version': '19.0.8.0.0'",
+        "'version': '19.0.8.1.0'",
     ],
 }
 errors = []
