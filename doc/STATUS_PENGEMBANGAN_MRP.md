@@ -457,3 +457,9 @@ Tes sumber read-only tersedia: `python3 script/check_ya_store_ro_source_readonly
 ## Hasil uji user — RO XLSX download berhasil (22 November 2026)
 
 Feri menyatakan addon `ya_store_ro` berhasil menghasilkan dan mengunduh XLSX dan isinya **sesuai SKU dapur yang sudah Published**. Hasil ini dianggap **smoke test PASS** untuk generator template, bukan bukti RO transaksi, import Draft, store permissions, Packing consolidation atau akuntansi. Tahap berikut: import RO XLSX → Draft, Qty Pesan bebas; jangan menginstal ulang addon yang sudah berjalan.
+
+## Checkpoint laporan uji Feri — RO Tahap 2 PASS (22 November 2026)
+
+**Feri melaporkan seluruh flow RO Toko berhasil di GUI MRP test:** (1) upload XLSX, (2) Save Draft, (3) edit Qty Pesan pada Draft, (4) Confirm RO. Artinya **smoke test fungsional alur RO Tahap 2 PASS menurut laporan user**; belum ada bukti uji edge cases (file rusak, duplicate, pembatasan hak toko, Confirmed immutable via API, atau akuntansi). Jangan mengulang instalasi/upgrade tahap ini tanpa perubahan kode.
+
+**Tahap 3 berikutnya: konsolidasi oleh Packing** untuk semua RO Confirmed per tanggal kirim + slot + dapur + SKU; pertahankan requested per toko, hitung kebutuhan gabungan, Qty Produksi **ceil ke kelipatan BoM** (bukan nearest/bukan down), catat surplus terpisah untuk dialokasikan ke toko, rancang penanganan Max Capacity dan prioritas SO, lalu MO dan DO/internal transfer pada tahap berikutnya. **Belum diimplementasi.** Jangan membuat transfer atau MO saat Confirm RO. Detail algoritma alokasi surplus dan kasus kapasitas belum final.
