@@ -39,6 +39,8 @@ class YaProductionPlanning(models.Model):
 
     def action_publish_batch(self):
         self.ensure_one()
+        if not self.env.user.has_group('mrp.group_mrp_manager'):
+            raise UserError(_('Only a Manufacturing Manager may publish planning.'))
         if self.state != 'draft' or not self.import_batch:
             raise UserError(_('Only a Draft with an import batch may be published.'))
         batch = self.search([('import_batch', '=', self.import_batch)])
@@ -54,6 +56,8 @@ class YaProductionPlanning(models.Model):
                 'view_mode': 'list,form'}
 
     def action_publish(self):
+        if not self.env.user.has_group('mrp.group_mrp_manager'):
+            raise UserError(_('Only a Manufacturing Manager may publish planning.'))
         if not self:
             return True
         dates = {(p.delivery_date, p.slot, p.import_batch) for p in self}
@@ -68,6 +72,8 @@ class YaProductionPlanning(models.Model):
         return True
 
     def write(self, vals):
+        if vals.get('state') == 'published' and not self.env.user.has_group('mrp.group_mrp_manager'):
+            raise UserError(_('Only a Manufacturing Manager may publish planning.'))
         protected = {'delivery_date', 'slot', 'kitchen_code', 'workcenter_id',
                      'line_ids', 'upload_filename', 'import_batch'}
         if protected.intersection(vals) and any(p.state != 'draft' for p in self):
