@@ -52,6 +52,26 @@ if wizard_file.is_file():
                   "Qty Pesan", "Workbook()", "YA_STORE_RO_V1"):
         if token not in text:
             errors.append("MISSING_SAFETY_RULE: " + token)
+packing_file = addon / "wizard/packing_preview.py"
+if packing_file.is_file():
+    packing = packing_file.read_text(encoding="utf-8")
+    required_tokens = (
+        "('delivery_date', '=', self.delivery_date)",
+        "('slot', '=', self.slot)",
+        "('state', '=', 'confirmed')",
+        "group = (plan.id, order_line.product_id.id)",
+        "allocate_surplus_prorata(requests, int(batch))",
+    )
+    for token in required_tokens:
+        if token not in packing:
+            errors.append("PACKING_CONFIRMED_RO_GROUPING_MISSING: " + token)
+    if "planning_id = fields.Many2one(\n        'ya.production.planning', string='Published Planning'" in packing:
+        errors.append("PACKING_WRONG_ENTRYPOINT_PLANNING_PICKER")
+view = addon / "views/packing_preview_views.xml"
+if view.is_file():
+    view_text = view.read_text(encoding="utf-8")
+    if '<field name="delivery_date"' not in view_text or '<field name="slot"' not in view_text:
+        errors.append("PACKING_DATE_SLOT_PICKER_MISSING")
 print("ERROR_COUNT:", len(errors))
 for issue in errors:
     print(issue)
