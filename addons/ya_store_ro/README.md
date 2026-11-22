@@ -35,3 +35,7 @@ Do NOT run `-i` for this candidate until source preflight and permission/UX assu
 ## Hasil uji GUI Feri (22 November 2026)
 
 **PASS (laporan user):** form generator template dapat dipakai, XLSX berhasil diunduh, SKU pada XLSX cocok dengan SKU dapur Published. Dengan demikian **status addon bukan lagi sekadar source candidate**, melainkan terpasang dan generator bekerja di MRP test menurut pengguna. Tidak ada bukti proses upload RO atau order Confirmed karena keduanya belum diimplementasikan. **Lanjutkan fitur import XLSX → Draft/Confirmed**, bukan mengulang instalasi pertama.
+
+## Phase 2 RO workflow — source in GitHub, server validation pending
+
+New persistent `ya.store.ro` and `ya.store.ro.line` models, import wizard `ya.store.ro.import`, list/form views, and ACL added in addon version `19.0.2.0.0`. Intended sequence: **Upload Excel → Validate & Preview → Save Draft → edit Qty Pesan in Odoo → Confirm RO → immutable Confirmed**. Excel accelerates initial input; it is **not the final order validation**. Reupload only replaces a Draft for the same store + Published Planning; a Confirmed RO cannot be overwritten. Draft Qty Pesan can be edited directly and is a nonnegative integer with **no BoM rounding**. Confirm checks Published status, eligible SKU, and at least one SKU with positive Qty. No stock moves or DO created. User explicitly reconfirmed this behavior. **Do not claim phase 2 installed/tested yet.**
