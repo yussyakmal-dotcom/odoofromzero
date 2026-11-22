@@ -5,7 +5,7 @@
     <field name="model">ya.material.requirement.wizard</field>
     <field name="arch" type="xml">
       <form string="Material Requirement - Kebutuhan Bahan Dapur / CDC"
-            create="false" delete="false">
+            delete="false">
         <sheet>
           <div class="alert alert-info" role="alert">
             <strong>AUDIT SAJA — BELUM MEMBUAT TRANSFER.</strong>
