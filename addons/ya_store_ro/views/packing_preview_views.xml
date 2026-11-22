@@ -19,10 +19,9 @@
           <strong>PERINGATAN KAPASITAS!</strong>
           <field name="blocked_count" readonly="1" nolabel="1"
                  class="fw-bold"/>
-          <span> SKU melebihi Planning Max setelah pembulatan BoM.
-            Baris bermasalah ditandai merah di tab Consolidated SKU.
-            Perbaiki Qty RO sebelum Pre Produksi. Tombol
-            Pindahkan ke Pre Produksi belum tersedia sampai Blocked Count = 0.
+          <span> SKU tidak bisa diproduksi bahkan 1 batch BoM dalam Planning Max.
+            Baris ini ditandai merah. Perbaiki kapasitas atau Qty/BoM dahulu.
+            Prorata toko tidak dapat membuat kurang dari satu batch.
           </span>
         </div>
         <div class="alert alert-warning" role="alert"
@@ -110,7 +109,7 @@
         <footer>
           <span class="text-danger fw-bold"
                 invisible="state != 'preview' or blocked_count == 0">
-            BLOKIR: Qty Produksi melebihi Planning Max. Perbaiki  SKU merah dahulu.
+            BLOKIR: Planning Max kurang dari 1 batch BoM. Perbaiki SKU merah.
           </span>
           <button name="action_preview" type="object" class="btn-primary"
                   string="Calculate Preview" invisible="state == 'preview'"/>
