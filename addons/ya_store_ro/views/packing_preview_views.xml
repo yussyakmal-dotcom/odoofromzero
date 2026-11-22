@@ -6,8 +6,11 @@
     <field name="arch" type="xml">
       <form string="Packing Consolidation - RO Only" create="false" delete="false">
         <group>
-          <field name="delivery_date_yyyymmdd" readonly="state == 'preview'"/>
-          <field name="slot" readonly="state == 'preview'"/>
+          <field name="delivery_date_yyyymmdd" readonly="1"/>
+          <field name="slot" readonly="1"/>
+          <field name="selected_count" readonly="1" string="RO Confirmed Dipilih"/>
+          <field name="selected_ro_ids" readonly="1" widget="many2many_tags"
+                 options="{'no_create': True, 'no_open': True}"/>
           <field name="state" invisible="1"/>
         </group>
         <group invisible="state != 'preview'">
@@ -78,10 +81,5 @@
     <field name="view_mode">form</field>
     <field name="target">new</field>
   </record>
-  <menuitem id="menu_ya_packing_preview"
-            name="Packing - Consolidation Preview"
-            parent="ya_production_planning.menu_ya_capacity_root"
-            action="action_ya_packing_preview"
-            sequence="35"
-            groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
+  <!-- Packing menu now points to a list of CONFIRMED RO, not this modal. -->
 </odoo>
