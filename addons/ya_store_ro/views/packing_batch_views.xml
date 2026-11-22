@@ -60,6 +60,7 @@
                   <field name="qty_requested" string="Total RO"/>
                   <field name="qty_production" string="Qty MO"/>
                   <field name="qty_surplus" string="Surplus"/>
+                  <field name="qty_shortage" string="Kekurangan"/>
                   <field name="max_capacity" string="Planning Max"/>
                   <field name="uom_id"/>
                   <field name="mo_id" string="MO"/>
@@ -75,8 +76,9 @@
                   <field name="store_warehouse_id" string="Toko"/>
                   <field name="ro_id" string="RO Sumber"/>
                   <field name="qty_requested" string="Qty RO"/>
-                  <field name="qty_surplus" string="Prorata"/>
-                  <field name="qty_allocated" string="Qty Alokasi"/>
+                  <field name="qty_surplus" string="Surplus"/>
+                  <field name="qty_shortage" string="Kekurangan" decoration-danger="qty_shortage &gt; 0"/>
+                  <field name="qty_allocated" string="Jatah Final"/>
                 </list>
               </field>
             </page>
@@ -120,6 +122,7 @@
         <field name="qty_requested" string="Total RO"/>
         <field name="qty_production" string="Qty Produksi"/>
         <field name="qty_surplus" string="Surplus"/>
+        <field name="qty_shortage" string="Kekurangan"/>
         <field name="max_capacity" string="Planning Max"/>
         <field name="uom_id"/>
         <field name="mo_id" string="MO"/>
