@@ -10,6 +10,8 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_store_ro'
 checks = {
     'models/store_ro.py': [
         "packing_batch_id = fields.Many2one(",
+        "RO already entered Pre Produksi or Produksi OK.",
+        "RO cannot return to Confirmed queue.",
         'ya_stage_or_reset_packing',
         'action_open_packing_selected',
     ],
@@ -18,7 +20,7 @@ checks = {
         "('production_ok', 'Produksi OK')",
         "state = fields.Selection(related='batch_id.state'",
         'action_generate_selected_mo',
-        'action_reset_preproduction',
+        "Pre Produksi and Produksi OK cannot be deleted.",
         "set(selected.ids) != set(batch.line_ids.ids)",
         "set(current.ids) != set(batch.ro_ids.ids)",
         'lock_ro_slot(self.env.cr, batch.delivery_date, batch.slot)',
@@ -34,6 +36,10 @@ checks = {
         "orders.sudo().with_context(ya_stage_or_reset_packing=True).write(",
         "'ya_store_ro.view_ya_packing_preproduction_line_list'",
     ],
+    'wizard/packing_correction.py': [
+        "('packing_batch_id', '=', False)",
+        "Pre Produksi / Produksi OK: corrections are closed.",
+    ],
     'views/packing_preview_views.xml': [
         'name="action_move_to_preproduction"',
         'Pindahkan ke Pre Produksi',
@@ -43,7 +49,6 @@ checks = {
         'action_generate_selected_mo',
         'view_ya_packing_preproduction_line_list',
         'menu_ya_packing_preproduction',
-        'action_reset_preproduction',
     ],
     'views/packing_ro_selection_views.xml': [
         "('packing_batch_id','=',False)",
