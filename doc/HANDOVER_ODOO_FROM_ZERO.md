@@ -212,6 +212,14 @@ Ketiganya memiliki alasan **Rusak**, Source Document `YA-E2E-3SKU-ROLLBACK`, sum
 2. **RO Qty Pesan per toko:** permintaan asli, bebas dari kelipatan BoM; tetap tercatat dan tidak diam-diam diganti setelah konsolidasi.
 3. **Packing Consolidated Production Qty:** jumlah kebutuhan gabungan toko (plus SO yang perlu diprioritaskan) yang disesuaikan menjadi kelipatan batch BoM untuk dasar MO, tetap dibatasi kapasitas Planning dan aturan alokasi.
 
-**Belum diputuskan secara eksplisit:** pada konsolidasi, bila total kebutuhan tidak kelipatan BoM, apakah harus selalu pembulatan **ke atas** untuk memenuhi semua pesanan, ke kelipatan **terdekat**, atau kebijakan lain bila kena batas Max/kapasitas. **Jangan menyamakan secara otomatis** kebijakan Max Planning (kelipatan terdekat) dengan kebijakan pembulatan Qty Produksi konsolidasi. Harus disepakati sebelum implementasi/koding Packing.
+**SUDAH DIPUTUSKAN:** Qty konsolidasi Packing **SELALU DIBULATKAN KE ATAS** agar semua kebutuhan dapat dipenuhi; tidak menggunakan aturan kelipatan terdekat pada Planning Max. Detail alokasi surplus dan kapasitas tetap perlu desain.
 
-Contoh BoM 24 Pcs: RO Toko A=13, B=27, C=32 → total=72, produksi 72 (3 batch). Jika total=70, hasil bergantung pada kebijakan konsolidasi yang belum final. RO masing-masing tetap 13/27/32.
+Contoh BoM 24 Pcs: RO Toko A=13, B=27, C=32 → total=72, produksi 72 (3 batch). Jika total=70, produksi 72 Pcs dengan kebijakan pembulatan ke atas. RO masing-masing tetap 13/27/32.
+
+## Keputusan final Packing — pembulatan Qty konsolidasi SELALU KE ATAS (22 November 2026)
+
+**KEPUTUSAN PENGGUNA (final):** jumlah pesanan RO per toko **bebas, tidak dibulatkan**. Pada saat **Gudang Packing mengonsolidasikan** seluruh permintaan satu SKU untuk tanggal pengiriman + slot + dapur (ditambah SO sesuai prioritas yang sudah disepakati), **Qty Produksi/MO harus dibulatkan SELALU KE ATAS** ke kelipatan `mrp.bom.product_qty` (dalam UoM hasil BoM). **Tidak boleh dibulatkan ke bawah atau memakai kelipatan terdekat pada tahap konsolidasi**. Rumus untuk kebutuhan positif: `Qty Produksi = ceil(Total Kebutuhan / Qty Output BoM) * Qty Output BoM`; total nol → produksi nol. Contoh BoM 24 Pcs, total kebutuhan 49 Pcs → produksi 72 Pcs (bukan 48); total 70 → produksi 72.
+
+**Kelebihan produksi setelah memenuhi kebutuhan asli akan dikirim/dialokasikan ke toko**, bukan hilang atau dipotong dari Qty Pesan. Kuantitas RO toko tetap utuh dan terlacak; alokasi Qty tambahan harus dicatat secara terpisah dari Qty RO asli agar audit jelas. Rincian algoritma pembagian antar-toko dan penanganan bila hasil pembulatan melebihi `Planning Max Capacity` belum diputuskan; jangan mengarang kebijakan kapasitas, kekurangan, atau distribusi sebelum implementasi.
+
+**JANGAN SALAH TERAPKAN:** fungsi `closest_batch_multiple` saat ini **khusus normalisasi Planning Max Capacity (kelipatan terdekat)**. Untuk **Packing consolidation** nanti dibutuhkan fungsi pembulatan ke atas yang **berbeda**. Tidak ada implementasi modul RO/Packing baru pada checkpoint ini; ini dokumentasi aturan untuk desain berikutnya.
