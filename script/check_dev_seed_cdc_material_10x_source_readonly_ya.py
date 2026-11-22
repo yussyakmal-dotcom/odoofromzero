@@ -24,7 +24,7 @@ must = [
     "quant.reserved_quantity",
     "if reserved > 0:",
     "p.tracking != 'none'",
-    "existing =",
+    "root_quant = env['stock.quant'].search([",
     "with_context(inventory_mode=True)",
     "'inventory_quantity': desired",
     "quant.action_apply_inventory()",
