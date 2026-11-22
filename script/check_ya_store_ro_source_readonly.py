@@ -13,9 +13,12 @@ import xml.etree.ElementTree as ET
 root = pathlib.Path(__file__).resolve().parents[1]
 addon = root / "addons" / "ya_store_ro"
 required = [
-    "__init__.py", "__manifest__.py", "wizard/__init__.py",
-    "wizard/ro_template_wizard.py", "security/ir.model.access.csv",
-    "views/ro_template_wizard_views.xml",
+    "__init__.py", "__manifest__.py",
+    "models/__init__.py", "models/store_ro.py",
+    "wizard/__init__.py", "wizard/ro_template_wizard.py",
+    "wizard/ro_import.py", "security/ir.model.access.csv",
+    "views/ro_template_wizard_views.xml", "views/ro_import_wizard_views.xml",
+    "views/ro_documents_views.xml",
 ]
 errors = []
 for relative in required:
