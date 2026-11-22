@@ -100,6 +100,9 @@
         <footer>
           <button name="action_calculate" type="object" class="btn-primary"
                   string="Hitung / Refresh Kebutuhan"/>
+          <button name="action_print_picking_list" type="object"
+                  string="Cetak Picking List CDC (Draft)"
+                  invisible="state != 'preview'"/>
         </footer>
       </form>
     </field>
