@@ -1,6 +1,6 @@
 # YA Material Requirement — Read-Only MO → Kitchen → CDC
 
-**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.2.1.0. Use only the test DB `erp-yussyakmal-mrp-test`.
+**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.3.0.0. Use only the test DB `erp-yussyakmal-mrp-test`.
 
 ## Purpose and workflow
 
@@ -61,3 +61,26 @@ QWeb report: `report/cdc_picking_list_report.xml`; button in wizard form. **Not 
 User requires **every operational menu open a LIST first**. Users choose a prior record or click **New**, which opens the FORM; then and only then may they click **Hitung / Refresh Kebutuhan** and **Cetak Picking List CDC (Draft)**. Menu must never open Form immediately or execute methods implicitly. List displays date as `YYYY-Mon-DD` via computed `delivery_date_label`, slot, status, MO and material counts, shortages. `ya.material.requirement.wizard` is a **TransientModel**: test/report list rows may be cleared automatically by Odoo, so the list is a temporary audit history, **not a permanent requisition log**. Persisting requisitions is a later phase, not implemented here.
 
 No menu trigger is configured for stock changes. This view/model field change requires `-u ya_material_requirement` after copying current source and backing up test DB; service restart after exit=0. Do not use `-i` when installed.
+
+## 19.0.3.0.0 — FIX: Existing Packing batch is the only user-facing entrypoint
+
+**Feri corrected the previous design**: no wizard List, no `New`, no repeated selection of delivery date or slot. The Material Requirement menu now opens the existing `ya.packing.batch` **List** filtered `state = production_ok` (e.g. `Packing 2026-Nov-27 S1`). Select that batch and open a dedicated read-only **Form** showing the existing batch's date/slot/MO count and two materials tables. On the **form header** (not footer), press `Hitung / Refresh Kebutuhan` to replace that batch's material **report snapshots**, then `Cetak Picking List CDC (Draft)`. Both operations act on the selected batch; no user-created record and no automatic actions on opening menu.
+
+Implementation: `models/material_requirement_batch.py` extends existing protected Packing batch without writing its fields. Only creates/deletes `ya.material.requirement.snapshot.line` records attached to batch; reuses existing hidden transient MO/CDC calculation engine. `views/material_requirement_batch_views.xml` replaces menu action and provides list/form. Existing wizard remains as **internal calculation engine**, not linked by the visible menu. The list and form show complete date labels `YYYY-Mon-DD`.
+
+**IMPORTANT**: Version 19.0.2.1.0 exposed wizard list and placed button in the form footer, which was not visible in the normal form. Version 19.0.3.0.0 corrects both structural issues. Source-only until upgraded and verified on server. Use test DB only; no movement of stock, Purchase, WO, or MO by calculate/print. Persistent report lines aren't actual request or reserved stock.
+
+Upgrade after GUI backup:
+```bash
+cd ~/odoofromzero
+git pull
+python3 script/check_material_requirement_source_readonly_ya.py
+python3 script/test_material_requirement_rules_ya.py
+sudo cp -a addons/ya_material_requirement/. /opt/odoo19/custom-addons/ya_material_requirement/
+sudo chown -R odoo19:odoo19 /opt/odoo19/custom-addons/ya_material_requirement
+sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin \
+  -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test \
+  -u ya_material_requirement --stop-after-init --no-http
+echo "UPGRADE_EXIT_CODE=$?"
+```
+Restart Odoo service only if CLI exit 0 and safe for other DB users. Test opening menu directly into **existing batch List**, click `Packing 2026-Nov-27 S1`, verify visible header button and click Refresh. Expected MO count=20, kitchen/component groups=97; then test PDF. Error logs from Odoo/docutils need interpretation separate from exit 0.
