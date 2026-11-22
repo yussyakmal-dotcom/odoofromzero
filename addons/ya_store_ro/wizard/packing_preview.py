@@ -46,6 +46,7 @@ class YaPackingPreview(models.TransientModel):
     line_ids = fields.One2many('ya.packing.preview.line', 'wizard_id', readonly=True)
     allocation_ids = fields.One2many('ya.packing.preview.allocation',
                                     'wizard_id', readonly=True)
+    source_line_ids = fields.One2many('ya.packing.preview.source.line', 'wizard_id')
 
     def _reopen(self):
         return {
@@ -80,6 +81,8 @@ class YaPackingPreview(models.TransientModel):
         included_kitchens = set()
         source_ro_by_group_store = {}
         for ro in orders:
+            if ro.packing_batch_id:
+                raise UserError(_('RO already Pre Produksi: Qty is locked.'))
             plan = ro.planning_id
             if plan.state != 'published':
                 raise UserError(_('Confirmed RO %s is linked to non-Published Planning.')
@@ -91,6 +94,16 @@ class YaPackingPreview(models.TransientModel):
                  if line.max_capacity > 0},
             )
             for order_line in ro.line_ids:
+                source_line_values.append((0, 0, {
+                    'ro_line_id': order_line.id,
+                    'ro_id': ro.id,
+                    'store_warehouse_id': ro.store_warehouse_id.id,
+                    'kitchen_code': plan.kitchen_code,
+                    'product_id': order_line.product_id.id,
+                    'reference': order_line.reference,
+                    'old_qty': order_line.qty_requested,
+                    'new_qty': order_line.qty_requested,
+                }))
                 source = eligible.get(order_line.product_id.id)
                 if not source:
                     raise UserError(_('Confirmed RO %s has SKU outside Published Planning: %s')
@@ -113,6 +126,7 @@ class YaPackingPreview(models.TransientModel):
             raise UserError(_('All Confirmed RO quantities are zero.'))
 
         line_values, allocation_values, blocked = [], [], []
+        source_line_values = []
         total_requested = total_production = 0
         sort_key = lambda item: (
             self.env['ya.production.planning'].browse(item[0]).kitchen_code,
@@ -173,6 +187,7 @@ class YaPackingPreview(models.TransientModel):
                 }))
         self.write({
             'line_ids': [(5, 0, 0)] + line_values,
+            'source_line_ids': [(5, 0, 0)] + source_line_values,
             'allocation_ids': [(5, 0, 0)] + allocation_values,
             'state': 'preview',
             'ro_count': len(orders), 'kitchen_count': len(included_kitchens),
@@ -189,6 +204,51 @@ class YaPackingPreview(models.TransientModel):
                  if blocked else 'All within Planning Max.'),
         })
         return self._reopen()
+
+
+
+    def action_apply_corrections(self):
+        """Commit last-chance RO Qty edits with a reason and recalculate in place."""
+        self.ensure_one()
+        if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin'):
+            raise UserError(_('Only Packing Admin may correct Confirmed RO Qty.'))
+        if self.state != 'preview' or not self.source_line_ids:
+            raise UserError(_('Calculate consolidation before correcting Qty.'))
+        delivery_date = parse_ymondd(self.delivery_date_yyyymmdd)
+        lock_ro_slot(self.env.cr, delivery_date, self.slot)
+        if self.env['ya.packing.batch'].sudo().search_count([
+            ('delivery_date', '=', delivery_date), ('slot', '=', self.slot),
+        ]):
+            raise UserError(_('Pre Produksi already exists: Qty is locked.'))
+        orders = self.selected_ro_ids.exists()
+        if not orders or any(ro.state != 'confirmed' or ro.packing_batch_id
+                             or ro.delivery_date != delivery_date
+                             or ro.slot != self.slot for ro in orders):
+            raise UserError(_('RO selection changed. Reopen Packing.'))
+        source_ids = {line.id for ro in orders for line in ro.line_ids}
+        if {item.ro_line_id.id for item in self.source_line_ids} != source_ids:
+            raise UserError(_('RO SKU list changed. Recalculate before correcting Qty.'))
+        changed = self.source_line_ids.filtered(
+            lambda item: item.new_qty != item.old_qty
+        )
+        if not changed:
+            raise UserError(_('No Qty corrections entered.'))
+        for item in self.source_line_ids:
+            source = item.ro_line_id
+            if (source.ro_id != item.ro_id or source.qty_requested != item.old_qty
+                    or source.ro_id not in orders):
+                raise UserError(_('RO Qty changed in another session: %s. Recalculate.')
+                                % item.reference)
+            if item.new_qty < 0:
+                raise UserError(_('Qty cannot be negative for SKU %s.') % item.reference)
+            if item in changed and not (item.reason or '').strip():
+                raise UserError(_('Correction reason required for SKU %s, store %s.')
+                                % (item.reference, item.store_warehouse_id.display_name))
+        for item in changed:
+            item.ro_line_id.with_context(
+                packing_qty_correction_reason=item.reason.strip()
+            ).write({'qty_requested': item.new_qty})
+        return self.action_preview()
 
 
     def action_move_to_preproduction(self):
@@ -361,3 +421,19 @@ class YaPackingPreviewAllocation(models.TransientModel):
     qty_requested = fields.Integer(readonly=True)
     qty_surplus = fields.Integer(readonly=True)
     qty_allocated = fields.Integer(readonly=True)
+
+class YaPackingPreviewSourceLine(models.TransientModel):
+    _name = 'ya.packing.preview.source.line'
+    _description = 'Packing Last RO Qty Correction Before Pre Produksi'
+    _order = 'kitchen_code, reference, store_warehouse_id, id'
+
+    wizard_id = fields.Many2one('ya.packing.preview', required=True, ondelete='cascade')
+    ro_line_id = fields.Many2one('ya.store.ro.line', required=True, readonly=True)
+    ro_id = fields.Many2one('ya.store.ro', required=True, readonly=True)
+    store_warehouse_id = fields.Many2one('stock.warehouse', readonly=True)
+    kitchen_code = fields.Char(readonly=True)
+    product_id = fields.Many2one('product.product', readonly=True)
+    reference = fields.Char(readonly=True)
+    old_qty = fields.Integer(string='Qty Confirmed', readonly=True)
+    new_qty = fields.Integer(string='Qty Koreksi', required=True)
+    reason = fields.Text(string='Alasan Koreksi')
