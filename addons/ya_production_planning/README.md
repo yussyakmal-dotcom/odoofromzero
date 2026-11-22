@@ -25,3 +25,12 @@ Inspect the terminal output. **Do not deploy or install yet.** A successful stat
 Development DB: `erp-yussyakmal-mrp-test` only. Never touch `erp-yussyakmal` or `erp-yussyakmal-integer-test` without explicit approval.
 
 After source preflight, next stage is a controlled install rehearsal on the MRP test database with backups and rollback plan. Do not treat this README as permission for installation.
+
+## Update: per-kitchen publishing and unified list (22 November 2026)
+
+- A complete XLSX upload can still save multiple kitchen Drafts in one delivery date/slot.
+- **Publish This Kitchen** changes only the selected Draft to Published; other kitchen Drafts remain Draft.
+- The Production Planning menu displays both Draft and Published in one list, with separate search filters and grouping.
+- Published is immutable for SKU Max and acts as **future input** for store RO templates, filtered to Max > 0. **RO creation and store ordering are NOT implemented in this addon yet**; no shop can actually submit an RO solely because a planning was Published.
+- Do not reupload or delete existing Drafts just to apply this UI/workflow change.
+- Upgrading this addon affects views and model methods only; use the MRP test database and check a GUI backup exists first.
