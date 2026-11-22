@@ -9,6 +9,6 @@ access_ya_packing_preview_line_manager,ya.packing.preview.line manager,model_ya_
 access_ya_packing_preview_alloc_manager,ya.packing.preview.allocation manager,model_ya_packing_preview_allocation,mrp.group_mrp_manager,1,1,1,1
 access_ya_store_ro_packing,ya.store.ro packing,model_ya_store_ro,ya_store_ro.group_ya_packing_admin,1,0,0,0
 access_ya_store_ro_line_packing,ya.store.ro.line packing,model_ya_store_ro_line,ya_store_ro.group_ya_packing_admin,1,1,0,0
-access_ya_store_ro_audit_packing,ya.store.ro.qty.audit packing,model_ya_store_ro_qty_audit,ya_store_ro.group_ya_packing_admin,1,0,1,0
+access_ya_store_ro_audit_packing,ya.store.ro.qty.audit packing,model_ya_store_ro_qty_audit,ya_store_ro.group_ya_packing_admin,1,0,0,0
 access_ya_store_ro_audit_manager,ya.store.ro.qty.audit manager,model_ya_store_ro_qty_audit,mrp.group_mrp_manager,1,0,0,0
 access_ya_packing_correction,ya.packing.qty.correction,model_ya_packing_qty_correction,ya_store_ro.group_ya_packing_admin,1,1,1,1
