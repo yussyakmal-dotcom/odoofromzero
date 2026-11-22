@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="action_report_ya_cdc_picking_list" model="ir.actions.report">
+    <field name="name">CDC Picking List - Draft Per Dapur</field>
+    <field name="model">ya.material.requirement.wizard</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">ya_material_requirement.report_ya_cdc_picking_list_document</field>
+    <field name="report_file">ya_material_requirement.report_ya_cdc_picking_list_document</field>
+    <field name="print_report_name">'CDC-PICKING-DRAFT-%s-%s' % (object.delivery_date, object.slot)</field>
+  </record>
+
+  <template id="report_ya_cdc_picking_list_document">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="doc">
+        <t t-foreach="doc._get_print_picking_groups()" t-as="group">
+          <t t-call="web.external_layout">
+            <div class="page">
+              <h2>CDC PICKING LIST — DRAFT</h2>
+              <p><strong>UNTUK PENGAMBILAN FISIK / BELUM TRANSFER STOK.</strong>
+                Quantity harus dicocokkan dengan kondisi CDC, reservasi,
+                lot/FEFO, dan barang yang benar-benar disiapkan.</p>
+              <table class="table table-sm table-borderless" style="font-size:12px">
+                <tbody>
+                  <tr>
+                    <td><strong>Referensi:</strong> <span t-esc="'CDC-DRAFT-%s-%s-%s' % (doc.delivery_date, doc.slot, group['warehouse'].code)"/></td>
+                    <td><strong>Tanggal kirim:</strong> <span t-field="doc.delivery_date"/></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Dari:</strong> <span t-esc="doc.cdc_warehouse_id.display_name"/></td>
+                    <td><strong>Slot:</strong> <span t-esc="doc.slot"/></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Ke dapur:</strong> <span t-esc="group['warehouse'].display_name"/></td>
+                    <td><strong>Batch MO:</strong> <span t-esc="doc.batch_id.display_name"/></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Status:</strong> DRAFT — BUKAN BUKTI PENGIRIMAN</td>
+                    <td><strong>Snapshot:</strong> <span t-field="doc.write_date"/></td>
+                  </tr>
+                </tbody>
+              </table>
+              <p t-if="group['has_review']" style="color:#ab4b00; font-weight:bold">
+                PERHATIAN: Ada Qty yang belum pasti karena reservasi stok dapur.
+                Baris bertanda CEK harus dihitung ulang sebelum pengambilan.
+              </p>
+              <table class="table table-sm table-bordered" style="font-size:10px; width:100%">
+                <thead>
+                  <tr>
+                    <th style="width:4%">No</th>
+                    <th style="width:12%">SKU</th>
+                    <th style="width:28%">Nama Bahan</th>
+                    <th style="width:9%">Lokasi CDC</th>
+                    <th style="width:10%">Qty Ambil *</th>
+                    <th style="width:8%">UoM</th>
+                    <th style="width:11%">Qty Disiapkan</th>
+                    <th style="width:12%">Lot / FEFO</th>
+                    <th style="width:6%">Cek</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="group['lines']" t-as="entry">
+                    <tr>
+                      <td><span t-esc="entry_index + 1"/></td>
+                      <td><span t-esc="entry['line'].product_id.default_code or '-'"/></td>
+                      <td><span t-esc="entry['line'].product_id.name"/></td>
+                      <td><span t-esc="doc.cdc_warehouse_id.lot_stock_id.complete_name"/></td>
+                      <td>
+                        <t t-if="entry['needs_check']">CEK RESERVASI</t>
+                        <t t-else=""><span t-esc="'%.3f' % entry['qty_to_pick']"/></t>
+                      </td>
+                      <td><span t-esc="entry['line'].uom_id.name"/></td>
+                      <td>____________</td>
+                      <td>____________</td>
+                      <td>[   ]</td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+              <p style="font-size:10px">* Qty Ambil adalah estimasi kebutuhan dapur dari MO yang belum tercukupi; bukan alokasi/reservasi CDC.
+                Jika stok CDC tidak cukup, petugas memberi catatan kekurangan ke Admin Gudang.
+                Stok CDC tidak berkurang ketika dokumen ini dicetak.</p>
+              <table class="table table-sm table-borderless" style="margin-top:20px">
+                <tr>
+                  <td>Disiapkan oleh: ____________________</td>
+                  <td>Diperiksa oleh: ____________________</td>
+                  <td>Tanggal/Jam: ____________________</td>
+                </tr>
+                <tr><td colspan="3">Catatan / Kekurangan: ______________________________________________________________</td></tr>
+              </table>
+            </div>
+          </t>
+        </t>
+      </t>
+    </t>
+  </template>
+</odoo>
