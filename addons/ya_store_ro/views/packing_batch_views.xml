@@ -4,12 +4,13 @@
     <field name="name">ya.packing.batch.list</field>
     <field name="model">ya.packing.batch</field>
     <field name="arch" type="xml">
-      <list string="Produksi OK - Batch per Jadwal" create="false" delete="false">
+      <list string="Packing Batch per Jadwal" create="false" delete="false">
         <field name="name" string="Batch Produksi"/>
         <field name="ro_count" string="RO Confirmed"/>
         <field name="kitchen_count" string="Dapur"/>
         <field name="mo_count" string="Jumlah MO"/>
         <field name="state"/>
+        <field name="staged_at"/>
         <field name="released_at"/>
         <field name="released_by"/>
       </list>
@@ -19,10 +20,15 @@
     <field name="name">ya.packing.batch.form</field>
     <field name="model">ya.packing.batch</field>
     <field name="arch" type="xml">
-      <form string="Produksi OK" create="false" edit="false" delete="false">
+      <form string="Packing - Pre Produksi / Produksi OK" create="false" edit="false" delete="false">
         <header>
           <button name="action_open_mos" type="object" string="Lihat MO"
-                  class="btn-primary"/>
+                  class="btn-primary" invisible="state != 'production_ok'"/>
+          <button name="action_reset_preproduction" type="object"
+                  string="Batalkan Pre Produksi (Konsolidasi Ulang)"
+                  groups="ya_store_ro.group_ya_packing_admin"
+                  confirm="Batalkan seluruh baris Pre Produksi untuk jadwal ini? Tidak ada MO yang akan dihapus."
+                  invisible="state != 'pre_production'"/>
           <field name="state" widget="statusbar"/>
         </header>
         <sheet>
@@ -36,6 +42,8 @@
               <field name="mo_count" readonly="1"/>
             </group>
             <group>
+              <field name="staged_by" readonly="1"/>
+              <field name="staged_at" readonly="1"/>
               <field name="released_by" readonly="1"/>
               <field name="released_at" readonly="1"/>
               <field name="production_qty_total" readonly="1"/>
@@ -87,6 +95,44 @@
       </form>
     </field>
   </record>
+  <record id="view_ya_packing_preproduction_line_list" model="ir.ui.view">
+    <field name="name">ya.packing.preproduction.line.list</field>
+    <field name="model">ya.packing.batch.line</field>
+    <field name="arch" type="xml">
+      <list string="Pre Produksi - Dapur / SKU" create="false" edit="false" delete="false">
+        <header>
+          <button name="action_generate_selected_mo" type="object"
+                  string="Produksi OK"
+                  class="btn-primary" display="always"
+                  groups="ya_store_ro.group_ya_packing_admin"
+                  confirm="Buat dan konfirmasi seluruh MO standar untuk semua baris Pre Produksi yang dipilih? Status akan berubah menjadi Produksi OK hanya setelah SEMUA MO berhasil. Tidak menjalankan WO otomatis."/>
+        </header>
+        <field name="batch_id" string="Jadwal"/>
+        <field name="kitchen_code" string="Dapur"/>
+        <field name="reference" string="SKU"/>
+        <field name="product_id"/>
+        <field name="qty_requested" string="Total RO"/>
+        <field name="qty_production" string="Qty Produksi"/>
+        <field name="qty_surplus" string="Surplus"/>
+        <field name="max_capacity" string="Planning Max"/>
+        <field name="uom_id"/>
+        <field name="mo_id" string="MO"/>
+      </list>
+    </field>
+  </record>
+  <record id="action_ya_packing_preproduction" model="ir.actions.act_window">
+    <field name="name">Packing - Pre Produksi</field>
+    <field name="res_model">ya.packing.batch.line</field>
+    <field name="view_mode">list</field>
+    <field name="view_id" ref="view_ya_packing_preproduction_line_list"/>
+    <field name="domain">[('batch_id.state','=','pre_production')]</field>
+  </record>
+  <menuitem id="menu_ya_packing_preproduction"
+            name="Packing - Pre Produksi"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_packing_preproduction"
+            sequence="38"
+            groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin"/>
   <record id="action_ya_packing_batch" model="ir.actions.act_window">
     <field name="name">Packing - Produksi OK</field>
     <field name="res_model">ya.packing.batch</field>
