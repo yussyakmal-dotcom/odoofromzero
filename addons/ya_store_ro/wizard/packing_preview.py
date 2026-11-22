@@ -25,6 +25,15 @@ class YaPackingPreview(models.TransientModel):
         default=lambda self: format_ymondd(fields.Date.context_today(self)),
     )
     slot = fields.Selection(SLOTS, string='Slot Pengiriman', required=True)
+    selected_ro_ids = fields.Many2many(
+        'ya.store.ro', string='RO Confirmed Dipilih', readonly=True,
+    )
+    selected_count = fields.Integer(compute='_compute_selected_count')
+
+    @api.depends('selected_ro_ids')
+    def _compute_selected_count(self):
+        for wizard in self:
+            wizard.selected_count = len(wizard.selected_ro_ids)
     ro_count = fields.Integer(readonly=True)
     kitchen_count = fields.Integer(readonly=True)
     sku_count = fields.Integer(readonly=True)
@@ -56,16 +65,13 @@ class YaPackingPreview(models.TransientModel):
             raise UserError(_('Tanggal Kirim must be YYYY-Mon-DD, e.g. 2026-Nov-22.'))
         if not self.slot:
             raise UserError(_('Select Slot Pengiriman.'))
-
-        # Critical: start from CONFIRMED RO (all stores and kitchens), never
-        # from PPIC Planning list. No Draft RO participates.
-        orders = self.env['ya.store.ro'].search([
-            ('delivery_date', '=', delivery_date),
-            ('slot', '=', self.slot),
-            ('state', '=', 'confirmed'),
-        ])
+        orders = self.selected_ro_ids.exists()
         if not orders:
-            raise UserError(_('No Confirmed RO for the selected delivery date and slot.'))
+            raise UserError(_('Open Packing from the Confirmed RO list and select RO rows.'))
+        if any(ro.state != 'confirmed' for ro in orders):
+            raise UserError(_('Some selected RO are no longer Confirmed. Re-select RO.'))
+        if any(ro.delivery_date != delivery_date or ro.slot != self.slot for ro in orders):
+            raise UserError(_('Selected RO must use the SAME Tanggal Kirim and Slot.'))
 
         # Group by Published Planning ID and SKU ID. One Planning = one kitchen
         # for date+slot by the Planning unique DB constraint.
@@ -223,13 +229,18 @@ class YaPackingPreview(models.TransientModel):
         if not self.line_ids or any(line.qty_production <= 0 for line in self.line_ids):
             raise UserError(_('No positive consolidated SKU quantities to produce.'))
 
-        orders = self.env['ya.store.ro'].search([
+        orders = self.selected_ro_ids.exists()
+        current_all = self.env['ya.store.ro'].search([
             ('delivery_date', '=', delivery_date),
             ('slot', '=', self.slot), ('state', '=', 'confirmed'),
         ])
+        # Final release covers the COMPLETE delivery slot; refuse a partial list.
+        if not orders or set(orders.ids) != set(current_all.ids):
+            raise UserError(_(
+                'Produksi OK requires ALL Confirmed RO for this delivery date and slot. '
+                'Return to the RO list, select all matching Confirmed RO, then consolidate.'
+            ))
         # Every allocation from preview must have an originating Confirmed RO.
-        if not orders:
-            raise UserError(_('No Confirmed RO for release.'))
         for allocation in self.allocation_ids:
             if allocation.ro_id not in orders:
                 raise UserError(_('Packing allocation references an RO that is not Confirmed.'))
