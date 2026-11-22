@@ -33,6 +33,9 @@
           <button name="action_mr_print" type="object"
                   string="Cetak Picking List CDC (Draft)"
                   invisible="mr_component_count == 0"/>
+          <button name="action_mr_open_pick_confirmations" type="object"
+                  string="Konfirmasi Qty Picking CDC"
+                  invisible="mr_component_count == 0"/>
           <field name="state" widget="statusbar" statusbar_visible="production_ok"/>
         </header>
         <sheet>
@@ -55,6 +58,7 @@
               <field name="mr_component_count" readonly="1"/>
               <field name="mr_product_count" readonly="1"/>
               <field name="mr_cdc_shortage_count" readonly="1"/>
+              <field name="mr_pick_confirmation_count" readonly="1"/>
             </group>
           </group>
           <div class="alert alert-warning" role="alert"
