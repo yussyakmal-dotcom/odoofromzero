@@ -62,3 +62,7 @@ sudo systemctl is-active odoo19
 ```
 
 **Next feature:** RO toko yang mengambil SKU dari **Published Planning dengan Max > 0**, satu RO per toko + dapur + tanggal pengiriman + slot, Qty Pesan oleh toko melalui Excel. Jangan mengulang audit BoM 955 hanya untuk memulai RO.
+
+## Max Capacity mengikuti batch BoM — kode v19.0.1.4.0
+
+Max Capacity **kelipatan terdekat dari BoM Header product_qty** dalam BoM output UoM. Contoh batch 24: Max 50→48, 70→72, 100→96; tepat di tengah pilih turun, Max 0→0. Upload membandingkan **Excel Max → Adjusted Max** di Preview, menampilkan **BoM Output Qty**, baris adjusted ditandai peringatan, baru Save Draft menggunakan Max adjusted. Published di-skip utuh. Operator dapat edit Max Draft; onchange menormalisasi dan mengirim warning; ORM juga memvalidasi kelipatan. Sebelum Publish per dapur, Max lama diperiksa dan tidak diperbaiki diam-diam. BoM output non-integer/invalid ditolak karena Max integer. **Update kode ini belum teruji pada Odoo server**. Lakukan tes `python3 script/test_planning_capacity_batch_pure_ya.py` dan `python3 script/check_production_planning_source_readonly_ya.py`, deploy + upgrade `-u` pada MRP test, restart, lalu uji UI contoh. Tidak mengubah data master/BoM atau Draft existing secara massal.
