@@ -6,7 +6,7 @@
     <field name="arch" type="xml">
       <form string="Packing Consolidation - RO Only" create="false" delete="false">
         <group>
-          <field name="delivery_date" readonly="state == 'preview'"/>
+          <field name="delivery_date_yyyymmdd" readonly="state == 'preview'"/>
           <field name="slot" readonly="state == 'preview'"/>
           <field name="state" invisible="1"/>
         </group>
@@ -46,6 +46,9 @@
                 <field name="kitchen_code" string="Dapur"/>
                 <field name="reference"/>
                 <field name="store_warehouse_id" string="Toko"/>
+                <field name="ro_id" string="RO Toko"/>
+                <field name="ro_date_yyyymmdd" string="Tgl RO"/>
+                <field name="delivery_date_yyyymmdd" string="Tgl Kirim"/>
                 <field name="qty_requested" string="RO Qty"/>
                 <field name="qty_surplus" string="Surplus Prorata"/>
                 <field name="qty_allocated" string="Final Allocation"/>
