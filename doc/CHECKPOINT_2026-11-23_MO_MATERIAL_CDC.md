@@ -156,3 +156,17 @@ Feri menegaskan behavior UX seluruh modul Odoo YA: **klik menu TIDAK langsung me
 **Sudah diimplementasikan dalam SOURCE `ya_material_requirement` 19.0.2.1.0:** menu action `view_mode=list,form` dengan `ir.actions.act_window.view` sequence list=1/form=2; list `view_ya_material_requirement_wizard_list`, menampilkan date label `YYYY-Mon-DD`, slot, state, count. Di Form baru tombol calculate dan cetak. Kode belum diuji oleh Feri pada GUI; butuh `git pull`, preflight, backup GUI test, deploy, `-u ya_material_requirement` jika addon sudah installed (atau `-i` jika belum), restart aman, lalu periksa klik menu buka list sebelum form. Transient wizard list tidak menyimpan riwayat permanen dan dapat dihapus sistem otomatis; kelak buat record persistent ketika permintaan bahan dikembangkan.
 
 **Rule date tetap berlaku:** semua label, laporan PDF, referensi tanggal `YYYY-Mon-DD` (mis. `2026-Nov-27`), bukan ISO UI atau tanpa tahun. Form `fields.Date` input native dapat mengikuti locale pengguna, tetapi output/label yang kita buat sendiri wajib standardized; jangan klaim date-picker native bisa dikendalikan oleh format label.
+
+## 12. UI CORRECTION REQUIRED BY FERI — Existing Packing Batch, no New (23 Nov 2026)
+
+After upgrade `19.0.2.1.0` user reported **"Hitung / Refresh Kebutuhan" button not visible**, rejected workflow `Menu → new empty wizard List → New → select date/slot`. Root cause: button originally in `<footer>` of a normal form and menu exposed temporary wizard list. Feri clarified: existing batch list must be reused, selected, then calculate/refresh in that same batch form. Do NOT ask user to create a new requirement record or choose date/slot again.
+
+Source updated to **`ya_material_requirement 19.0.3.0.0`**:
+- Visible menu `Material Requirement` opens existing `ya.packing.batch` **List filtered `state='production_ok'`**, not transient wizard, no `New`; shows existing `Packing 2026-Nov-27 S1` etc.
+- On clicking existing batch, custom **Form** has **header** buttons `Hitung / Refresh Kebutuhan`, `Cetak Picking List CDC (Draft)`; date, slot and MO count already from Packing.
+- Click Refresh calculates using existing MO → kitchen → CDC engine, and stores reporting-only snapshots `ya.material.requirement.snapshot.line` attached to existing batch. Two forms tabs: per-kitchen materials and CDC consolidation; no user-created audit wizard. Existing transient engine is internal only. No `ya.packing.batch.write`, no stock quant/picking/transfer/MO/PO changes.
+- User's requested date `YYYY-Mon-DD` is shown in list/form and printed PDF.
+- Source changed: `models/material_requirement_batch.py`, `views/material_requirement_batch_views.xml`, `models/__init__.py`, `__manifest__.py`, `security/ir.model.access.csv`, `script/check_material_requirement_source_readonly_ya.py`, README.
+- Last user evidence: `UPGRADE_EXIT_CODE=0` from **previous** v19.0.2.1.0, but no button in GUI; does NOT count as upgrade/testing of v19.0.3.0.0. GitHub source committed, **not yet deployed or GUI tested**.
+
+Next step: Feri `git pull`, run preflight, backup GUI, copy addon to `/opt/odoo19/custom-addons/ya_material_requirement/`, `-u ya_material_requirement` on exact **test DB** `erp-yussyakmal-mrp-test`, restart Odoo service when safe, test list/form/header button. No purchasing/replenishment scope expansion. Be receptive to traceback and fix source if issues.
