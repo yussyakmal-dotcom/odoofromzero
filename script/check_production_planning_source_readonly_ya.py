@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 root = pathlib.Path.cwd() / "addons" / "ya_production_planning"
 required = [
     "__init__.py", "__manifest__.py", "models/__init__.py",
-    "models/planning.py", "wizard/__init__.py", "wizard/planning_import.py",
+    "models/planning.py", "models/capacity_rules.py", "wizard/__init__.py", "wizard/planning_import.py",
     "security/ir.model.access.csv", "views/planning_views.xml",
     "views/import_wizard_views.xml",
 ]
