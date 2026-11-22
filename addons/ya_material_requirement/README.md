@@ -1,6 +1,6 @@
 # YA Material Requirement — Read-Only MO → Kitchen → CDC
 
-**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.3.0.0. Use only the test DB `erp-yussyakmal-mrp-test`.
+**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.4.1.0. Use only the test DB `erp-yussyakmal-mrp-test`.
 
 ## Purpose and workflow
 
@@ -84,3 +84,22 @@ sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin \
 echo "UPGRADE_EXIT_CODE=$?"
 ```
 Restart Odoo service only if CLI exit 0 and safe for other DB users. Test opening menu directly into **existing batch List**, click `Packing 2026-Nov-27 S1`, verify visible header button and click Refresh. Expected MO count=20, kitchen/component groups=97; then test PDF. Error logs from Odoo/docutils need interpretation separate from exit 0.
+
+## 19.0.4.1.0 — Field staff confirms physical picked Qty before native Odoo transfer
+
+**Current operator decision (2026-Nov-23):** Picking List is printed and material is physically assembled. Next step is **Konfirmasi Qty Picking CDC**. Actual physical Qty is allowed to **exceed MO Picking List Qty** when the same source CDC sends additional stock to the **same destination kitchen** via **Special Transfer**. This is not an MO increase.
+
+On Material Requirement existing `Packing 2026-Nov-27 S1` Form, click `Konfirmasi Qty Picking CDC`. This explicitly creates only one **persistent** `ya.cdc.pick.confirmation` draft per existing batch/kitchen, then opens a **LIST** of those documents. Pick a kitchen row to enter its **FORM** and edit Qty physically picked. The initial physical Qty is copied from the last approved material snapshot; do not automatically confirm it. **No user-created batch or repeated date/slot choice.**
+
+For each product on a kitchen:
+- `Qty Picking List (MO)`: immutable requirement from confirmed MOs.
+- `Qty Fisik Dipicking`: operator-editable actual measured Qty, may be less/equal/more.
+- `Qty Extra / Special`: computed `max(physical - MO, 0)`.
+- To allow `physical > MO`, checkbox `Special Transfer?` and enter mandatory `Alasan Special`; optionally record `Referensi Special` (number of existing special request/transfer if known). This request **must be for the same destination kitchen**; never move extra to another kitchen's document.
+- New extra-only SKU not in current MO may be entered on this destination's draft with `Qty Picking List (MO) = 0`, `Qty Fisik > 0`, Special Transfer checkbox and reason.
+- A short physical pick is also allowed; shortfall remains visible and must not be silently counted as delivered.
+- `Konfirmasi Qty Picking` validates material UoM/storability, non-negative Qty, uniqueness, permitted excess + reason, CDC free stock aggregated across confirmed kitchen sheets of this batch, and locks the document from editing. Uses a CDC warehouse SQL row lock to serialize confirmations within this flow.
+
+**This is a confirmation/audit, NOT a stock reservation or Internal Transfer**. It does not write inventory, pickings, MOs, Purchase or accounting. A native CDC→Dapur internal transfer must later reconcile actual Qty vs already existing Special Transfers to avoid duplicate movements; check FEFO, actual bin lots, all reservations and shared CDC free stock again at transfer time. The confirmation's free-stock check is not a guarantee availability will remain unchanged. The source at 19.0.4.1.0 is **not yet independently confirmed installed or GUI-tested**. User confirmed the previous 19.0.3.0.0 PDF generation, NOT this picking confirmation action.
+
+After GUI backup test DB, `git pull`, run `python3 script/check_material_requirement_source_readonly_ya.py`, copy addon to live custom-addons, upgrade with `-u ya_material_requirement` on exact `erp-yussyakmal-mrp-test`, check exit 0, coordinate `sudo systemctl restart odoo19`. Then open existing Packing batch → Konfirmasi Qty Picking CDC → list of kitchen sheets → select a kitchen form → edit actual Qty / Special entries → Confirm. **Do not manually create native stock transfer as an unlinked copy before reconciliation of Special.**
