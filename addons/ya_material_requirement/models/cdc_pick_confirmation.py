@@ -295,4 +295,7 @@ class YaCdcPickConfirmationLine(models.Model):
         _guard_role(self.env)
         if any(line.confirmation_id.state != 'draft' for line in self):
             raise UserError(_('Confirmed physical picking lines cannot be removed.'))
+        if any(line.requested_qty > 0 for line in self):
+            raise UserError(_('MO requested materials must remain on the picking '
+                              'confirmation. Set actual Qty to zero if missing.'))
         return super().unlink()
