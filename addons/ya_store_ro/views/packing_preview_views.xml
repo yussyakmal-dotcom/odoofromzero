@@ -43,6 +43,7 @@
           <page string="Prorata per Toko">
             <field name="allocation_ids" readonly="1" nolabel="1">
               <list create="false" delete="false">
+                <field name="kitchen_code" string="Dapur"/>
                 <field name="reference"/>
                 <field name="store_warehouse_id" string="Toko"/>
                 <field name="qty_requested" string="RO Qty"/>
