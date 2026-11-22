@@ -45,7 +45,7 @@
     <field name="view_mode">form</field>
     <field name="target">new</field>
   </record>
-  <menuitem id="menu_ya_capacity_upload" name="Upload Planning XLSX"
-            parent="menu_ya_capacity_root" action="action_ya_production_planning_import"
+  <menuitem id="menu_ya_capacity_upload" name="Upload Planning"
+            parent="menu_ya_capacity_root" action="action_ya_production_planning"
             sequence="5" groups="mrp.group_mrp_manager"/>
 </odoo>
