@@ -1,6 +1,6 @@
 {
     'name': 'YA Store RO - Published Planning Template',
-    'version': '19.0.1.0.0',
+    'version': '19.0.2.0.0',
     'category': 'Inventory',
     'summary': 'Generate store RO Excel templates from Published Production Planning',
     'depends': ['ya_production_planning', 'stock'],
@@ -8,6 +8,8 @@
     'data': [
         'security/ir.model.access.csv',
         'views/ro_template_wizard_views.xml',
+        'views/ro_import_wizard_views.xml',
+        'views/ro_documents_views.xml',
     ],
     'license': 'LGPL-3',
     'installable': True,
