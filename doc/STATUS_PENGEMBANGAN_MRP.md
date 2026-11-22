@@ -1,6 +1,6 @@
 # ODOO FROM ZERO — Status Pengembangan dan Handoff Manufacturing
 
-**Pembaruan:** 22 November 2026  
+**Pembaruan:** 22 November 2026 — termasuk keputusan desain RO toko, konsolidasi MO, dan SO (belum implementasi)  
 **Cakupan:** ringkasan teknis aman untuk repository publik. Detail lingkungan, daftar akun, identitas transaksi dan konfigurasi internal disimpan terpisah secara privat.
 
 > **Dokumen ini adalah acuan status terbaru.** Catatan handoff sebelumnya adalah riwayat pengerjaan dan dapat memuat status lama yang sudah diselesaikan.
@@ -229,3 +229,69 @@ Log pengguna:
 3. Pastikan GUI menolak pembuatan alasan baru dari header. Kebijakan akses administratif tag alasan belum diputuskan.
 4. Catat hasil dan hanya setelah persetujuan eksplisit rencanakan deployment di lingkungan lain.
 5. Jangan mengulang audit Scrap vs Opname yang sudah ditutup pengguna; jangan menjalankan ulang impor master BoM/UoM.
+
+
+---
+
+## 22 November 2026 — Desain Replenishment Toko, Konsolidasi MO, dan Prioritas SO (BELUM IMPLEMENTASI)
+
+**Status:** keputusan desain dari diskusi pengguna; **belum dibuat addon, belum mengubah rute, database, MO, transfer, atau konfigurasi Odoo**. Fokus implementasi berikutnya adalah **alur permintaan toko terlebih dahulu**. Integrasi SO dirancang setelah fondasi RO toko matang. Jangan salah membaca bagian ini sebagai bukti tes PASS.
+
+### A. Karakter operasi yang menjadi acuan
+
+- Setiap SKU mempunyai **dapur produksi yang telah ditentukan**. Dapur memproduksi SKU miliknya; tidak ada pemilihan dapur secara bebas pada saat konsolidasi.
+- **Gudang Packing** adalah titik konsolidasi permintaan, hasil produksi lintas dapur, pemisahan pesanan, dan distribusi; Packing **bukan** dapur produksi.
+- Sales Order **bukan POS** dan tidak mewakili pemesanan instan: perkiraan volume **10–50 SO/hari**, lazimnya pemesanan **2–3 hari sebelum pengiriman**. Desain harus berbasis jadwal yang realistis; jangan over-engineer transaksi seolah berkecepatan POS.
+
+### B. Dokumen Replenishment Order / Request (RO) dari toko — prioritas desain PERTAMA
+
+1. **Satu dokumen RO per toko untuk satu dapur produksi**, berisi **banyak SKU milik dapur tersebut**. Contoh: jika toko meminta dari 8 dapur, terbentuk **8 dokumen RO**; bukan satu RO yang mencampur 8 dapur.
+2. RO membawa identitas toko, dapur, hubungan jadwal produksi dan tanggal/jadwal pengiriman, serta baris SKU dan kuantitas. Perincian final pengelompokan per siklus/jadwal, terutama jika satu dokumen memuat beberapa jadwal produksi SKU, **masih perlu ditetapkan**.
+3. Input SKU bersifat **unggah template Excel (.xlsx) per dapur**, bukan entry manual 50–200 SKU satu per satu. Template berisi kolom **Reference, Nama Produk, Qty Pesan** dan daftar SKU yang diambil dari master Odoo. Operator hanya mengisi Qty Pesan; 8 dapur dapat berarti 8 file/template dan 8 RO.
+4. **Reference** digunakan untuk mencocokkan SKU dengan master; nama produk adalah petunjuk baca. SKU yang tidak termasuk dapur di header tidak boleh diterima. Usulan teknis yang perlu diuji: baris Qty kosong/0 dilewati, cegah duplikat Reference, tolak Qty negatif/tidak valid, beri pesan error jelas, dan definisikan perilaku unggah ulang agar tidak menggandakan jumlah. Ini adalah rancangan validasi, **bukan fungsi yang sudah teruji**.
+5. **Permintaan asli toko wajib dipertahankan**, terpisah dari kuantitas alokasi terbaru dan kuantitas yang sudah dikirim. Alokasi dapat berubah, tetapi jejak permintaan awal tidak boleh hilang.
+
+### C. Konsolidasi toko → MO
+
+1. Kumpulkan RO dari banyak toko dan **kelompokkan per dapur, jadwal produksi, dan SKU** (serta dimensi BoM/batch apabila relevan). Satu RO memuat banyak SKU, tetapi **satu MO hanya satu SKU** pada kelompok produksi yang bersangkutan.
+2. Jumlah permintaan seluruh toko dibandingkan dengan Production Plan/kapasitas PPIC untuk SKU dan jadwal tersebut. Jika permintaan melebihi kapasitas yang tersedia, alokasi toko dibagi **prorata**, dengan pembulatan integer yang mempertahankan total (misalnya metode floor + largest remainder seperti dalam dokumen arsitektur awal).
+3. **Kelipatan batch BoM** harus diperhitungkan sebelum kuantitas MO dan alokasi akhir dianggap final. Kapasitas nominal tidak otomatis sama dengan jumlah yang benar-benar bisa diproduksi; hasil dan surplus buffer perlu dipisahkan dari permintaan toko.
+4. MO gabungan tidak dibuat satu per RO/toko. Packing tetap mengetahui toko penerima melalui rekam alokasi, meskipun produk berasal dari MO yang sama.
+
+### D. Integrasi Sales Order — tahap SETELAH RO toko
+
+1. **Prioritas SO di atas permintaan toko.** Alokasi toko bersifat dapat dialihkan (*soft allocation*) hingga barang **dikirim dari Packing**. SO terkonfirmasi memiliki komitmen lebih tinggi; permintaan asli toko tidak diubah.
+2. SO dapat berisi banyak SKU dari **beberapa dapur**. **Semua baris SO wajib lulus atau seluruh SO tetap Draft**. Jangan memesan kapasitas sebagian SKU bila satu SKU gagal.
+3. Pada klik **Confirm SO, pemeriksaan pertama adalah flag Open/Locked untuk jadwal produksi dan jadwal pengiriman yang relevan**. Jika salah satu Locked, **SO tidak bisa dikonfirmasi**, meskipun kapasitas masih ada. MO sudah terbit **tidak otomatis** berarti jadwal Locked.
+4. Jika kedua jadwal Open, cek kapasitas untuk **setiap SKU pada dapur/jadwal produksinya**, termasuk kebutuhan kelipatan BoM dan jumlah toko yang masih boleh dialihkan. SO baru yang lolos dapat mengurangi alokasi toko **sampai nol**.
+5. **Realokasi toko dilakukan otomatis secara prorata terhadap toko yang alokasinya masih dapat ditarik**, tanpa approval PPIC tambahan. Berlaku **meskipun MO telah diterbitkan**, selama barang toko terkait **belum dikirim**. Barang yang sudah dikirim dari Packing ke Transit tidak dihitung sebagai kuota yang dapat diambil.
+6. Perubahan alokasi tidak otomatis berarti harus membatalkan/membuat ulang MO bila total produksi masih sama. Jika kuota SO melebihi kemampuan slot yang sungguh tersisa, konfirmasi gagal (jangan menjanjikan stok yang tidak bisa dipenuhi).
+7. Saat sistem menulis konfirmasi, pemeriksaan jadwal dan kapasitas serta perubahan alokasi harus konsisten sebagai **satu transaksi**; hindari penjadwalan ganda atau konfirmasi parsial. Ini kontrol integritas data, bukan target throughput POS.
+8. Agar tidak menghasilkan MO ganda, jalur SO yang menuju konsolidasi khusus perlu dibedakan dari pemicu produksi otomatis native MTO/route standar. Pengaturan integrasi belum diputuskan.
+9. **Tanggal order, tanggal produksi, dan tanggal pengiriman berbeda**; jadwal SO harus mendukung lead time 2–3 hari (atau sesuai kebutuhan aktual), bukan asumsi produksi/kirim langsung saat Confirm.
+
+### E. Penguncian dan ruang lingkupnya
+
+- Rancangan mempunyai **Production Schedule Open/Locked** dan **Delivery Schedule Open/Locked**. Kedua status harus Open untuk menerima **SO baru** pada jadwal terkait.
+- Status diterapkan pada **slot yang tepat**, tidak otomatis menutup seluruh dapur atau seluruh perusahaan. Definisi persis slot, pengguna yang berwenang mengunci/membuka, serta kebijakan perubahan RO setelah lock **belum ditetapkan**.
+- Kondisi **MO diterbitkan** terpisah dari kondisi **jadwal terkunci** dan terpisah dari status **barang sudah dikirim**.
+- Realokasi harus menangani kuantitas yang sudah dikeluarkan untuk toko, serta *stock reservation/picking* yang belum Done, tanpa mengubah transaksi Done secara diam-diam.
+
+### F. Celah implementasi yang belum ditutup
+
+- Kejadian produk selesai kurang dari target MO, sebagian toko sudah dikirim, atau kuantitas tersedia tidak cukup untuk SO yang sudah terkonfirmasi: perlu kebijakan kekurangan/exception dan pelaporan; jangan mengarang penanganannya.
+- Kapasitas SKU per dapur perlu selaras dengan sumber daya bersama (Work Center, jam kerja), jika itu memang membatasi produksi.
+- Perubahan, pembatalan, dan pengiriman parsial SO/RO harus mempertahankan histori alokasi; detail lifecycle belum final.
+- Tentukan hubungan satu RO per dapur dengan tanggal/jadwal produksi SKU yang bisa berbeda, serta cara memilih jadwal saat impor Excel.
+- Aturan cutoff, otorisasi lock/unlock, dan revisi RO setelah locking belum mendapat keputusan eksplisit.
+- Perlu tes integrasi SO, RO, MO, Picking, Packing dan Transit di database test sebelum klaim siap operasi.
+
+### G. Urutan kerja yang disetujui dalam diskusi
+
+1. **Desain dan implementasi RO toko per dapur + template/impor Excel** terlebih dahulu.
+2. Rancang dan uji konsolidasi **RO lintas toko → kapasitas PPIC → prorata → MO per SKU/dapur/jadwal**.
+3. Uji alur produksi dan distribusi **Dapur → Transit → Packing → Transit → Toko** dengan jejak kuantitas Requested / Allocated / Delivered.
+4. **Baru tambahkan SO** multi-SKU lintas dapur: first-check lock, seluruh baris lolos, prioritas SO, realokasi prorata toko otomatis, dan konsolidasi pengiriman di Packing.
+5. Untuk semua pekerjaan: perubahan hanya jika diminta/disetujui, uji di **MRP test**, hindari audit ulang sistem default yang tidak relevan, dan jangan menyentuh DB utama/Purchasing test.
+
+**Rujukan desain:** diskusi arsitektur terbaru dan PDF pengguna “Dokumentasi Alur Kerja Sistem ERP Odoo 19 Community” (dua jalur asli: PPIC supply + replenishment toko; tambahan jalur demand SO diputuskan kemudian). PDF bukan bukti konfigurasi sudah dibuat.
