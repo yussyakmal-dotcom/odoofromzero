@@ -31,7 +31,7 @@
           <span> SKU dibatasi Planning Max. Total kekurangan toko </span>
           <field name="total_shortage" readonly="1" nolabel="1"/>
           <span> pcs. Cek jatah final dan kekurangan pada tab Prorata per Toko.
-            Qty RO asli tidak berubah. Setujui pembagian sebelum Pre Produksi.
+            Qty RO asli tidak berubah; yang dikurangi adalah jatah toko sebelum produksi. Setujui pengurangan sebelum Pre Produksi.
           </span>
         </div>
         <group invisible="state != 'preview'">
@@ -42,6 +42,7 @@
             <field name="blocked_count" readonly="1"/>
             <field name="prorated_count" readonly="1"/>
             <field name="total_shortage" readonly="1"/>
+            <field name="total_unallocated" readonly="1"/>
           </group>
           <group>
             <field name="total_requested" readonly="1"/>
@@ -60,8 +61,8 @@
                 <field name="product_id"/>
                 <field name="qty_requested" string="Total RO"/>
                 <field name="bom_output" string="BoM Output"/>
-                <field name="qty_production" string="Production (Round Up)"/>
-                <field name="qty_surplus" string="Surplus"/>
+                <field name="qty_production" string="Rencana Qty MO"/>
+                <field name="qty_surplus" string="Selisih BoM Belum Dialokasikan"/>
                 <field name="qty_shortage" string="Kekurangan"/>
                 <field name="max_capacity" string="Planning Max"/>
                 <field name="capacity_status" string="Capacity" widget="badge"
@@ -85,7 +86,7 @@
               </list>
             </field>
           </page>
-          <page string="Prorata per Toko">
+          <page string="Prorata Pengurangan Qty per Toko">
             <field name="allocation_ids" readonly="1" nolabel="1">
               <list create="false" delete="false">
                 <field name="kitchen_code" string="Dapur"/>
@@ -94,10 +95,9 @@
                 <field name="ro_id" string="RO Toko"/>
                 <field name="ro_date_yyyymmdd" string="Tgl RO"/>
                 <field name="delivery_date_yyyymmdd" string="Tgl Kirim"/>
-                <field name="qty_requested" string="RO Qty"/>
-                <field name="qty_surplus" string="Surplus Prorata"/>
+                <field name="qty_requested" string="Qty RO Asli"/>
                 <field name="qty_shortage" string="Kekurangan" decoration-danger="qty_shortage &gt; 0"/>
-                <field name="qty_allocated" string="Jatah Final"/>
+                <field name="qty_allocated" string="Jatah Setelah Prorata"/>
               </list>
             </field>
           </page>
@@ -121,13 +121,13 @@
                   string="Recalculate" invisible="state != 'preview'"/>
           <span class="text-warning fw-bold"
                 invisible="state != 'preview' or prorated_count == 0">
-            Periksa dan setujui prorata kekurangan toko sebelum Pre Produksi.
+            Periksa pengurangan jatah tiap toko dan setujui sebelum Pre Produksi.
           </span>
           <button name="action_move_to_preproduction" type="object"
                   string="Pindahkan ke Pre Produksi"
                   class="btn-primary"
                   groups="ya_store_ro.group_ya_packing_admin"
-                  confirm="Pindahkan konsolidasi ke Pre Produksi dan KUNCI Qty? Jika kapasitas kurang, Qty permintaan toko tidak berubah, tetapi jatah final masing-masing toko berkurang dan kekurangan dicatat. MO BELUM dibuat."
+                  confirm="Pindahkan konsolidasi ke Pre Produksi dan KUNCI Qty? Jika kapasitas kurang, Qty RO asli tidak berubah, jatah toko dikurangi proporsional sesuai kapasitas, dan kekurangannya dicatat. Selisih pembulatan BoM TIDAK dibagikan ke toko. MO BELUM dibuat."
                   invisible="state != 'preview' or blocked_count != 0"/>
           <button string="Close" special="cancel"/>
         </footer>
