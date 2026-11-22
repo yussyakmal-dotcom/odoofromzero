@@ -72,6 +72,17 @@ if view.is_file():
     view_text = view.read_text(encoding="utf-8")
     if '<field name="delivery_date"' not in view_text or '<field name="slot"' not in view_text:
         errors.append("PACKING_DATE_SLOT_PICKER_MISSING")
+# Date display must be explicit YYYYMMDD, never locale-formatted "Nov 22".
+for relative, required_tokens in {
+    "models/store_ro.py": ("delivery_date_yyyymmdd", "ro_date_yyyymmdd", "strftime('%Y%m%d')"),
+    "wizard/packing_preview.py": ("delivery_date_yyyymmdd", "ro_date_yyyymmdd", "datetime.strptime("),
+    "views/ro_documents_views.xml": ('name="delivery_date_yyyymmdd"', 'name="ro_date_yyyymmdd"'),
+    "views/packing_preview_views.xml": ('name="delivery_date_yyyymmdd"', 'name="ro_date_yyyymmdd"'),
+}.items():
+    body = (addon / relative).read_text(encoding="utf-8")
+    for token in required_tokens:
+        if token not in body:
+            errors.append("YYYYMMDD_DISPLAY_MISSING: " + relative + ": " + token)
 print("ERROR_COUNT:", len(errors))
 for issue in errors:
     print(issue)
