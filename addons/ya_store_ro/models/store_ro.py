@@ -175,10 +175,7 @@ class YaStoreRO(models.Model):
                        for ro in self):
                     raise UserError(_('RO staging conflicts with date/slot or prior batch.'))
             else:
-                if any(not ro.packing_batch_id or
-                       ro.packing_batch_id.state != 'pre_production'
-                       for ro in self):
-                    raise UserError(_('Cannot remove RO from Produksi OK.'))
+                raise UserError(_('Pre Produksi is final for Qty: RO cannot return to Confirmed queue.'))
             return super().write(vals)
         if 'production_ok' in vals:
             raise UserError(_('Produksi OK requires the future atomic MO generation action.'))
