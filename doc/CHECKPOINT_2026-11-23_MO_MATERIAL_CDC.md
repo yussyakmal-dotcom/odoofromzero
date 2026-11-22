@@ -127,3 +127,20 @@ MO Confirmed
 **PENTING:** `stock.picking` adalah dokumen operasional native Odoo dan dapat memiliki status/reservasi sendiri; kebutuhan cetak **"Picking List"** tidak berarti kita boleh langsung membuat/memvalidasi `stock.picking` yang memindah stok. Pilih secara eksplisit tahap cetak/penyiapan, lalu validasi transfer/penerimaan setelah cek fisik. Pada implementasi pastikan routing antarwarehouse dan FEFO; jangan membuat stock move selesai hanya dengan print.
 
 **Implementasi:** aturan flow dan rancangan format ini sudah dikunci di dokumentasi; modul `ya_material_requirement` versi `19.0.1.1.0` yang ada sekarang masih *read-only* dan **belum memiliki** tombol generate/cetak Picking List atau transfer. Jangan klaim fitur print sudah tersedia. Tahap berikutnya implementasi picking list dan QWeb PDF print, diuji hanya pada `erp-yussyakmal-mrp-test` setelah source review/backup.
+
+## 9. Implementasi CETAK CDC Picking List — SOURCE-ONLY 19.0.2.0.0
+
+Feri meminta implementasi setelah rancangan tahap wajib picking list dicetak untuk petugas sebelum internal transfer. Addon `addons/ya_material_requirement` versi **19.0.2.0.0** sekarang mempunyai tombol `Cetak Picking List CDC (Draft)` di wizard Material Requirement setelah `Hitung / Refresh Kebutuhan`. QWeb PDF `report/cdc_picking_list_report.xml` memberi halaman terpisah per dapur, tanggal kirim/slot, referensi sementara `CDC-DRAFT-<date>-<slot>-<warehouse code>`, SKU, nama bahan, unit, estimasi Qty ambil, kolom Qty disiapkan, lot/FEFO, cek fisik, tanda tangan.
+
+**Batas fase ini:** dokumen DRAFT hasil transient (belum permintaan disimpan bernomor permanen); TIDAK membuat/menyetujui stock picking, stock move, reservation, transfer, atau pembelian. Tiap cetak menghitung ulang stok dan MO, menolak bila CDC tidak mencukupi kebutuhan gabungan atau Qty ambigu akibat reservasi dapur. Hanya test DB exact `erp-yussyakmal-mrp-test`, tidak pernah produksikan. Setelah PDF dan angka diuji, baru buat tahap persistent request, konfirmasi Qty fisik, dan Internal Transfer standar. Pembelian/premik/WIP tetap di luar flow ini.
+
+Status: **GitHub source committed; BELUM ada bukti preflight Feri, install atau GUI/QWeb PDF print berhasil.** Jangan klaim cetak berhasil sebelum output PDF user.
+
+Next actions Feri:
+```bash
+cd ~/odoofromzero
+git pull
+python3 script/check_material_requirement_source_readonly_ya.py
+python3 script/test_material_requirement_rules_ya.py
+```
+Lalu backup GUI test, deploy `ya_material_requirement`. Pakai `-i` jika module belum installed, `-u` jika sudah installed; restart service hanya setelah exit=0 dan saat aman. Pilih 2026-11-27 S1, Hitung / Refresh, Cetak Picking List. Periksa halaman per dapur dan jumlah bahan. Jangan klik transfer.
