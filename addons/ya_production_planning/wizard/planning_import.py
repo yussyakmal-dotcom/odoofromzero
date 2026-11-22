@@ -255,12 +255,16 @@ class YaProductionPlanningImport(models.TransientModel):
             'product_id': r['product_id'], 'requested_max': r['requested_max'],
             'max_capacity': r['max'], 'bom_qty': r['bom_qty'],
             'bom_id': r['bom_id'], 'adjusted': r['adjusted'],
+            'upload_action': ('skip' if r['code'] in expected['skip']
+                              else 'replace' if r['code'] in expected['replace']
+                              else 'create'),
             'uom_id': r['uom_id'], 'workcenter_id': r['workcenter_id'],
         }) for r in resolved]
         adjusted_rows = [
             '%s!%s SKU %s: %s -> %s (BoM %s)' %
             (r['sheet'], r['row'], r['reference'], r['requested_max'],
-             r['max'], r['bom_qty']) for r in resolved if r['adjusted']
+             r['max'], r['bom_qty']) for r in resolved
+            if r['adjusted'] and r['code'] not in expected['skip']
         ]
         self.write({'preview_line_ids': lines, 'state': 'preview', 'errors': False,
                     'report': (
@@ -381,6 +385,9 @@ class YaProductionPlanningImportLine(models.TransientModel):
     max_capacity = fields.Integer(string='Adjusted Max', readonly=True)
     bom_qty = fields.Float(string='BoM Output Qty', readonly=True)
     adjusted = fields.Boolean(string='Adjusted?', readonly=True)
+    upload_action = fields.Selection([
+        ('create', 'Create Draft'), ('replace', 'Replace Draft'),
+        ('skip', 'Skip Published')], readonly=True)
     bom_id = fields.Many2one('mrp.bom', readonly=True)
     uom_id = fields.Many2one('uom.uom', readonly=True)
     workcenter_id = fields.Many2one('mrp.workcenter', readonly=True)
