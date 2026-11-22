@@ -53,3 +53,24 @@ New persistent `ya.store.ro` and `ya.store.ro.line` models, import wizard `ya.st
 **Allocation method chosen for implementation:** deterministic **largest remainder** (Hamilton) with whole-unit Qty and store ID ascending tie-break: total required = sum of all Confirmed store RO for the same kitchen/date/slot/SKU; produced = round UP to BoM batch; surplus = produced - required; each store receives at least its original Qty, plus floor(surplus * its Requested / Total Requested), remaining units go to largest fractional remainder. Zero-request stores receive zero additional Qty; no random or manual splitting. Keep original requested, allocated surplus and final allocated as distinct quantities. Example BoM24, requests 13/27/9 → required49, produced72, surplus23 → allocated 19/40/13. This arithmetic choice requires user UI test before actual distribution.
 
 **Source milestone (not yet deployed or GUI tested):** `addons/ya_store_ro/models/allocation_rules.py` pure calculation + `script/test_ro_packing_prorata_pure_ya.py` script. **No new Odoo view, database table, MO or stock move yet.** This file is deliberately independent of Odoo and does not affect the currently installed RO behavior. Next: source test, add Packing consolidation preview (confirmed RO only) with capacity exception if rounding up exceeds Published Max; then stage MO and warehouse moves/receipt with accounting valuation test. Do not silently cut quantity below requested or exceed Published capacity.
+
+## Koreksi KRITIS alur end-to-end: replenishment bahan sebelum MO berjalan (22 November 2026)
+
+**Keputusan eksplisit Feri — menggantikan alur ringkas sebelumnya yang melewatkan tahapan bahan baku.**
+
+Alur RO-only untuk satu siklus sampai toko menerima barang:
+1. **RO toko Confirmed** per toko/dapur/tanggal kirim/slot.
+2. **Packing mengonsolidasikan RO** per SKU/dapur/tanggal kirim/slot. Produksi dibulatkan **SELALU KE ATAS** sesuai output BoM. Surplus dialokasikan **PRORATA** berdasarkan Qty RO asli; SO belum diaktifkan dalam siklus ini.
+3. **Generate MO per SKU/jadwal/dapur** dari hasil konsolidasi (MO boleh dibuat pada tahap ini, **tetapi dilarang menjalankan MO/WO sebelum material ready**).
+4. **Material Replenishment**: hitung kebutuhan komponen BoM MO, periksa stok yang tersedia di **gudang produksi/dapur** (dengan memperhitungkan komitmen/reservasi lain agar tidak double count), tentukan kekurangan bahan per dapur.
+5. Kekurangan bahan memicu **permintaan Internal Transfer Gudang Central → Gudang Produksi/Dapur**. **Central menghasilkan Picking List** untuk mengumpulkan seluruh kebutuhan bahan **dikelompokkan per dapur**. Validasi bahwa permintaan tidak menduplikasi pemindahan bahan yang sudah dilakukan.
+6. **Central picking/dispatch dan internal transfer**, lalu **gudang produksi/dapur melakukan konfirmasi penerimaan** (alur multi-step dengan status dan kuantitas yang terlacak; bukan hanya marking request as done).
+7. **Availability Gate wajib:** setiap komponen BoM yang dibutuhkan MO harus **benar-benar available di lokasi dapur** setelah penerimaan (dengan cek stok bebas reservasi sesuai konfigurasi). Jika kurang satu komponen, **MO/WO belum boleh dijalankan**. Jika Central juga kekurangan, proses harus berstatus shortage/exception; jangan membuat stok minus atau mengasumsikan replenishment sukses.
+8. Baru **MO/WO dijalankan** dan bahan dikonsumsi sesuai kebijakan produksi.
+9. Produk jadi ditransfer **Dapur → Transit → Packing** dan diterima Packing.
+10. Packing melakukan alokasi akhir dan **Internal Transfer Packing → Transit → Toko**.
+11. Toko **mengonfirmasi Receipt aktual** sehingga siklus selesai dan Qty Requested/Allocated/Delivered/Received dapat ditelusuri.
+
+**Gate implementasi:** pembuatan MO **tidak boleh secara otomatis memicu start production**; start/WO harus dicegah secara server-side jika material dapur belum ready, bukan hanya mengandalkan tombol di UI. Perlu desain dan pengujian khusus untuk status MO, operasi reservasi, picking, stock moves, warehouse receipts, Accounting/valuation, kekurangan bahan di Central, dan perubahan stok setelah material ready. **Belum diimplementasi** untuk MO, picking, gate availability, atau transfers; dokumen ini keputusan flow, bukan bukti implementasi.
+
+**Pekerjaan berikut:** kerjakan konsolidasi RO-only terlebih dulu (preview+prorata+round-up+capacity handling), lalu generate MO dan replenishment bahan secara berurutan dengan tes pada `erp-yussyakmal-mrp-test`. Jangan loncat dari generate MO langsung ke produksi. UI/UX minor tetap HOLD.
