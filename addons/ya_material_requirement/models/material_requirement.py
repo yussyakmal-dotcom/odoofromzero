@@ -159,7 +159,6 @@ class YaMaterialRequirementWizard(models.TransientModel):
                     continue
                 if not move.product_id:
                     continue
-                move_count += 1
                 base_qty = move.product_uom._compute_quantity(
                     move.product_uom_qty, move.product_id.uom_id, round=False,
                 )
@@ -168,6 +167,7 @@ class YaMaterialRequirementWizard(models.TransientModel):
                                     % mo.name)
                 if not base_qty:
                     continue
+                move_count += 1
                 key = (kitchen.id, move.product_id.id)
                 requirements[key] += base_qty
                 sources[key].add(move.location_id.id)
