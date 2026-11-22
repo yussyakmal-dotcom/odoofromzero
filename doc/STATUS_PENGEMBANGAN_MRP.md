@@ -580,3 +580,23 @@ Feri clarified explicitly: **"harus nya prorate di preview sebelum produksi adal
 - Preview fields and UI label `Prorata Pengurangan Qty per Toko`, `Qty RO Asli`, `Jatah Setelah Prorata`, `Kekurangan`. Amber warning and explicit checkbox to accept shortages prior to irreversible Pre Produksi; blocked red for cannot make one batch. PRORATA IS DONE BEFORE PRODUCTION; no MO in preview/stage.
 - Release invariants changed: `store.requested == store.allocated + store.shortage`, **store.surplus == 0**, `MO qty == sum(store allocated) + SKU unallocated BoM gap`. All shortages/BoM gaps immutable from Pre Produksi through MO. No silent distribution.
 - Tests: `python3 script/test_capacity_prorata_ya.py` and `python3 script/check_capacity_prorata_source_readonly_ya.py` plus source preflights. Test DB `erp-yussyakmal-mrp-test` ONLY with backup; module version/ORM fields/XML changed so Odoo upgrade `-u ya_store_ro` needed. No approval for production main DB.
+
+## NEXT PHASE — MO → Material Requirement → CDC (23 Nov 2026; readonly audit first)
+
+User confirmed MO generation ("sudah jadi MO") after Packing Produksi OK and authorized next phase: calculate missing ingredients per kitchen from CDC, then use **standard Odoo Internal Transfer** and kitchen receipt; if CDC has insufficient free stock, surface Purchasing needs.
+
+**First committed deliverable only:** `script/audit_mo_material_cdc_readonly_ya.py` plus static guard `script/check_mo_material_cdc_source_readonly_ya.py`. This is a NO-DB-WRITE Odoo shell report for TEST DB `erp-yussyakmal-mrp-test`, target 2026-11-27 S1. Reads link `ya.packing.batch.line.mo_id`, `mrp.production.move_raw_ids` (actual confirmed MO raw component moves), converts raw demand UoM to product base UoM, groups by kitchen WH/SKU, reads physical and reserved stock via `stock.quant` under each kitchen's `lot_stock_id`. Lists warehouse CDC/Central candidates and, only if unambiguous, free stock at CDC. Outputs per-component gross demand, physical, total reserved, free, **LOWER and UPPER SHORTFALL ESTIMATES**. These are NOT final replenishment amounts because reservations belonging to these very MOs can make naive "demand minus free stock" double-count shortages. Audits raw stock source locations and whether CDC mapping is unambiguous; no automatic transfer, stock reservation, PO, or MO changes.
+
+**Next after Feri supplies report:** verify MO-owned reservations, replenishment in-transit, stock location hierarchy, CDC warehouse & picking type, FEFO/lots and exact UoM; then create a read-only Material Requirement UI with validated net shortages and subsequently draft standard Odoo `stock.picking` internal transfers CDC→kitchen, subject to user approval and no-negative rules. Do not assume one automatic stock transfer is valid between separate Odoo warehouses if two-step route requires different pickings. No implementation of transfers has been authorized beyond staged design; no CDC warehouse identifier confirmed.
+
+Commands:
+```bash
+cd ~/odoofromzero
+git pull
+python3 script/check_mo_material_cdc_source_readonly_ya.py
+sudo -u odoo19 /opt/odoo19/venv/bin/python3 \
+ /opt/odoo19/odoo/odoo-bin shell \
+ -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http \
+ < script/audit_mo_material_cdc_readonly_ya.py
+```
+No module upgrade or service restart required for these reports. Source commit and reports are not evidence of actual inventory balances until shell output arrives.
