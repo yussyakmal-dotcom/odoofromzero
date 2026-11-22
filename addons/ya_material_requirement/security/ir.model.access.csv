@@ -7,3 +7,7 @@ access_ya_material_requirement_kitchen_packing,Material Requirement Kitchen Pack
 access_ya_material_requirement_cdc_packing,Material Requirement CDC Packing,model_ya_material_requirement_cdc_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
 access_ya_material_snapshot_manager,YA Material Snapshot Manager,model_ya_material_requirement_snapshot_line,mrp.group_mrp_manager,1,1,1,1
 access_ya_material_snapshot_packing,YA Material Snapshot Packing,model_ya_material_requirement_snapshot_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
+access_ya_cdc_pick_manager,CDC Pick Confirmation Manager,model_ya_cdc_pick_confirmation,mrp.group_mrp_manager,1,1,1,0
+access_ya_cdc_pick_line_manager,CDC Pick Line Manager,model_ya_cdc_pick_confirmation_line,mrp.group_mrp_manager,1,1,1,1
+access_ya_cdc_pick_packing,CDC Pick Confirmation Packing,model_ya_cdc_pick_confirmation,ya_store_ro.group_ya_packing_admin,1,1,1,0
+access_ya_cdc_pick_line_packing,CDC Pick Line Packing,model_ya_cdc_pick_confirmation_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
