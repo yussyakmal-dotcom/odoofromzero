@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_packing_preview_form" model="ir.ui.view">
+    <field name="name">ya.packing.preview.form</field>
+    <field name="model">ya.packing.preview</field>
+    <field name="arch" type="xml">
+      <form string="Packing Consolidation - RO Only" create="false" delete="false">
+        <group>
+          <field name="planning_id" readonly="state == 'preview'"
+                 options="{'no_create': True, 'no_open': True}"/>
+          <field name="state" invisible="1"/>
+        </group>
+        <group invisible="state != 'preview'">
+          <group>
+            <field name="ro_count" readonly="1"/>
+            <field name="sku_count" readonly="1"/>
+            <field name="blocked_count" readonly="1"/>
+          </group>
+          <group>
+            <field name="total_requested" readonly="1"/>
+            <field name="total_production" readonly="1"/>
+          </group>
+          <field name="info" readonly="1" nolabel="1" colspan="2"/>
+        </group>
+        <notebook invisible="state != 'preview'">
+          <page string="Consolidated SKU">
+            <field name="line_ids" readonly="1" nolabel="1">
+              <list create="false" delete="false">
+                <field name="reference"/>
+                <field name="product_id"/>
+                <field name="qty_requested" string="Total RO"/>
+                <field name="bom_output" string="BoM Output"/>
+                <field name="qty_production" string="Production (Round Up)"/>
+                <field name="qty_surplus" string="Surplus"/>
+                <field name="max_capacity" string="Planning Max"/>
+                <field name="capacity_status" string="Capacity"/>
+                <field name="uom_id"/>
+              </list>
+            </field>
+          </page>
+          <page string="Prorata per Toko">
+            <field name="allocation_ids" readonly="1" nolabel="1">
+              <list create="false" delete="false">
+                <field name="reference"/>
+                <field name="store_warehouse_id" string="Toko"/>
+                <field name="qty_requested" string="RO Qty"/>
+                <field name="qty_surplus" string="Surplus Prorata"/>
+                <field name="qty_allocated" string="Final Allocation"/>
+              </list>
+            </field>
+          </page>
+        </notebook>
+        <footer>
+          <button name="action_preview" type="object" class="btn-primary"
+                  string="Calculate Preview" invisible="state == 'preview'"/>
+          <button name="action_preview" type="object"
+                  string="Recalculate" invisible="state != 'preview'"/>
+          <button string="Close" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_packing_preview" model="ir.actions.act_window">
+    <field name="name">Packing Consolidation (RO Only)</field>
+    <field name="res_model">ya.packing.preview</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+  <menuitem id="menu_ya_packing_preview"
+            name="Packing - Consolidation Preview"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_packing_preview"
+            sequence="35"
+            groups="mrp.group_mrp_manager"/>
+</odoo>
