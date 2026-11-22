@@ -20,7 +20,7 @@
     <field name="arch" type="xml">
       <form string="Production Planning" create="false" delete="false">
         <header>
-          <button name="action_publish_batch" type="object" string="Publish Entire Upload"
+          <button name="action_publish" type="object" string="Publish This Kitchen"
                   class="btn-primary" groups="mrp.group_mrp_manager" invisible="state != 'draft'"/>
           <field name="state" widget="statusbar" statusbar_visible="draft,published"/>
         </header>
@@ -57,10 +57,29 @@
       </form>
     </field>
   </record>
+  <record id="view_ya_production_planning_search" model="ir.ui.view">
+    <field name="name">ya.production.planning.search</field>
+    <field name="model">ya.production.planning</field>
+    <field name="arch" type="xml">
+      <search string="Production Planning">
+        <field name="delivery_date"/>
+        <field name="kitchen_code"/>
+        <field name="workcenter_id"/>
+        <filter name="filter_draft" string="Draft" domain="[('state','=','draft')]"/>
+        <filter name="filter_published" string="Published" domain="[('state','=','published')]"/>
+        <separator/>
+        <filter name="group_state" string="Status" context="{'group_by':'state'}"/>
+        <filter name="group_slot" string="Delivery Slot" context="{'group_by':'slot'}"/>
+        <filter name="group_kitchen" string="Kitchen" context="{'group_by':'kitchen_code'}"/>
+      </search>
+    </field>
+  </record>
   <record id="action_ya_production_planning" model="ir.actions.act_window">
     <field name="name">Production Planning</field>
     <field name="res_model">ya.production.planning</field>
     <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_ya_production_planning_search"/>
+    <field name="domain">[]</field>
   </record>
   <menuitem id="menu_ya_capacity_root" name="YA Production Capacity"
             parent="mrp.menu_mrp_root" sequence="60" groups="mrp.group_mrp_user,mrp.group_mrp_manager"/>
