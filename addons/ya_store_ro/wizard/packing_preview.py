@@ -57,6 +57,13 @@ class YaPackingPreview(models.TransientModel):
 
     def action_preview(self):
         self.ensure_one()
+        if (self.state == 'preview' and
+                not self.env.context.get('ya_applied_qty_corrections') and
+                any(row.new_qty != row.old_qty for row in self.source_line_ids)):
+            raise UserError(_(
+                'Qty koreksi belum disimpan. Klik Simpan Koreksi Qty + Recalculate '
+                'sebelum melakukan hitung ulang.'
+            ))
         if not (self.env.user.has_group('mrp.group_mrp_manager') or
                 self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):
             raise UserError(_('Only a Manufacturing Manager or Packing Admin may preview consolidation.'))
@@ -248,7 +255,7 @@ class YaPackingPreview(models.TransientModel):
             item.ro_line_id.with_context(
                 packing_qty_correction_reason=item.reason.strip()
             ).write({'qty_requested': item.new_qty})
-        return self.action_preview()
+        return self.with_context(ya_applied_qty_corrections=True).action_preview()
 
 
     def action_move_to_preproduction(self):
