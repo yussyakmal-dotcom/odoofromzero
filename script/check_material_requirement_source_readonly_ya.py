@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.2.0.0'",
+        "'version': '19.0.2.1.0'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
         "'report/cdc_picking_list_report.xml'",
@@ -45,6 +45,8 @@ required = {
         "status = 'cdc_short'",
         "DI LUAR alur ini",
         "def action_print_picking_list(self):",
+        "delivery_date_label = fields.Char(",
+        "strftime('%Y-%b-%d')",
         "def _get_print_picking_groups(self):",
         "self.action_calculate()",
         "if self.cdc_shortage_count:",
@@ -59,6 +61,10 @@ required = {
         'Ringkasan CDC per Bahan',
         'Hitung / Refresh Kebutuhan',
         'Cetak Picking List CDC (Draft)',
+        'view_ya_material_requirement_wizard_list',
+        'action_ya_material_requirement_list',
+        'action_ya_material_requirement_form',
+        '<field name="view_mode">list,form</field>',
         'AUDIT SAJA',
         'PERINGATAN STOK CDC',
     ],
