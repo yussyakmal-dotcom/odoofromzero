@@ -83,7 +83,11 @@ class YaPackingPreview(models.TransientModel):
         total_requested = total_production = 0
         for product_id in sorted(by_product, key=lambda p: (plan_lines[p].reference, p)):
             source = plan_lines[product_id]
-            bom = source._capacity_bom()
+            try:
+                bom = source._capacity_bom()
+            except UserError as exc:
+                raise UserError(_('SKU %s: Cannot resolve kitchen-specific BoM: %s')
+                                % (source.reference, exc))
             batch = bom.product_qty
             if batch <= 0 or int(batch) != batch:
                 raise UserError(_('SKU %s has non-integer BoM output %s; cannot consolidate.')
