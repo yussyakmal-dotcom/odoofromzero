@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_packing_qty_correction_form" model="ir.ui.view">
+    <field name="name">ya.packing.qty.correction.form</field>
+    <field name="model">ya.packing.qty.correction</field>
+    <field name="arch" type="xml">
+      <form string="Koreksi Terakhir Qty RO Confirmed" create="false" delete="false">
+        <group>
+          <field name="ro_id" options="{'no_create': True, 'no_open': True}"/>
+          <field name="line_id" options="{'no_create': True, 'no_open': True}"/>
+          <field name="old_qty" readonly="1"/>
+          <field name="new_qty"/>
+          <field name="reason" placeholder="Alasan dan permintaan dari operator toko..."/>
+        </group>
+        <footer>
+          <button name="action_apply" type="object" class="btn-primary"
+                  string="Simpan Koreksi Qty"/>
+          <button string="Cancel" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_packing_qty_correction" model="ir.actions.act_window">
+    <field name="name">Packing - Koreksi RO Confirmed</field>
+    <field name="res_model">ya.packing.qty.correction</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+  <menuitem id="menu_ya_packing_qty_correction"
+            name="Packing - Koreksi RO Confirmed"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_packing_qty_correction"
+            sequence="32"
+            groups="ya_store_ro.group_ya_packing_admin"/>
+</odoo>
