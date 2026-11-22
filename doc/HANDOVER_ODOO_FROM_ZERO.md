@@ -1,7 +1,7 @@
 # ODOO FROM ZERO — Handover Operasional
 
 **Tanggal:** 22 November 2026  
-**Prioritas saat ini:** Dokumentasi/desain **RO toko per dapur + impor Excel + konsolidasi MO**, lalu integrasi SO; **belum implementasi**. Pengujian Excel `ya_scrap_multi` tetap tercatat sebagai pekerjaan modul terpisah yang belum selesai.
+**Prioritas saat ini:** Desain dimulai dari **Master Capacity Template + Production Planning massal**, diteruskan RO toko, konsolidasi, material replenishment, produksi, lalu SO dan DO toko; **belum implementasi**. Pengujian Excel `ya_scrap_multi` tetap tercatat sebagai pekerjaan modul terpisah yang belum selesai.
 
 > **BACA DAHULU:** Dokumen ini merangkum checkpoint terbaru. Riwayat lengkap master Manufacturing, Purchasing, dan UoM di [STATUS_PENGEMBANGAN_MRP.md](STATUS_PENGEMBANGAN_MRP.md). Jangan memakai status checkpoint lama sebagai keadaan terkini.
 
@@ -63,6 +63,40 @@ Belum diputuskan: siapa yang membuat/mengunci/membuka jadwal, apakah RO boleh di
 **Jalur pekerjaan tetap: RO toko per dapur + Excel → konsolidasi RO → kapasitas/prorata → MO → distribusi; lalu SO.** Pada **setiap langkah** tambahkan *accounting impact check* yang relevan, bukan membuat modul Accounting terpisah di ujung proyek.
 
 Rincian matriks dampak tiap transaksi dan sumber Odoo 19 ada di [STATUS_PENGEMBANGAN_MRP.md](STATUS_PENGEMBANGAN_MRP.md) bagian **Integrasi Accounting pada Inventory dan Manufacturing**.
+
+
+## Checkpoint keputusan terbaru — Delivery Schedule, Planning, Distribusi, dan Anti-Fraud
+
+**22 November 2026. DESAIN, BELUM IMPLEMENTASI.** BAGIAN INI MENGGANTIKAN KESIMPULAN LAMA YANG BERTENTANGAN. Dokumen status terbaru memuat uraian lengkap pada bagian “Keputusan desain terbaru: Planning, RO, MO, Packing, DO, selisih, anti-fraud”.
+
+**Kunci jadwal:** tepat 3 slot tetap per hari kirim: **S1 Subuh 05.00 WIB, S2 Pagi 09.00 WIB, S3 Siang 11.00 WIB**. Seluruh planning, RO, konsolidasi, SO dan DO terhubung **tanggal kirim + slot**. Tanggal produksi hanya informasi (produksi lintas tengah malam); bukan dasar lock/penyatuan MO. Close/lock per tanggal-slot, tidak merembet ke slot lain.
+
+**Mulai dari Production Planning PPIC, BUKAN Packing membuka pesanan:**
+1. **3 × jumlah dapur** Master Capacity Template (misal 10 dapur = 30 template) berisi Reference, Nama Produk, Max Capacity per SKU. **Export/Import Excel untuk MASTER TEMPLATE saja**; tidak ada Excel upload pada planning harian.
+2. Admin Produksi **Generate Planning Massal** untuk tanggal kirim, slot, dan dapur yang dipilih → satu Draft per dapur/tanggal/slot berisi salinan kapasitas standar → edit langsung bila perlu → Publish. Jangan mengubah template akibat koreksi Draft; jangan menggandakan kombinasi dokumen.
+3. SKU **Max Capacity = 0 tidak muncul/boleh dipesan toko** untuk slot tersebut. Hindari menyalahgunakan Work Center capacity per-cycle sebagai batas produksi per jadwal.
+
+**RO toko:** satu RO **per toko + dapur + tanggal kirim + slot**; header punya **tanggal pesan** serta tanggal/jam kirim. Draft → Confirmed. Operator **download/upload Excel Reference, Nama Produk, Qty Pesan**; hanya SKU yang ada pada Published Planning dengan kapasitas positif dan dapur sesuai boleh masuk. Reject SKU tambahan/salah dapur/duplikat/qty invalid ketika upload; qty kosong/0 tidak dimasukkan; upload ulang Draft mengganti bukan menjumlah. Qty RO adalah permintaan, **bukan garansi kuantitas kirim**.
+
+**Packing:** Admin Packing **hanya menutup** akses pemesanan RO per tanggal+slot, **tidak membuka** jadwal dan tidak menunggu tombol “selesai memesan” dari toko. Setelah Close, konsolidasi RO Confirmed per dapur/SKU/jadwal bersama SO dan kapasitas PPIC, pembulatan kelipatan BoM → **MO satu SKU per dapur + jadwal**. **JANGAN mengalokasikan final ke toko pada saat konsolidasi.**
+
+**Material supply wajib antara MO dan produksi:** konsolidasi kebutuhan komponen BoM seluruh MO per dapur/jadwal, perhitungkan stok dapur, **Internal Transfer Central → Transit → Dapur**, dapur konfirmasi receipt; lalu MO/WO konsumsi dan produksi, kirim produk jadi **Dapur → Transit → Packing**.
+
+**SO prioritas:** satu SO boleh multi-SKU lintas dapur; semua baris wajib lolos untuk Confirm, validasi **jadwal pengiriman Open/Locked pertama**, lanjut kapasitas per SKU; bisa mengambil kuota toko belum dikirim walau MO terbit, selama slot Open. Volume realistis 10–50 SO/hari dan lead time 2–3 hari; jangan membuat logika POS. Jangan menciptakan MO ganda dari native SO/MTO dan engine.
+
+**Di Packing, saat barang jadi AKTUAL tersedia dan hendak dikirim:** alokasikan/reservasi SO **terlebih dulu**, lalu **sistem prorata otomatis stok sisa kepada toko berdasarkan RO**, termasuk surplus akibat batch BoM; **Admin Packing boleh mengubah alokasi final toko** selama tidak mengambil kuota SO. Baru **generate 1 DO per toko + tanggal + slot** yang menggabungkan SKU seluruh dapur. DO Dispatch Packing → Transit; toko Receipt Transit → Toko berdasarkan fisik.
+
+**Penerimaan toko dan selisih:** Toko **boleh Validate Receipt sesuai Qty fisik** meskipun berbeda dari DO; discrepancy otomatis tercatat per SKU dan ditindaklanjuti setelahnya. Jenis investigasi: salah hitung, tertinggal, salah kirim, rusak, belum ditemukan. DO/stock move Done asli tidak diam-diam diubah; kekurangan Transit/receiving parsial perlu tes operasional.
+
+**Keputusan KONTROL FRAUD (penting):**
+- **Barang rusak dipisahkan, jumlah/kondisi dicatat, lalu Scrap; TIDAK ADA RETUR untuk kasus barang rusak ini.**
+- **Admin Packing HANYA investigasi dan mencatat hasil/pengajuan koreksi; TIDAK BOLEH validasi Scrap, Inventory Adjustment atau transfer koreksi.**
+- **Petugas terpisah yang ditunjuk** mengeksekusi/validasi koreksi sesuai bukti. Simpan ID investigator, eksekutor, referensi discrepancy dan transaksi, alasan serta waktu. Kasus selesai ketika transaksi koreksi dan cek stok yang diperlukan selesai, bukan sekadar memilih alasan.
+- Hak akses aktual/petugas belum dikonfigurasi. **Ini desain Segregation of Duties**, bukan bukti kontrol sudah berjalan.
+
+**Accounting wajib setiap tahap:** cek qty, valuation, WIP/MO costing, HPP, akuntansi/closing sesuai Odoo 19 Community + OCA aktual. Pergerakan internal dalam satu perusahaan bukan otomatis penjualan, dan Planning/RO bukan jurnal. **Belum ada uji Accounting end-to-end.** Jangan ubah DB produksi atau DB Purchasing test.
+
+**Lanjutan yang benar:** diskusi/implementasi terarah Master Capacity Template dan Planning di MRP test hanya setelah diminta; lalu RO toko, konsolidasi, material supply, produksi, distribusi dan penanganan discrepancy. Jangan kembali mengasumsikan alokasi toko final saat Generate MO atau Packing membuka jadwal.
 
 ## 3. Yang sudah selesai
 
@@ -127,4 +161,4 @@ Ketiganya memiliki alasan **Rusak**, Source Document `YA-E2E-3SKU-ROLLBACK`, sum
 
 ## 7. Pesan singkat untuk sesi berikut
 
-> Lanjutkan ODOO FROM ZERO dari **desain Replenishment Toko (RO) dahulu**, bukan dari SO: **satu RO per toko per dapur, multi-SKU**, template Excel **Reference/Nama Produk/Qty Pesan** dengan operator hanya mengisi Qty, lalu **konsolidasi toko per dapur/SKU/jadwal → kapasitas PPIC + BoM → prorata toko → MO per SKU**. Gudang Packing menjadi titik konsolidasi hasil dan pengiriman. **SO adalah tambahan berikutnya**: multi-SKU lintas dapur, semua baris harus lolos, **cek Production/Delivery Schedule Open sebagai langkah pertama saat Confirm**, SO dapat mengambil alokasi toko yang belum dikirim walau MO sudah dibuat, dan **prorata otomatis tanpa approval PPIC**; SO biasa 10–50/hari dengan lead time 2–3 hari. **Semua ini baru desain, belum addon atau tes.** **WAJIB: setiap tahap inventory/MRP juga memperhitungkan Accounting (stock valuation, biaya MO/WIP, HPP, serta jurnal/closing yang benar menurut Odoo 19); status end-to-end Accounting belum diuji.** Modul `ya_scrap_multi` sebelumnya telah installed dan lulus E2E 3 native Scrap rollback; **Excel/GUI masih pending**. Baca bagian desain terbaru di `doc/STATUS_PENGEMBANGAN_MRP.md`; jangan ulangi audit default, jangan ubah policy tanpa keputusan pengguna, dan **jangan sentuh DB utama/Purchasing test**.
+> **UTAMAKAN CHECKPOINT TERBARU DI ATAS.** Jadwal kirim S1 05.00 / S2 09.00 / S3 11.00 WIB; **PPIC Planning lebih dulu** (3×dapur Master Capacity Templates, Excel export/import master saja, generate massal Draft → Publish); RO toko per dapur dari Excel hanya SKU berkapasitas positif; Packing hanya **Close** RO lalu konsolidasi → MO → **Material Replenishment Central–Transit–Dapur** → produksi → produk jadi Packing. **SO dialokasikan lebih dulu; alokasi final toko baru setelah stok fisik tersedia di Packing**, prorata otomatis bisa diubah Admin Packing, lalu 1 DO multi-SKU per toko+tanggal+slot. Toko validate receipt kuantitas fisik dan discrepancy otomatis; **rusak → Scrap, tidak retur; Admin Packing investigasi saja, petugas ditunjuk terpisah mengeksekusi semua koreksi stok** untuk anti-fraud. Accounting/valuation/WIP/HPP wajib ditelaah setiap tahap, belum E2E PASS. Semua ini desain, tidak ada modul baru; jangan sentuh DB utama/Purchasing test. Riwayat Multi-SKU Scrap tetap ada, tes Excel/GUI masih pending.
