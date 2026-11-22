@@ -1,8 +1,9 @@
 """Pure integer arithmetic for RO-only Packing consolidation.
 
-This phase does not include SO. Deterministic largest remainder allocation
-ensures the sum of allocated quantities equals the rounded production quantity,
-and every requesting store receives at least its original requested amount.
+This phase does not include SO. Preview allocates available capacity to stores,
+never hypothetical BoM rounding surplus. Store RO values remain the demand
+baseline; any capacity shortage is represented separately. The historical
+surplus helper is retained but is NOT used by the current Packing Preview.
 """
 
 
@@ -61,53 +62,79 @@ def allocate_surplus_prorata(requests, bom_output):
 
 
 def allocate_capacity_prorata(requests, bom_output, max_capacity):
-    """Return (produced, allocations, status) with explicit store shortage.
+    """Preview capacities BEFORE production; do not distribute future BoM surplus.
 
-    The published Max is a ceiling, and MO must comprise whole BoM batches.
-    Standard path: round demand UP and distribute BoM surplus.
-    Overcapacity path: round Max DOWN to whole batches, allocate those
-    units proportionally by Hamilton, and preserve original RO demand.
-    If not even one batch fits, return status 'blocked' with no MO.
-    Never alter Confirmed RO Qty or silently lose unfulfilled store demand.
+    Return (planned_mo_qty, per_store_allocations, capacity_status).
+    All store lines satisfy: original RO = final allocation + shortage.
+
+    * If the BoM-rounded MO fits Planning Max, final store Qty remains the
+      original requested Qty. Any potential batch rounding is NOT allocated
+      to stores at preview; it remains a separate MO vs store-demand gap.
+    * If the BoM-rounded MO would exceed Max, limit the production target
+      to whole batches fitting Max and REDUCE each store's allocation
+      proportionally using integer Hamilton rounding. Record shortages.
+    * If even one batch cannot fit, block instead of creating a zero-Qty MO.
+
+    RO documents remain unchanged. Never apportion hypothetical surplus.
     """
+    if not isinstance(requests, dict):
+        raise ValueError('Requests must be a dictionary of store ID to Qty.')
+    for store_id, qty in requests.items():
+        if not isinstance(store_id, int) or isinstance(store_id, bool) or store_id <= 0:
+            raise ValueError('Store ID must be a positive integer.')
+        if not isinstance(qty, int) or isinstance(qty, bool) or qty < 0:
+            raise ValueError('Requested Qty must be a nonnegative integer.')
     if not isinstance(max_capacity, int) or isinstance(max_capacity, bool) or max_capacity < 0:
         raise ValueError('Planning Max must be a nonnegative integer.')
-    rounded, allocations = allocate_surplus_prorata(requests, bom_output)
-    if rounded <= max_capacity:
-        return rounded, {
-            store_id: dict(values, shortage=0) for store_id, values in allocations.items()
-        }, 'ok'
+    if not isinstance(bom_output, int) or isinstance(bom_output, bool) or bom_output <= 0:
+        raise ValueError('BoM output must be a positive integer.')
+
+    total = sum(requests.values())
+    produced = round_production_up(total, bom_output)
+    unchanged = {
+        store_id: {'requested': qty, 'surplus': 0, 'shortage': 0, 'allocated': qty}
+        for store_id, qty in requests.items()
+    }
+    if produced <= max_capacity:
+        return produced, unchanged, 'ok'
 
     available = (max_capacity // bom_output) * bom_output
-    total = sum(requests.values())
     if available <= 0:
         return 0, {
             store_id: {'requested': qty, 'surplus': 0, 'shortage': qty, 'allocated': 0}
             for store_id, qty in requests.items()
         }, 'blocked'
 
-    # available <= total whenever rounded > max_capacity.
-    if available >= total:
-        raise ValueError('Unexpected capacity arithmetic: available must be below demand.')
-
+    # Whole BoM batch constraint: available < total whenever rounded > Max.
+    if not 0 < available < total:
+        raise ValueError('Unexpected capacity calculation for whole BoM batches.')
     result = {}
     remainders = []
     distributed = 0
-    for store_id, qty in requests.items():
-        numerator = available * qty
+    for store_id, requested in requests.items():
+        numerator = available * requested
         base = numerator // total
         result[store_id] = {
-            'requested': qty, 'surplus': 0, 'shortage': qty - base,
+            'requested': requested,
+            'surplus': 0,  # No surplus distribution before production.
+            'shortage': requested - base,
             'allocated': base,
         }
         remainders.append((numerator % total, store_id))
         distributed += base
-    for _, store_id in sorted(remainders, key=lambda item: (-item[0], item[1]))[
-            :available - distributed]:
+
+    # Distribute the available STORE ALLOCATION, not any hypothetical surplus.
+    # Equal fractional remainders use the smallest store ID.
+    remainders.sort(key=lambda item: (-item[0], item[1]))
+    for _, store_id in remainders[:available - distributed]:
         result[store_id]['allocated'] += 1
         result[store_id]['shortage'] -= 1
 
     assert sum(row['allocated'] for row in result.values()) == available
     assert sum(row['shortage'] for row in result.values()) == total - available
-    assert all(0 <= row['allocated'] <= row['requested'] for row in result.values())
+    assert all(
+        0 <= row['allocated'] <= row['requested']
+        and row['allocated'] + row['shortage'] == row['requested']
+        and row['surplus'] == 0 for row in result.values()
+    )
     return available, result, 'prorated'
