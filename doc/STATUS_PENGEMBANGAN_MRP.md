@@ -295,3 +295,39 @@ Log pengguna:
 5. Untuk semua pekerjaan: perubahan hanya jika diminta/disetujui, uji di **MRP test**, hindari audit ulang sistem default yang tidak relevan, dan jangan menyentuh DB utama/Purchasing test.
 
 **Rujukan desain:** diskusi arsitektur terbaru dan PDF pengguna “Dokumentasi Alur Kerja Sistem ERP Odoo 19 Community” (dua jalur asli: PPIC supply + replenishment toko; tambahan jalur demand SO diputuskan kemudian). PDF bukan bukti konfigurasi sudah dibuat.
+
+---
+
+## 22 November 2026 — Integrasi Accounting pada Inventory dan Manufacturing (PRINSIP DESAIN, BELUM UJI)
+
+**Arahan eksplisit pengguna:** **semua tahapan dan proses Inventory serta Manufacturing harus memperhitungkan modul Accounting yang berjalan di belakang transaksi**. Jangan menyelesaikan rancangan RO, konsolidasi, MO, stock moves, Packing, atau pengiriman hanya dari sisi kuantitas tanpa memperhitungkan valuasi, biaya produksi, HPP, dan konsistensi catatan akuntansi. **Ini persyaratan lintas modul sejak tahap desain**, bukan pekerjaan tambahan setelah operasional selesai.
+
+### Matriks lintas alur: kejadian operasional dan konsekuensi accounting yang harus dirancang / diuji
+
+| Tahapan | Operasional | Dampak Accounting yang harus diperiksa |
+|---|---|---|
+| RO toko / upload Excel / konsolidasi / prorata / Production Plan | Demand dan alokasi rencana, belum perpindahan fisik | **Tidak mengarang jurnal stock/COGS hanya karena demand dibuat atau dialokasikan**; hubungan ke valuasi saat stok benar-benar bergerak harus tetap dapat ditelusuri |
+| SO Draft / Confirm | Komitmen pemesanan dan slot produksi/pengiriman | Pisahkan reservasi demand dari realisasi stock; Invoice/payment dan pengakuan biaya harus mengikuti konfigurasi aktual, bukan diasumsikan terjadi saat Confirm |
+| Pembelian / penerimaan komponen di Central | Receipt PO, lokasi stok, Vendor Bill | Nilai perolehan bahan, metode costing, mapping akun persediaan dan kewajiban/timing posting; pembelian telah dites sebagian, integrasi valuasi end-to-end belum |
+| Central → Transit → Dapur | Internal Transfer material | Ketepatan kuantitas/nilai persediaan menurut tipe lokasi & perusahaan; **jangan otomatis mengasumsikan setiap internal move membuat jurnal** |
+| Dapur → Pre-Production / konsumsi BoM | Konsumsi bahan baku dan WIP | Biaya bahan, biaya dalam proses, metode penilaian, dan jejak sumber biaya MO |
+| MO / WO → hasil produksi jadi | Produksi aktual, hasil kurang/lebih, scrap jika ada, biaya Work Center jika digunakan | Nilai barang jadi, HPP produksi aktual, selisih/variance, akun produksi/WIP, dan rekonsiliasi konsumsi vs output; **jangan mengarang biaya tenaga kerja atau overhead jika master belum disiapkan** |
+| Dapur → Transit → Packing | Transfer produk jadi | Valuasi dan kepemilikan barang tetap konsisten; perpindahan lokasi tidak otomatis berarti penjualan |
+| Packing → Transit → Toko | Transfer untuk replenishment toko | Persediaan antarlokasi tetap dapat ditelusuri, accounting benar terhadap status lokasi/perusahaan, tidak otomatis mengakui penjualan/HPP pelanggan |
+| Packing → Customer (SO Delivery) | Pengiriman pelanggan | Penilaian keluar stok, saat pengakuan HPP mengikuti metode accounting/valuation yang benar; Invoice SO ditangani terpisah |
+| Scrap / inventory adjustment / return | Penyesuaian atau barang keluar/masuk tidak biasa | Pengurangan/penambahan nilai stok, akun kerugian/selisih, trace stock dan accounting; tes Scrap 3-SKU sebelumnya **hanya menguji alur stok, bukan jurnal/valuasi** |
+
+### Aturan implementasi dan pengujian
+
+1. Sebelum membuat atau memvalidasi modul RO/Allocation/MO/Transfer, lakukan **pemeriksaan terarah yang diperlukan saja** atas metode valuasi dan costing (mis. AVCO/FIFO/Standard), konfigurasi akun produk/kategori/lokasi, stock valuation, serta mekanisme jurnal/closing **yang benar-benar tersedia pada Odoo 19 Community + modul Accounting/OCA terpasang**. Jangan membuat audit massal tanpa tujuan.
+2. Setiap **tes end-to-end** nantinya menilai dua lapis: **(a) transaksi dan kuantitas stok**, **(b) nilai stok, biaya produksi/HPP, dan jurnal/closing bila berlaku**. Gunakan saldo uji terkendali dan rollback; jangan sentuh DB utama.
+3. **Perubahan Odoo 19:** dokumentasi resmi menjelaskan pembedaan real-time inventory valuation dan timing journal accounting; model perpetual versi 19 **tidak boleh disamakan begitu saja dengan Odoo versi lama yang membuat jurnal pada setiap stock move**. Metode dan dukungan modul yang tersedia pada instalasi Community ini harus diverifikasi dahulu.
+4. Jangan memaksakan jurnal pada setiap RO, alokasi, internal transfer, atau konfirmasi SO. Jurnal yang memang diperlukan harus mengikuti **kejadian ekonomi, metode, company ownership, akun dan konfigurasi aktual**.
+5. Pertahankan **traceability**: RO/line → alokasi → MO/komponen/finished goods → stock moves/picking → delivery toko/SO → nilai persediaan/biaya/jurnal atau penutupan periode yang relevan.
+6. Status **BELUM DIUJI**: integrasi akuntansi atas seluruh siklus produksi–distribusi termasuk WIP, costing, stock valuation, pengakuan HPP, scrap loss, dan rekonsiliasi GL. Modul OCA Accounting yang sudah terpasang **bukan bukti** bahwa seluruh integrasi ini otomatis berfungsi.
+
+**Rujukan publik teknis:** dokumentasi resmi Odoo 19 Inventory Valuation dan Valuation Cheat Sheet serta Manufacturing Order Costs / Work-in-Progress; rujukan bersifat perilaku standar, **bukan hasil verifikasi DB pengguna**:
+- https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/cheat_sheet.html
+- https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/operations_valuation.html
+- https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/manufacturing/basic_setup/mo_costs.html
+- https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/manufacturing/basic_setup/work_in_progress.html
