@@ -108,12 +108,41 @@
     </field>
   </record>
 
+  <!-- Menu must open List first. Only record form contains calculation/print triggers. -->
+  <record id="view_ya_material_requirement_wizard_list" model="ir.ui.view">
+    <field name="name">ya.material.requirement.wizard.list</field>
+    <field name="model">ya.material.requirement.wizard</field>
+    <field name="arch" type="xml">
+      <list string="Material Requirement - Daftar Pemeriksaan" create="true"
+            edit="false" delete="false">
+        <field name="delivery_date_label"/>
+        <field name="slot"/>
+        <field name="state"/>
+        <field name="mo_count"/>
+        <field name="component_count"/>
+        <field name="cdc_shortage_count"/>
+      </list>
+    </field>
+  </record>
+
   <record id="action_ya_material_requirement" model="ir.actions.act_window">
-    <field name="name">Material Requirement - Bahan CDC</field>
+    <field name="name">Material Requirement - Daftar Pemeriksaan</field>
     <field name="res_model">ya.material.requirement.wizard</field>
+    <field name="view_mode">list,form</field>
+    <field name="target">current</field>
+  </record>
+
+  <record id="action_ya_material_requirement_list" model="ir.actions.act_window.view">
+    <field name="sequence" eval="1"/>
+    <field name="view_mode">list</field>
+    <field name="view_id" ref="view_ya_material_requirement_wizard_list"/>
+    <field name="act_window_id" ref="action_ya_material_requirement"/>
+  </record>
+  <record id="action_ya_material_requirement_form" model="ir.actions.act_window.view">
+    <field name="sequence" eval="2"/>
     <field name="view_mode">form</field>
     <field name="view_id" ref="view_ya_material_requirement_wizard_form"/>
-    <field name="target">current</field>
+    <field name="act_window_id" ref="action_ya_material_requirement"/>
   </record>
 
   <menuitem id="menu_ya_material_requirement"
