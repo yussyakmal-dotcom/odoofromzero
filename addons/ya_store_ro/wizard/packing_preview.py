@@ -274,6 +274,8 @@ class YaPackingPreview(models.TransientModel):
                 'Return to Pre Produksi list instead.'
             ))
 
+        if any(row.new_qty != row.old_qty for row in self.source_line_ids):
+            raise UserError(_('Apply Qty corrections before moving to Pre Produksi.'))
         # Crucial: never use possibly stale preview lines from a modal.
         self.action_preview()
         if self.blocked_count:
