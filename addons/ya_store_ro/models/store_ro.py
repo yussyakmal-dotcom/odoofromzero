@@ -11,6 +11,12 @@ class YaStoreRO(models.Model):
     planning_id = fields.Many2one('ya.production.planning', required=True, readonly=True,
                                    index=True, ondelete='restrict')
     delivery_date = fields.Date(related='planning_id.delivery_date', store=True, readonly=True)
+    delivery_date_yyyymmdd = fields.Char(
+        string='Tgl Kirim (YYYYMMDD)', compute='_compute_date_labels',
+    )
+    ro_date_yyyymmdd = fields.Char(
+        string='Tgl RO (YYYYMMDD)', compute='_compute_date_labels',
+    )
     slot = fields.Selection(related='planning_id.slot', store=True, readonly=True)
     kitchen_code = fields.Char(related='planning_id.kitchen_code', store=True, readonly=True)
     store_warehouse_id = fields.Many2one('stock.warehouse', required=True,
@@ -28,12 +34,24 @@ class YaStoreRO(models.Model):
         'One RO per store, kitchen, delivery date and slot.'
     )
 
+    @api.depends('delivery_date', 'create_date')
+    def _compute_date_labels(self):
+        for ro in self:
+            ro.delivery_date_yyyymmdd = (
+                ro.delivery_date.strftime('%Y%m%d') if ro.delivery_date else ''
+            )
+            ro.ro_date_yyyymmdd = (
+                fields.Datetime.context_timestamp(ro, ro.create_date).strftime('%Y%m%d')
+                if ro.create_date else ''
+            )
+
     @api.depends('planning_id', 'store_warehouse_id')
     def _compute_name(self):
         for ro in self:
             p = ro.planning_id
             ro.name = ('RO %s %s %s %s' % (
-                p.delivery_date or '-', p.slot or '-', p.kitchen_code or '-',
+                (p.delivery_date.strftime('%Y%m%d') if p.delivery_date else '-'),
+                p.slot or '-', p.kitchen_code or '-',
                 ro.store_warehouse_id.code or ro.store_warehouse_id.name or '-'))
 
     @api.depends('line_ids.qty_requested')
