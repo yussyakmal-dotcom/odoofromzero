@@ -107,6 +107,10 @@
                   class="btn-primary" display="always"
                   groups="ya_store_ro.group_ya_packing_admin"
                   confirm="Buat dan konfirmasi seluruh MO standar untuk semua baris Pre Produksi yang dipilih? Status akan berubah menjadi Produksi OK hanya setelah SEMUA MO berhasil. Tidak menjalankan WO otomatis."/>
+          <button name="action_reset_selected_preproduction" type="object"
+                  string="Konsolidasi Ulang" display="always"
+                  groups="ya_store_ro.group_ya_packing_admin"
+                  confirm="Batalkan seluruh Pre Produksi pada tanggal dan slot baris yang dipilih? Ini tidak menghapus MO apa pun."/>
         </header>
         <field name="batch_id" string="Jadwal"/>
         <field name="kitchen_code" string="Dapur"/>
@@ -139,6 +143,7 @@
     <field name="name">Packing - Produksi OK</field>
     <field name="res_model">ya.packing.batch</field>
     <field name="view_mode">list,form</field>
+    <field name="domain">[('state','=','production_ok')]</field>
   </record>
   <menuitem id="menu_ya_packing_batch" name="Packing - Produksi OK"
             parent="ya_production_planning.menu_ya_capacity_root"
