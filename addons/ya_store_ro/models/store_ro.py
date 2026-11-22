@@ -1,6 +1,7 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from .date_labels import format_ymondd
+from .packing_lock import lock_ro_slot
 
 
 class YaStoreRO(models.Model):
@@ -30,8 +31,9 @@ class YaStoreRO(models.Model):
     source_filename = fields.Char(readonly=True)
     confirmed_at = fields.Datetime(readonly=True)
     confirmed_by = fields.Many2one('res.users', readonly=True)
-    # Set only by future atomic MO generation, NOT by this release.
-    production_ok = fields.Boolean(string='Produksi OK', default=False, readonly=True)
+    # Display release status from immutable Packing batch, never set manually.
+    production_ok = fields.Boolean(string='Produksi OK', compute='_compute_production_ok',
+                                   compute_sudo=True, readonly=True)
     correction_ids = fields.One2many(
         'ya.store.ro.qty.audit', 'ro_id', string='Riwayat Koreksi Qty', readonly=True,
     )
@@ -39,6 +41,17 @@ class YaStoreRO(models.Model):
         'UNIQUE(planning_id, store_warehouse_id)',
         'One RO per store, kitchen, delivery date and slot.'
     )
+
+    @api.depends('delivery_date', 'slot')
+    def _compute_production_ok(self):
+        for ro in self:
+            ro.production_ok = bool(
+                ro.delivery_date and ro.slot and
+                self.env['ya.packing.batch'].sudo().search_count([
+                    ('delivery_date', '=', ro.delivery_date),
+                    ('slot', '=', ro.slot), ('state', '=', 'production_ok'),
+                ])
+            )
 
     @api.depends('delivery_date', 'create_date')
     def _compute_date_labels(self):
@@ -156,10 +169,11 @@ class YaStoreROLine(models.Model):
             if not self.env.user.has_group('ya_store_ro.group_ya_packing_admin') or not reason:
                 raise UserError(_('Only Packing Admin may edit Confirmed Qty with a reason.'))
             ro = confirmed.ro_id
-            if ro.production_ok or self.env['ya.store.ro'].search_count([
+            lock_ro_slot(self.env.cr, ro.delivery_date, ro.slot)
+            if self.env['ya.packing.batch'].sudo().search_count([
                 ('delivery_date', '=', ro.delivery_date),
                 ('slot', '=', ro.slot),
-                ('production_ok', '=', True),
+                ('state', '=', 'production_ok'),
             ]):
                 raise UserError(_('Produksi OK: this entire delivery slot is locked.'))
             if set(vals) != {'qty_requested'} or len(self) != 1:
