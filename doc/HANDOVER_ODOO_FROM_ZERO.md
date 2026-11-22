@@ -223,3 +223,13 @@ Contoh BoM 24 Pcs: RO Toko A=13, B=27, C=32 → total=72, produksi 72 (3 batch).
 **Kelebihan produksi setelah memenuhi kebutuhan asli akan dikirim/dialokasikan ke toko**, bukan hilang atau dipotong dari Qty Pesan. Kuantitas RO toko tetap utuh dan terlacak; alokasi Qty tambahan harus dicatat secara terpisah dari Qty RO asli agar audit jelas. Rincian algoritma pembagian antar-toko dan penanganan bila hasil pembulatan melebihi `Planning Max Capacity` belum diputuskan; jangan mengarang kebijakan kapasitas, kekurangan, atau distribusi sebelum implementasi.
 
 **JANGAN SALAH TERAPKAN:** fungsi `closest_batch_multiple` saat ini **khusus normalisasi Planning Max Capacity (kelipatan terdekat)**. Untuk **Packing consolidation** nanti dibutuhkan fungsi pembulatan ke atas yang **berbeda**. Tidak ada implementasi modul RO/Packing baru pada checkpoint ini; ini dokumentasi aturan untuk desain berikutnya.
+
+## CHECKPOINT BERIKUT — RO Toko tahap 1: template XLSX (22 November 2026)
+
+**Baru dibuat di GitHub, BELUM di-install dan BELUM diuji di server**: addon terpisah `addons/ya_store_ro/`, dependensi `ya_production_planning`, dengan wizard manager-only **RO Toko - Download Template**. Input: Published Planning **satu dapur + tanggal kirim + slot**, serta gudang toko (warehouse) pilihan; hasil file `RO_YYYYMMDD_SLOT_DAPUR_TOKO.xlsx` berisi sheet `info` (Planning ID, tanggal, slot, dapur, toko, identitas format) dan sheet `RO` (**Reference | Nama Produk | Qty Pesan**). Hanya SKU dari Planning Published dengan Max > 0. Qty Pesan kosong untuk toko dan kelak **bebas integer tanpa pembulatan**.
+
+**Batas fase:** tombol ini baru **generator template**, BELUM ada upload RO, Draft/Confirmed, data RO toko, akses toko/store role, Packing Close, MO, stock move atau accounting. Pemilihan warehouse toko belum dibatasi otomatis karena flag toko belum disepakati; pada uji pilih hanya warehouse toko sungguhan. Jangan klaim siap digunakan operasional toko. Ketika membuat import RO nanti, metadata spreadsheet harus divalidasi terhadap record Published; tidak dipercaya sebagai kebenaran tanpa pemeriksaan.
+
+**Aturan Packing dari keputusan user:** saat konsolidasi semua RO dan SO terkait, Qty Produksi dibulatkan **SELALU KE ATAS** ke kelipatan output BoM; surplus dikirim/alokasikan ke toko dengan Qty RO asli tetap dipertahankan dan jejak tambahan terpisah. Tidak menggunakan aturan Max Planning kelipatan terdekat untuk Qty RO individual.
+
+**Langkah berikut yang aman:** `cd ~/odoofromzero && git pull && python3 script/check_ya_store_ro_source_readonly.py`. Harap `RO_TEMPLATE_SOURCE_PREFLIGHT_OK`. **Jangan install dulu** sampai kode/UX dan daftar gudang toko diperiksa. Baca `addons/ya_store_ro/README.md` dan `doc/SKILL_ODOO19_ADDON_WORKFLOW.md`.
