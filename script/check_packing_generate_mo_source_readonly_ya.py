@@ -13,14 +13,6 @@ import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_store_ro'
 checks = {
-    'models/packing_batch.py': [
-        "_name = 'ya.packing.batch'",
-        "UNIQUE(delivery_date, slot)",
-        "UNIQUE(batch_id, planning_id, product_id)",
-        "UNIQUE(ya_packing_batch_line_id)",
-        "_inherit = 'mrp.production'",
-        "def unlink(self):",
-    ],
     'models/packing_lock.py': ['pg_advisory_xact_lock', 'hashtext'],
     'models/store_ro.py': [
         'lock_ro_slot(self.env.cr, self.delivery_date, self.slot)',
@@ -36,6 +28,12 @@ checks = {
         "'state': 'pre_production',",
     ],
     'models/packing_batch.py': [
+        "_name = 'ya.packing.batch'",
+        "UNIQUE(delivery_date, slot)",
+        "UNIQUE(batch_id, planning_id, product_id)",
+        "UNIQUE(ya_packing_batch_line_id)",
+        "_inherit = 'mrp.production'",
+        "def unlink(self):",
         'def action_generate_selected_mo',
         "self.env['mrp.production'].create({",
         'mo.action_confirm()',
