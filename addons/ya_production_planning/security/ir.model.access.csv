@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ya_production_planning_manager,ya.production.planning manager,model_ya_production_planning,mrp.group_mrp_manager,1,1,1,1
+access_ya_production_planning_line_manager,ya.production.planning.line manager,model_ya_production_planning_line,mrp.group_mrp_manager,1,1,1,1
+access_ya_production_planning_import_manager,ya.production.planning.import manager,model_ya_production_planning_import,mrp.group_mrp_manager,1,1,1,1
+access_ya_production_planning_import_line_manager,ya.production.planning.import.line manager,model_ya_production_planning_import_line,mrp.group_mrp_manager,1,1,1,1
