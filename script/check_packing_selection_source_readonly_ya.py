@@ -16,21 +16,22 @@ checks = {
         'selected_ro_ids = fields.Many2many(',
         'orders = self.selected_ro_ids.exists()',
         'set(orders.ids) != set(current_all.ids)',
-        'Produksi OK requires ALL Confirmed RO',
+        'Pre Produksi requires ALL Confirmed RO',
     ),
     'views/packing_ro_selection_views.xml': (
         'action_ya_packing_confirmed_ro',
         'action_open_packing_selected',
         "('state','=','confirmed')",
+        "('packing_batch_id','=',False)",
         'menu_ya_packing_preview',
     ),
     'views/packing_preview_views.xml': (
         'selected_ro_ids',
         'selected_count',
-        'action_production_ok_generate_mo',
+        'action_move_to_preproduction',
     ),
     '__manifest__.py': (
-        "'version': '19.0.5.1.0'",
+        "'version': '19.0.7.0.0'",
         'views/packing_ro_selection_views.xml',
     ),
 }
