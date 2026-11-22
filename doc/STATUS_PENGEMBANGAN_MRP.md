@@ -447,3 +447,9 @@ Contoh BoM 24 Pcs: RO Toko A=13, B=27, C=32 → total=72, produksi 72 (3 batch).
 **Kelebihan produksi setelah memenuhi kebutuhan asli akan dikirim/dialokasikan ke toko**, bukan hilang atau dipotong dari Qty Pesan. Kuantitas RO toko tetap utuh dan terlacak; alokasi Qty tambahan harus dicatat secara terpisah dari Qty RO asli agar audit jelas. Rincian algoritma pembagian antar-toko dan penanganan bila hasil pembulatan melebihi `Planning Max Capacity` belum diputuskan; jangan mengarang kebijakan kapasitas, kekurangan, atau distribusi sebelum implementasi.
 
 **JANGAN SALAH TERAPKAN:** fungsi `closest_batch_multiple` saat ini **khusus normalisasi Planning Max Capacity (kelipatan terdekat)**. Untuk **Packing consolidation** nanti dibutuhkan fungsi pembulatan ke atas yang **berbeda**. Tidak ada implementasi modul RO/Packing baru pada checkpoint ini; ini dokumentasi aturan untuk desain berikutnya.
+
+## Implementasi awal RO Toko (source only, 22 November 2026)
+
+Addon baru `addons/ya_store_ro/` ditambahkan pada GitHub untuk **tahap 1: generate Excel template per toko dari Published Planning**, dan **BELUM DIINSTALL** ke `erp-yussyakmal-mrp-test`. Wizard manager memilih satu Published Planning dan warehouse toko, lalu generates workbook `info` (identitas jadwal + toko) dan `RO` (`Reference | Nama Produk | Qty Pesan`) yang hanya mencantumkan SKU dengan Max Planning positif. Qty Pesan dikosongkan dan kelak diisi bebas tanpa pembulatan. Tidak ada model RO permanen, tombol Confirm, toko permission, import Excel, Packing atau stok yang berubah.
+
+Tes sumber read-only tersedia: `python3 script/check_ya_store_ro_source_readonly.py`. Status sampai ada log server: **source candidate, not installed/tested**. Perlu ketentuan mapping gudang toko dan record rules sebelum digunakan toko; phase 1 dibatasi Manufacturing Manager. Baca `addons/ya_store_ro/README.md` dan dokumentasi handover.
