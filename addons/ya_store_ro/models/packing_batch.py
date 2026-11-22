@@ -205,7 +205,7 @@ class YaPackingBatchLine(models.Model):
         if set(current.ids) != set(batch.ro_ids.ids):
             raise UserError(_(
                 'Confirmed RO list changed after Pre Produksi. '
-                'Reset and consolidate again before Produksi OK.'
+                'Pre Produksi is locked; contact the administrator before Produksi OK.'
             ))
         for allocation in batch.allocation_ids:
             source = allocation.ro_id.line_ids.filtered(
@@ -214,7 +214,7 @@ class YaPackingBatchLine(models.Model):
             if len(source) != 1 or source.qty_requested != allocation.qty_requested:
                 raise UserError(_(
                     'RO Qty changed after Pre Produksi (%s). '
-                    'Reset and consolidate again.'
+                    'Pre Produksi is locked; contact the administrator.'
                 ) % allocation.reference)
         for line in batch.line_ids:
             actual_requested = sum(
@@ -225,7 +225,7 @@ class YaPackingBatchLine(models.Model):
             if actual_requested != line.qty_requested:
                 raise UserError(_(
                     'Consolidated Qty changed after Pre Produksi (%s). '
-                    'Reset and consolidate again.'
+                    'Pre Produksi is locked; contact the administrator.'
                 ) % line.reference)
         planned_keys = {(line.planning_id.id, line.product_id.id)
                         for line in batch.line_ids}
@@ -235,22 +235,26 @@ class YaPackingBatchLine(models.Model):
         }
         if planned_keys != current_keys:
             raise UserError(_(
-                'SKU demand changed after Pre Produksi. Reset and consolidate again.'
+                'SKU demand changed after Pre Produksi. Pre Produksi is locked; contact the administrator.'
             ))
 
         # Each store shortage is explicit and backed by original RO Qty.
         for allocation in batch.allocation_ids:
             if (allocation.qty_allocated < 0 or allocation.qty_shortage < 0 or
-                    allocation.qty_surplus < 0 or
+                    allocation.qty_surplus != 0 or
                     allocation.qty_allocated + allocation.qty_shortage !=
-                    allocation.qty_requested + allocation.qty_surplus):
+                    allocation.qty_requested):
                 raise UserError(_('Invalid store allocation/shortage for %s.')
                                 % allocation.reference)
         for line in batch.line_ids:
             rows = batch.allocation_ids.filtered(lambda row: row.line_id == line)
-            if (sum(rows.mapped('qty_allocated')) != line.qty_production or
+            if (sum(rows.mapped('qty_allocated')) + line.qty_surplus !=
+                    line.qty_production or
                     sum(rows.mapped('qty_requested')) != line.qty_requested or
-                    sum(rows.mapped('qty_shortage')) != line.qty_shortage):
+                    sum(rows.mapped('qty_shortage')) != line.qty_shortage or
+                    line.qty_surplus < 0 or
+                    line.qty_requested !=
+                    sum(rows.mapped('qty_allocated')) + line.qty_shortage):
                 raise UserError(_('Store prorata / shortage mismatch for %s.')
                                 % line.reference)
 
@@ -293,9 +297,12 @@ class YaPackingBatchLine(models.Model):
             line.with_context(ya_release_production_batch=True).write({'mo_id': mo.id})
         if len(batch.line_ids) != len(batch.line_ids.mapped('mo_id')):
             raise UserError(_('Not all expected MO were created.'))
-        if sum(batch.allocation_ids.mapped('qty_allocated')) != sum(
-                batch.line_ids.mapped('qty_production')):
-            raise UserError(_('Final allocations do not match MO production total.'))
+        if (sum(batch.allocation_ids.mapped('qty_allocated')) +
+                sum(batch.line_ids.mapped('qty_surplus')) !=
+                sum(batch.line_ids.mapped('qty_production'))):
+            raise UserError(_(
+                'Store allocations plus unallocated BoM rounding must equal MO Qty.'
+            ))
         batch.sudo().with_context(ya_release_production_batch=True).write({
             'state': 'production_ok', 'released_at': fields.Datetime.now(),
             'released_by': self.env.user.id,
