@@ -78,6 +78,62 @@ class YaMaterialRequirementWizard(models.TransientModel):
         'ya.material.requirement.cdc.line', 'wizard_id', readonly=True,
     )
 
+    def _get_print_picking_groups(self):
+        """Read-only QWeb groups; no stock picking or inventory mutations.
+
+        Printed quantity is shown ONLY for unambiguous shortage. Where a
+        reservation affects the shortage range, field is blank pending check.
+        """
+        self.ensure_one()
+        grouped = {}
+        rows = self.kitchen_line_ids.sorted(
+            key=lambda line: (
+                line.warehouse_id.name or '',
+                line.product_id.default_code or '',
+                line.product_id.display_name or '',
+                line.id,
+            )
+        )
+        for line in rows:
+            if line.short_max_qty <= 0:
+                continue
+            wh = line.warehouse_id
+            if wh.id not in grouped:
+                grouped[wh.id] = {
+                    'warehouse': wh,
+                    'lines': [],
+                    'has_review': False,
+                }
+            ambiguous = abs(line.short_max_qty - line.short_min_qty) > (
+                line.uom_id.rounding or 0.00001
+            ) / 2.0
+            grouped[wh.id]['has_review'] |= ambiguous
+            grouped[wh.id]['lines'].append({
+                'line': line,
+                'qty_to_pick': False if ambiguous else line.short_min_qty,
+                'needs_check': ambiguous,
+            })
+        return list(grouped.values())
+
+    def action_print_picking_list(self):
+        """Print draft physical CDC picking lists; never create stock.picking."""
+        self.ensure_one()
+        if self.env.cr.dbname != TEST_DB:
+            raise UserError(_('Picking List test only: invalid database.'))
+        if not (self.env.user.has_group('mrp.group_mrp_manager') or
+                self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):
+            raise UserError(_('Manufacturing Manager or Packing Admin required.'))
+        if self.state != 'preview' or not self.batch_id or not self.kitchen_line_ids:
+            raise UserError(_('Hitung / Refresh Kebutuhan before printing.'))
+        groups = self._get_print_picking_groups()
+        if not groups:
+            raise UserError(_('Tidak ada kekurangan bahan yang perlu diambil CDC.'))
+        if self.batch_id.state != 'production_ok':
+            raise UserError(_('Source batch no longer Produksi OK. Recalculate.'))
+        return self.env.ref(
+            'ya_material_requirement.action_report_ya_cdc_picking_list'
+        ).report_action(self)
+
     def _reopen(self):
         self.ensure_one()
         return {
