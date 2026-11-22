@@ -1,53 +1,64 @@
-# YA Production Planning (Odoo 19 Community) — review candidate
+# YA Production Planning — Odoo 19 Community
 
-Status: **SOURCE CANDIDATE, NOT YET INSTALLED OR TESTED ON ODOO SERVER**.
+**Status checkpoint 22 November 2026:** addon **installed** di `erp-yussyakmal-mrp-test` menurut hasil pemeriksaan Odoo shell; flow Upload Planning telah dicoba di GUI dan dinyatakan sesuai oleh pengguna. **Belum dipromosikan ke database utama**. Kosmetik UI pending. RO toko belum ada.
 
-Purpose: Import a multi-sheet XLSX matching the approved `template_jadwal(1).xlsx`: `info` maps sheet names to Work Center kitchen codes; kitchen sheets contain `DAPUR | Product | Max | Unit`. Delivery date and S1/S2/S3 slot are selected in the wizard.
+**Dokumen wajib sesi baru:**
+- [Handover operasional](../../doc/HANDOVER_ODOO_FROM_ZERO.md)
+- [Status MRP](../../doc/STATUS_PENGEMBANGAN_MRP.md)
+- [SKILL praktis deploy/install/upgrade](../../doc/SKILL_ODOO19_ADDON_WORKFLOW.md)
 
-Flow: **Upload → Validate & Preview → Save Draft → Publish Entire Upload**. One plan per kitchen/date/slot. This addon does not create MO, stock moves, RO, or accounting entries. The XLSX SKU selection is controlled by SOP; this addon performs technical checks.
+## Tujuan dan input
 
-Validation: XLSX format, sheet links and headers, duplicate references, integer nonnegative Max, Reference matching product.product.default_code, product name, one active Work Center per kitchen code, and UoM equal to the finished-product UoM of the unique BoM belonging to the DAPUR warehouse. Differences from stock UoM are accepted when the BoM output UoM matches Excel. Alternate Multi-UoM conversions **are not enabled**; Production Planning does not convert quantities or generate MOs. A zero Max is retained in planning but will not be eligible when RO integration is built.
+Upload **XLSX multi-sheet setiap jadwal**, **bukan** master capacity template permanen.
 
-Preview writes only transient wizard records; Save Draft creates/overwrites only Draft planning; Published plans cannot be overwritten. Publish requires all plans for the date/slot to belong to the same import batch.
+- `info` = `NO | Sheet | Code Dapur`.
+- Setiap dapur = `DAPUR | Product | Max | Unit`.
+- `Product` = `[Reference] Nama Produk`; SOP tim menentukan SKU yang masuk sheet.
+- Max adalah **kapasitas maksimal per SKU/jadwal**, bukan qty BoM atau qty pesanan RO. Max 0 tidak boleh muncul sebagai opsi pesanan toko ketika RO dibuat.
+- `Unit` berasal dari satuan hasil di **BoM Header** untuk produk dan dapur/warehouse sesuai; tidak harus sama dengan stock UoM produk. Tidak membuat konversi ke stok/MO otomatis.
+- Sheet `info` pada contoh yang disetujui: 10 dapur; Premik, Dahlia 5, Trial bukan dapur produksi barang jadi reguler; Packing adalah perakitan paket, bukan salah satu 10 sheet tersebut.
 
-## First server step: source preflight only (no DB modifications)
+## Workflow GUI terbaru
+
+**Menu `Upload Planning` → daftar Planning (Draft dan Published) → tombol toolbar `Upload Baru` → XLSX wizard → Validate & Preview → Save Draft.**
+
+- S1 = 05.00 WIB; S2 = 09.00 WIB; S3 = 11.00 WIB.
+- Upload satu tanggal kirim + slot; identitas masing-masing dokumen **tanggal + slot + kode dapur**.
+- Jika belum ada: **CREATE Draft**.
+- Jika sudah Draft: **REPLACE** SKU dan Max untuk dapur itu.
+- Jika Published: **SKIP**, tetap utuh. Sheet/dapur yang tak ada di workbook tidak diubah.
+- Preview menunjukkan CREATE/REPLACE/SKIP. Save Draft menjalankan semua write dalam satu transaksi Odoo dan memberi notifikasi hasil.
+- Admin Produksi/operator Manufacturing User boleh mengedit **Max** ketika Draft; identity SKU, Reference, UoM tetap readonly; Published readonly.
+- **Publish This Kitchen** hanya untuk satu dokumen dapur, oleh Manufacturing Manager. Dapur lain tetap Draft.
+- Daftar Planning menampilkan **Draft + Published**, tersedia filter untuk masing-masing; **tidak** membuka wizard langsung dari menu Upload Planning.
+- **Perbaikan kosmetik UI/UX pending** berdasarkan keputusan pengguna setelah flow disetujui.
+
+## Status pengujian: bedakan bukti dengan rencana
+
+**Terbukti:** `openpyxl 3.1.2` di Odoo venv, source preflight PASS, 10 kode dapur cocok, manifest dan addons_path terverifikasi, addon installed dan keempat model terdaftar; pengguna memperlihatkan Draft per dapur, daftar SKU, dan notifikasi Created Draft dari upload file. Pengguna menyatakan flow akhir sudah sesuai keinginan.
+
+**Belum dinyatakan lulus menyeluruh:** otomatisasi pengujian create/replace/skip untuk kasus Published + Draft campuran, semua kombinasi permission operator, publish per dapur pada seluruh skenario, integrasi RO toko, reservasi kapasitas SO, MO/stock move, costing/accounting end-to-end. Jangan menganggap “Published” otomatis menghasilkan RO.
+
+**Masalah lama dan tindakan:** jika view `line_row` menghasilkan OwlError undefined, cek deploy field Python/upgrade/restart service; kalau Save Draft memunculkan Created Draft lalu JavaScript `reading 'map'`, data mungkin tersimpan dan error terjadi pada navigasi action `views`. Perbaikan itu sudah ada di kode; lihat skill untuk prosedur.
+
+## Cara deploy versi berikutnya
+
+Lihat [SKILL_ODOO19_ADDON_WORKFLOW.md](../../doc/SKILL_ODOO19_ADDON_WORKFLOW.md), jangan melakukan install ulang secara membabi buta. Ringkasnya:
 
 ```bash
 cd ~/odoofromzero
 git pull
-/opt/odoo19/venv/bin/python3 script/check_production_planning_source_readonly_ya.py
+python3 script/check_production_planning_source_readonly_ya.py
+sudo cp -a addons/ya_production_planning/. /opt/odoo19/custom-addons/ya_production_planning/
+sudo chown -R odoo19:odoo19 /opt/odoo19/custom-addons/ya_production_planning
+# Jika model/XML/ACL berubah: backup GUI dahulu, lalu upgrade hanya DB MRP test
+sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin \
+  -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test \
+  -u ya_production_planning --stop-after-init --no-http
+echo "UPGRADE_EXIT_CODE=$?"
+# Hanya jika EXIT_CODE=0:
+sudo systemctl restart odoo19
+sudo systemctl is-active odoo19
 ```
 
-Inspect the terminal output. **Do not deploy or install yet.** A successful static preflight does not confirm Odoo ORM/API, business master matching, or UI installation.
-
-## Environment
-
-Development DB: `erp-yussyakmal-mrp-test` only. Never touch `erp-yussyakmal` or `erp-yussyakmal-integer-test` without explicit approval.
-
-After source preflight, next stage is a controlled install rehearsal on the MRP test database with backups and rollback plan. Do not treat this README as permission for installation.
-
-## Update: per-kitchen publishing and unified list (22 November 2026)
-
-- A complete XLSX upload can still save multiple kitchen Drafts in one delivery date/slot.
-- **Publish This Kitchen** changes only the selected Draft to Published; other kitchen Drafts remain Draft.
-- The Production Planning menu displays both Draft and Published in one list, with separate search filters and grouping.
-- Published is immutable for SKU Max and acts as **future input** for store RO templates, filtered to Max > 0. **RO creation and store ordering are NOT implemented in this addon yet**; no shop can actually submit an RO solely because a planning was Published.
-- Do not reupload or delete existing Drafts just to apply this UI/workflow change.
-- Upgrading this addon affects views and model methods only; use the MRP test database and check a GUI backup exists first.
-
-## Reupload behavior (2026-11-22)
-
-A workbook is scoped to the selected delivery date and slot; its `info` sheet lists participating kitchens. Each kitchen is identified by **delivery date + slot + kitchen code**.
-
-- **Not present:** create a new Draft.
-- **Present and Draft:** replace all SKU lines and Max quantities for **that kitchen only**. Omitted kitchens are not deleted or modified.
-- **Present and Published:** skip completely and keep the Published data untouched; other Draft/new kitchens in the same upload still proceed.
-- **Preview:** show per-kitchen expected CREATE / REPLACE / SKIP before saving. After Save Draft, a notification summarizes the actual actions and opens planning records for that date and slot.
-- Published always remains immutable, and all writes are in one Odoo request transaction; a failure rolls back new Draft creation and Draft replacement together.
-- The XLSX is still validated against SKU/BoM UoM master data. This change does not create RO transactions or authorize store orders.
-
-## List header upload shortcut
-
-The Production Planning list now has **Upload Planning XLSX** available in its list toolbar to Manufacturing Managers, without requiring record selection. This opens the *existing* import wizard. No changes to CSV/XLSX parsing, database contents, publish semantics, or store RO behavior. In Odoo 19 the list header uses `<button type="object" display="always"/>`, invoking model method `action_open_upload_wizard`.
-
-Deploy both `models/planning.py` and `views/planning_views.xml`, upgrade **only** `ya_production_planning` in `erp-yussyakmal-mrp-test` to reload XML, restart service, then test list shortcut. Existing Draft/Published planning records should remain as they are.
+**Next feature:** RO toko yang mengambil SKU dari **Published Planning dengan Max > 0**, satu RO per toko + dapur + tanggal pengiriman + slot, Qty Pesan oleh toko melalui Excel. Jangan mengulang audit BoM 955 hanya untuk memulai RO.
