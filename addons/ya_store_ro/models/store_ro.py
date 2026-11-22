@@ -1,5 +1,6 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from .date_labels import format_ymondd
 
 
 class YaStoreRO(models.Model):
@@ -12,10 +13,10 @@ class YaStoreRO(models.Model):
                                    index=True, ondelete='restrict')
     delivery_date = fields.Date(related='planning_id.delivery_date', store=True, readonly=True)
     delivery_date_yyyymmdd = fields.Char(
-        string='Tgl Kirim (YYYYMMDD)', compute='_compute_date_labels',
+        string='Tgl Kirim (YYYY-Mon-DD)', compute='_compute_date_labels',
     )
     ro_date_yyyymmdd = fields.Char(
-        string='Tgl RO (YYYYMMDD)', compute='_compute_date_labels',
+        string='Tgl RO (YYYY-Mon-DD)', compute='_compute_date_labels',
     )
     slot = fields.Selection(related='planning_id.slot', store=True, readonly=True)
     kitchen_code = fields.Char(related='planning_id.kitchen_code', store=True, readonly=True)
@@ -38,10 +39,10 @@ class YaStoreRO(models.Model):
     def _compute_date_labels(self):
         for ro in self:
             ro.delivery_date_yyyymmdd = (
-                ro.delivery_date.strftime('%Y%m%d') if ro.delivery_date else ''
+                format_ymondd(ro.delivery_date) if ro.delivery_date else ''
             )
             ro.ro_date_yyyymmdd = (
-                fields.Datetime.context_timestamp(ro, ro.create_date).strftime('%Y%m%d')
+                format_ymondd(fields.Datetime.context_timestamp(ro, ro.create_date))
                 if ro.create_date else ''
             )
 
@@ -50,7 +51,7 @@ class YaStoreRO(models.Model):
         for ro in self:
             p = ro.planning_id
             ro.name = ('RO %s %s %s %s' % (
-                (p.delivery_date.strftime('%Y%m%d') if p.delivery_date else '-'),
+                (format_ymondd(p.delivery_date) if p.delivery_date else '-'),
                 p.slot or '-', p.kitchen_code or '-',
                 ro.store_warehouse_id.code or ro.store_warehouse_id.name or '-'))
 
