@@ -226,14 +226,32 @@ class YaProductionPlanningImport(models.TransientModel):
                         'report': '%s validation error(s); showing first 250' % len(errors),
                         'line_count': 0})
             return self._reopen()
+        existing = self.env['ya.production.planning'].search([
+            ('delivery_date', '=', self.delivery_date),
+            ('slot', '=', self.slot),
+            ('kitchen_code', 'in', [code for _, code in sheet_map]),
+        ])
+        existing_by_code = {p.kitchen_code: p for p in existing}
+        expected = {'create': [], 'replace': [], 'skip': []}
+        for sheet, code in sheet_map:
+            plan = existing_by_code.get(code)
+            action = ('skip' if plan and plan.state == 'published'
+                      else 'replace' if plan else 'create')
+            expected[action].append(code)
         lines = [(0, 0, {'sheet': r['sheet'], 'kitchen_code': r['code'],
                          'source_row': r['row'], 'reference': r['reference'],
                          'product_id': r['product_id'], 'max_capacity': r['max'],
                          'uom_id': r['uom_id'], 'workcenter_id': r['workcenter_id']})
                  for r in resolved]
         self.write({'preview_line_ids': lines, 'state': 'preview', 'errors': False,
-                    'report': '%s kitchens; %s SKU lines. Planning has not been changed.' % (
-                        len(sheet_map), len(resolved)),
+                    'report': (
+                        '%s kitchens; %s SKU lines. PREVIEW ONLY.\\n'
+                        'CREATE Draft: %s\\nREPLACE Draft: %s\\n'
+                        'SKIP Published (unchanged): %s'
+                    ) % (len(sheet_map), len(resolved),
+                         ', '.join(expected['create']) or '-',
+                         ', '.join(expected['replace']) or '-',
+                         ', '.join(expected['skip']) or '-'),
                     'line_count': len(resolved)})
         return self._reopen()
 
@@ -255,18 +273,24 @@ class YaProductionPlanningImport(models.TransientModel):
         for row in resolved:
             grouped[row['code']].append(row)
         plan_model = self.env['ya.production.planning']
-        plans = plan_model.browse()
+        existing = plan_model.search([
+            ('delivery_date', '=', self.delivery_date),
+            ('slot', '=', self.slot),
+            ('kitchen_code', 'in', [code for _, code in sheet_map]),
+        ])
+        existing_by_code = {p.kitchen_code: p for p in existing}
+        # The full upload is one atomic transaction. Published records are
+        # skipped; only Draft records in this workbook are replaced.
         batch = str(uuid.uuid4())
-        # No explicit commits: all writes use one Odoo request transaction.
+        result = {'create': [], 'replace': [], 'skip': []}
         for sheet, code in sheet_map:
             rows = grouped[code]
+            plan = existing_by_code.get(code)
+            if plan and plan.state == 'published':
+                result['skip'].append(code)
+                continue
             if not rows:
-                raise UserError(_('Kitchen %s has no SKU rows' % code))
-            existing = plan_model.search([
-                ('delivery_date', '=', self.delivery_date), ('slot', '=', self.slot),
-                ('kitchen_code', '=', code)])
-            if existing and existing.state != 'draft':
-                raise UserError(_('Published planning cannot be overwritten: %s' % code))
+                raise UserError(_('Kitchen %s has no SKU rows') % code)
             lines = [(0, 0, {'product_id': r['product_id'],
                              'reference': r['reference'], 'max_capacity': r['max'],
                              'uom_id': r['uom_id'], 'source_sheet': r['sheet'],
@@ -274,16 +298,43 @@ class YaProductionPlanningImport(models.TransientModel):
             vals = {'workcenter_id': rows[0]['workcenter_id'],
                     'upload_filename': self.filename or '', 'import_batch': batch,
                     'line_ids': [(5, 0, 0)] + lines}
-            if existing:
-                existing.write(vals)
-                plans |= existing
+            if plan:
+                plan.write(vals)
+                result['replace'].append(code)
             else:
-                plans |= plan_model.create(dict(
+                plan_model.create(dict(
                     vals, delivery_date=self.delivery_date, slot=self.slot,
                     kitchen_code=code))
-        return {'type': 'ir.actions.act_window', 'res_model': 'ya.production.planning',
-                'domain': [('id', 'in', plans.ids)], 'view_mode': 'list,form',
-                'target': 'current'}
+                result['create'].append(code)
+        message = (
+            'Created Draft: %s. Replaced Draft: %s. '
+            'Skipped Published (unchanged): %s.'
+        ) % (
+            ', '.join(result['create']) or '-',
+            ', '.join(result['replace']) or '-',
+            ', '.join(result['skip']) or '-',
+        )
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Production Planning Upload'),
+                'message': message,
+                'type': 'success',
+                'sticky': True,
+                'next': {
+                    'type': 'ir.actions.act_window',
+                    'name': _('Production Planning'),
+                    'res_model': 'ya.production.planning',
+                    'view_mode': 'list,form',
+                    'domain': [
+                        ('delivery_date', '=', self.delivery_date),
+                        ('slot', '=', self.slot),
+                    ],
+                    'target': 'current',
+                },
+            },
+        }
 
 
 class YaProductionPlanningImportLine(models.TransientModel):
