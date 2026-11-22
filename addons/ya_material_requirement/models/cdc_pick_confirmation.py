@@ -1,8 +1,9 @@
 """CDC physical picking confirmation per existing Packing batch and kitchen.
 
 Explicit operator action; keeps MO demand separate from Special Transfer.
-THIS PHASE DOES NOT CREATE OR VALIDATE STOCK PICKINGS/MOVES, OR RESERVE STOCK.
-Odoo standard Internal Transfers will be added only after route/FEFO audit.
+Confirmed sheets may EXPLICITLY create a single standard stock.picking DRAFT
+with native stock.move quantities; no auto-confirm, assign, reserve or validate.
+Warehouse must check lot/FEFO, routes and actual availability before validation.
 Strictly limited to the Manufacturing test database.
 """
 from collections import defaultdict
@@ -48,6 +49,12 @@ class YaCdcPickConfirmation(models.Model):
     line_ids = fields.One2many('ya.cdc.pick.confirmation.line',
                                'confirmation_id', string='Bahan yang Dipicking',
                                copy=False)
+    internal_transfer_id = fields.Many2one(
+        'stock.picking', string='Internal Transfer Odoo',
+        readonly=True, copy=False, ondelete='restrict',
+        help='Native Odoo Internal Transfer generated from this confirmed sheet, '
+             'created in Draft only; no automatic stock reservation or movement.',
+    )
     confirmed_by = fields.Many2one('res.users', readonly=True)
     confirmed_at = fields.Datetime(readonly=True)
     confirmed_at_label = fields.Char(
@@ -56,7 +63,9 @@ class YaCdcPickConfirmation(models.Model):
         default='Qty Picking Aktual boleh melebihi kebutuhan MO hanya dengan '
                 'Special Transfer dan alasan; cantumkan referensi bila ada. '
                 'Tambahan tidak menambah Qty MO. '
-                'Konfirmasi di tahap ini TIDAK membuat transfer ataupun mutasi stok.')
+                'Konfirmasi Qty sendiri tidak membuat transfer. '
+                'Sesudah Confirmed, klik Buat Internal Transfer (Draft). '
+                'Validasi transfer dilakukan terpisah oleh tim gudang.')
 
     _unique_batch_destination = models.Constraint(
         'UNIQUE(batch_id, warehouse_id)',
@@ -98,6 +107,17 @@ class YaCdcPickConfirmation(models.Model):
     def write(self, vals):
         _guard_db(self.env)
         _guard_role(self.env)
+        allowed_transfer_link = (
+            self.env.context.get('ya_link_cdc_internal_transfer')
+            and set(vals) == {'internal_transfer_id'}
+            and bool(vals.get('internal_transfer_id'))
+            and all(doc.state == 'confirmed' and not doc.internal_transfer_id
+                    for doc in self)
+        )
+        if allowed_transfer_link:
+            return super().write(vals)
+        if 'internal_transfer_id' in vals:
+            raise UserError(_('Internal Transfer link can only be written by its button.'))
         if any(doc.state == 'confirmed' for doc in self):
             raise UserError(_('Confirmed picking documents are locked.'))
         if set(vals) & {'batch_id', 'warehouse_id', 'cdc_warehouse_id',
@@ -220,6 +240,221 @@ class YaCdcPickConfirmation(models.Model):
             'confirmed_at': fields.Datetime.now(),
         })
         return self._open_form()
+
+
+    def _open_internal_transfer(self):
+        """Open Odoo's standard stock.picking form, not a custom transfer UI."""
+        self.ensure_one()
+        if not self.internal_transfer_id:
+            raise UserError(_('No Internal Transfer linked to this picking sheet.'))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Internal Transfer CDC → %s') % self.warehouse_id.display_name,
+            'res_model': 'stock.picking',
+            'res_id': self.internal_transfer_id.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+
+    def action_open_internal_transfer(self):
+        self.ensure_one()
+        _guard_db(self.env)
+        _guard_role(self.env)
+        return self._open_internal_transfer()
+
+    def action_create_internal_transfer(self):
+        """Create ONE native Internal Transfer DRAFT from confirmed physical Qty.
+
+        No confirm/assign/validation, reservation or stock change here.
+        Confirmed special excess remains separate from MO demand in the
+        immutable CDC picking sheet, with the breakdown also in transfer notes.
+        """
+        self.ensure_one()
+        _guard_db(self.env)
+        _guard_role(self.env)
+        if not self.env.user.has_group('stock.group_stock_manager'):
+            raise UserError(_(
+                'Only Inventory Administrator (Stock Manager) may create '
+                'a standard Internal Transfer from confirmed CDC picking.'
+            ))
+        # Serialize double clicks / different sessions for this exact record.
+        self.env.cr.execute(
+            'SELECT id FROM ya_cdc_pick_confirmation WHERE id = %s FOR UPDATE',
+            [self.id],
+        )
+        self.invalidate_recordset(['internal_transfer_id', 'state'])
+        if self.internal_transfer_id:
+            return self._open_internal_transfer()
+        if self.state != 'confirmed':
+            raise UserError(_('Confirm Qty Picking before creating Internal Transfer.'))
+        if self.batch_id.state != 'production_ok' or not self.line_ids:
+            raise UserError(_('Source Packing batch or confirmed lines are invalid.'))
+        cdc, kitchen = self.cdc_warehouse_id, self.warehouse_id
+        source, dest = cdc.lot_stock_id, kitchen.lot_stock_id
+        if (cdc.code != 'CDC' or cdc == kitchen or
+                cdc.company_id != kitchen.company_id or
+                self.company_id != cdc.company_id or
+                not source or not dest or source == dest or
+                source.usage != 'internal' or dest.usage != 'internal'):
+            raise UserError(_('Invalid CDC → kitchen locations or company.'))
+        picking_type = cdc.int_type_id
+        if (not picking_type or picking_type.code != 'internal' or
+                picking_type.warehouse_id != cdc or
+                picking_type.company_id != self.company_id):
+            raise UserError(_(
+                'CDC Internal Transfer operation type is missing or mismatched. '
+                'Check Warehouse CDC → Operation Types before proceeding.'
+            ))
+        origin = 'YA-CDC-PICK-%s / %s' % (self.id, self.batch_id.name)
+        Picking = self.env['stock.picking'].with_company(self.company_id)
+        Move = self.env['stock.move'].with_company(self.company_id)
+        # An unlinked native picking with our deterministic origin is NOT safe
+        # to adopt: force reconciliation rather than making a second transfer.
+        duplicate = Picking.search([
+            ('company_id', '=', self.company_id.id),
+            ('origin', '=', origin),
+        ], limit=1)
+        if duplicate:
+            raise UserError(_(
+                'Native Internal Transfer %s already uses this picking origin. '
+                'Reconcile existing transfer and link before creating another.'
+            ) % duplicate.display_name)
+
+        # Prevent double transfer of a separately executed Special Transfer.
+        # An optional Special reference may name an external REQUEST instead;
+        # only references to actual, non-cancelled stock.pickings are blocked.
+        for line in self.line_ids:
+            ref = (line.special_reference or '').strip()
+            if not ref or not line.special_transfer:
+                continue
+            existing_special = Picking.search([
+                ('company_id', '=', self.company_id.id),
+                ('name', '=', ref),
+                ('state', '!=', 'cancel'),
+            ], limit=1)
+            if existing_special:
+                raise UserError(_(
+                    'Special Transfer reference %s already belongs to Odoo '
+                    'transfer %s. Reconcile it first to avoid double dispatch.'
+                ) % (ref, existing_special.display_name))
+
+        # The CDC warehouse lock serializes all transfers created by this
+        # feature. Stock may still change via native Odoo operations: the
+        # warehouse MUST recheck stock before validating the draft.
+        self.env.cr.execute(
+            'SELECT id FROM stock_warehouse WHERE id = %s FOR UPDATE',
+            [cdc.id],
+        )
+        pending = self.search([
+            ('cdc_warehouse_id', '=', cdc.id),
+            ('state', '=', 'confirmed'),
+            ('id', '!=', self.id),
+        ])
+        needed = defaultdict(float)
+        for line in self.line_ids:
+            if line.picked_qty > 0:
+                needed[line.product_id.id] += line.picked_qty
+        if not needed:
+            raise UserError(_('No positive picked quantities to transfer.'))
+        for doc in pending:
+            # Count outgoing claims not yet transferred as well as native
+            # transfer drafts/waiting/assigned, conservatively. Completed
+            # transfers are already deducted from actual stock quantities.
+            if doc.internal_transfer_id and doc.internal_transfer_id.state in (
+                    'done', 'cancel'):
+                continue
+            for line in doc.line_ids:
+                if line.picked_qty > 0 and line.product_id.id in needed:
+                    needed[line.product_id.id] += line.picked_qty
+        Quant = self.env['stock.quant'].with_company(self.company_id)
+        for product_id, qty in needed.items():
+            product = self.env['product.product'].browse(product_id)
+            quants = Quant.search([
+                ('product_id', '=', product_id),
+                ('location_id', 'child_of', source.id),
+                ('location_id.usage', '=', 'internal'),
+                ('company_id', '=', self.company_id.id),
+            ])
+            free = max(0.0, sum(
+                q.quantity - q.reserved_quantity for q in quants
+            ))
+            if float_compare(
+                    qty, free, precision_rounding=product.uom_id.rounding) > 0:
+                raise UserError(_(
+                    'CDC available stock insufficient for %(product)s: '
+                    'unfulfilled picking claims %(required).3f, '
+                    'free CDC stock %(free).3f. Check prior transfers, '
+                    'reservations and special transfer Qty.'
+                ) % {
+                    'product': product.display_name,
+                    'required': qty, 'free': free,
+                })
+
+        notes = [
+            'YA CDC Physical Picking %s' % self.name,
+            'Confirmed: %s' % (self.confirmed_at_label or '-'),
+            'From %s to %s; original MO Qty is NOT modified.' % (
+                cdc.display_name, kitchen.display_name,
+            ),
+        ]
+        move_values = []
+        for line in self.line_ids:
+            qty = line.picked_qty
+            if float_compare(qty, 0.0,
+                             precision_rounding=line.uom_id.rounding) <= 0:
+                continue
+            mo_qty = min(qty, line.requested_qty)
+            special_qty = max(0.0, qty - line.requested_qty)
+            if float_compare(
+                    special_qty, 0.0,
+                    precision_rounding=line.uom_id.rounding) <= 0:
+                mo_qty, special_qty = qty, 0.0
+            if special_qty and (
+                    not line.special_transfer or
+                    not (line.special_reason or '').strip()):
+                raise UserError(_(
+                    'Missing Special Transfer authorization for %s.'
+                ) % line.product_id.display_name)
+            note = '%s: Qty Fisik %s %s; MO %s; Special %s' % (
+                line.product_id.display_name,
+                qty, line.uom_id.name, mo_qty, special_qty,
+            )
+            if special_qty:
+                note += ' | Alasan: %s' % (line.special_reason or '').strip()
+                if line.special_reference:
+                    note += ' | Ref: %s' % line.special_reference.strip()
+            notes.append(note)
+            move_values.append({
+                'name': line.product_id.display_name,
+                'product_id': line.product_id.id,
+                'product_uom': line.uom_id.id,
+                'product_uom_qty': qty,
+                'location_id': source.id,
+                'location_dest_id': dest.id,
+                'company_id': self.company_id.id,
+            })
+        if not move_values:
+            raise UserError(_('No transferable positive Qty on confirmation.'))
+        picking_vals = {
+            'picking_type_id': picking_type.id,
+            'location_id': source.id,
+            'location_dest_id': dest.id,
+            'company_id': self.company_id.id,
+            'origin': origin,
+        }
+        if 'note' in Picking._fields:
+            picking_vals['note'] = '\\n'.join(notes)
+        picking = Picking.create(picking_vals)
+        Move.create([
+            dict(values, picking_id=picking.id) for values in move_values
+        ])
+        self.with_context(ya_link_cdc_internal_transfer=True).write({
+            'internal_transfer_id': picking.id,
+        })
+        # Do not call picking.action_confirm, action_assign or button_validate.
+        # Warehouse handles FEFO/lot, reservation, transit route and receipt
+        # in Odoo Inventory after reviewing the generated DRAFT.
+        return self._open_internal_transfer()
 
 
 class YaCdcPickConfirmationLine(models.Model):
