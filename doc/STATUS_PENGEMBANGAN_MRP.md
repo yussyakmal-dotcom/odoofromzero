@@ -453,3 +453,7 @@ Contoh BoM 24 Pcs: RO Toko A=13, B=27, C=32 → total=72, produksi 72 (3 batch).
 Addon baru `addons/ya_store_ro/` ditambahkan pada GitHub untuk **tahap 1: generate Excel template per toko dari Published Planning**, dan **BELUM DIINSTALL** ke `erp-yussyakmal-mrp-test`. Wizard manager memilih satu Published Planning dan warehouse toko, lalu generates workbook `info` (identitas jadwal + toko) dan `RO` (`Reference | Nama Produk | Qty Pesan`) yang hanya mencantumkan SKU dengan Max Planning positif. Qty Pesan dikosongkan dan kelak diisi bebas tanpa pembulatan. Tidak ada model RO permanen, tombol Confirm, toko permission, import Excel, Packing atau stok yang berubah.
 
 Tes sumber read-only tersedia: `python3 script/check_ya_store_ro_source_readonly.py`. Status sampai ada log server: **source candidate, not installed/tested**. Perlu ketentuan mapping gudang toko dan record rules sebelum digunakan toko; phase 1 dibatasi Manufacturing Manager. Baca `addons/ya_store_ro/README.md` dan dokumentasi handover.
+
+## Hasil uji user — RO XLSX download berhasil (22 November 2026)
+
+Feri menyatakan addon `ya_store_ro` berhasil menghasilkan dan mengunduh XLSX dan isinya **sesuai SKU dapur yang sudah Published**. Hasil ini dianggap **smoke test PASS** untuk generator template, bukan bukti RO transaksi, import Draft, store permissions, Packing consolidation atau akuntansi. Tahap berikut: import RO XLSX → Draft, Qty Pesan bebas; jangan menginstal ulang addon yang sudah berjalan.
