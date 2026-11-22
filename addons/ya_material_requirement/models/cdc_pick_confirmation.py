@@ -54,7 +54,8 @@ class YaCdcPickConfirmation(models.Model):
         string='Waktu Konfirmasi (YYYY-Mon-DD)', compute='_compute_confirm_label')
     info = fields.Text(readonly=True,
         default='Qty Picking Aktual boleh melebihi kebutuhan MO hanya dengan '
-                'Special Transfer dan alasan. Tambahan tidak menambah Qty MO. '
+                'Special Transfer dan alasan; cantumkan referensi bila ada. '
+                'Tambahan tidak menambah Qty MO. '
                 'Konfirmasi di tahap ini TIDAK membuat transfer ataupun mutasi stok.')
 
     _unique_batch_destination = models.Constraint(
@@ -243,6 +244,11 @@ class YaCdcPickConfirmationLine(models.Model):
                                digits='Product Unit of Measure')
     special_transfer = fields.Boolean(string='Special Transfer?')
     special_reason = fields.Char(string='Alasan Special Transfer')
+    special_reference = fields.Char(
+        string='Referensi Special Transfer',
+        help='Nomor permintaan atau transfer khusus bila tersedia. '
+             'Pencatatan nomor ini tidak membuat transfer baru.',
+    )
 
     _unique_doc_product = models.Constraint(
         'UNIQUE(confirmation_id, product_id)',
