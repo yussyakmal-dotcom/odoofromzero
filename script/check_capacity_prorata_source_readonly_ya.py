@@ -10,7 +10,7 @@ required = {
         'available = (max_capacity // bom_output) * bom_output',
         "'blocked'",
         "'prorated'",
-        "'shortage': qty - base",
+        "'shortage': requested - base",
         "assert sum(row['shortage'] for row in result.values()) == total - available",
     ],
     'wizard/packing_preview.py': [
@@ -24,11 +24,15 @@ required = {
         'if self.prorated_count and not self.accept_shortage:',
         "'qty_shortage': row.qty_shortage",
         "'qty_shortage': allocation.qty_shortage",
+        "if any(a['surplus'] for a in allocations.values()):",
+        "'total_unallocated': total_unallocated",
     ],
     'models/packing_batch.py': [
         "qty_shortage = fields.Integer(",
         "sum(rows.mapped('qty_shortage')) != line.qty_shortage",
         "allocation.qty_allocated + allocation.qty_shortage !=",
+        "allocation.qty_surplus != 0",
+        "line.qty_surplus",
     ],
     'views/packing_preview_views.xml': [
         'class="alert alert-warning"',
@@ -37,6 +41,8 @@ required = {
         'name="prorated_count"',
         'name="accept_shortage"',
         'name="qty_shortage"',
+        'name="total_unallocated"',
+        'Selisih BoM Belum Dialokasikan',
         "decoration-warning=\"capacity_status == 'prorated'\"",
     ],
     'views/packing_batch_views.xml': [
