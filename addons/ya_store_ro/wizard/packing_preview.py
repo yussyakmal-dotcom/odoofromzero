@@ -4,12 +4,12 @@ Group per kitchen + SKU. Each group becomes the BASIS for one eventual MO.
 Read-only for all persistent business documents; no MO or stock move here.
 """
 from collections import defaultdict
-from datetime import datetime
 
 from odoo import fields, models, _
 from odoo.exceptions import UserError
 
 from ..models.allocation_rules import allocate_surplus_prorata
+from ..models.date_labels import format_ymondd, parse_ymondd
 
 SLOTS = [('S1', 'S1 - 05.00 WIB'), ('S2', 'S2 - 09.00 WIB'),
          ('S3', 'S3 - 11.00 WIB')]
@@ -20,8 +20,8 @@ class YaPackingPreview(models.TransientModel):
     _description = 'YA Packing RO-only Consolidation Preview'
 
     delivery_date_yyyymmdd = fields.Char(
-        string='Tanggal Kirim (YYYYMMDD)', required=True,
-        default=lambda self: fields.Date.context_today(self).strftime('%Y%m%d'),
+        string='Tanggal Kirim (YYYY-Mon-DD)', required=True,
+        default=lambda self: format_ymondd(fields.Date.context_today(self)),
     )
     slot = fields.Selection(SLOTS, string='Slot Pengiriman', required=True)
     ro_count = fields.Integer(readonly=True)
@@ -49,13 +49,9 @@ class YaPackingPreview(models.TransientModel):
         if not self.env.user.has_group('mrp.group_mrp_manager'):
             raise UserError(_('Only a Manufacturing Manager may preview Packing consolidation.'))
         try:
-            delivery_date = datetime.strptime(
-                self.delivery_date_yyyymmdd or '', '%Y%m%d'
-            ).date()
-            if delivery_date.strftime('%Y%m%d') != self.delivery_date_yyyymmdd:
-                raise ValueError('Invalid date format')
+            delivery_date = parse_ymondd(self.delivery_date_yyyymmdd)
         except ValueError:
-            raise UserError(_('Tanggal Kirim must be YYYYMMDD, e.g. 20261122.'))
+            raise UserError(_('Tanggal Kirim must be YYYY-Mon-DD, e.g. 2026-Nov-22.'))
         if not self.slot:
             raise UserError(_('Select Slot Pengiriman.'))
 
@@ -155,10 +151,9 @@ class YaPackingPreview(models.TransientModel):
                 allocation_values.append((0, 0, {
                     'ro_id': source_ro.id,
                     'ro_date_yyyymmdd': (
-                        fields.Datetime.context_timestamp(source_ro, source_ro.create_date)
-                        .strftime('%Y%m%d') if source_ro.create_date else ''
+                        format_ymondd(fields.Datetime.context_timestamp(source_ro, source_ro.create_date)) if source_ro.create_date else ''
                     ),
-                    'delivery_date_yyyymmdd': delivery_date.strftime('%Y%m%d'),
+                    'delivery_date_yyyymmdd': format_ymondd(delivery_date),
                     'planning_id': plan_id,
                     'kitchen_code': plan.kitchen_code,
                     'product_id': product_id,
@@ -216,8 +211,8 @@ class YaPackingPreviewAllocation(models.TransientModel):
     wizard_id = fields.Many2one('ya.packing.preview', required=True, ondelete='cascade')
     planning_id = fields.Many2one('ya.production.planning', readonly=True)
     ro_id = fields.Many2one('ya.store.ro', readonly=True)
-    ro_date_yyyymmdd = fields.Char(string='Tgl RO (YYYYMMDD)', readonly=True)
-    delivery_date_yyyymmdd = fields.Char(string='Tgl Kirim (YYYYMMDD)', readonly=True)
+    ro_date_yyyymmdd = fields.Char(string='Tgl RO (YYYY-Mon-DD)', readonly=True)
+    delivery_date_yyyymmdd = fields.Char(string='Tgl Kirim (YYYY-Mon-DD)', readonly=True)
     kitchen_code = fields.Char(readonly=True)
     product_id = fields.Many2one('product.product', readonly=True)
     reference = fields.Char(readonly=True)
