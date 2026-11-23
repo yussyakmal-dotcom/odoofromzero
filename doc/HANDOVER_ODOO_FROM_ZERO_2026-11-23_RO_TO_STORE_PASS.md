@@ -256,3 +256,15 @@ For batch3 MO42 `PST/MO/00001`, SKU12379, 40 pcs:
 - Direct GL by stock move and accounting closing still requires checking; no automatic journal was observed in earlier legacy-style lookup. Odoo19 accounting may recognize inventory at invoices and at closing according to settings, not automatically one entry per move.
 
 **Next:** read-only script `script/audit_batch3_accounting_closing_readonly_ya.py` to inspect direct `stock.move.account_move_id`, actual `remaining_value`, production location accounts, category/company settings. Subsequently accountant should compare Accounting > Review > Inventory Valuation and relevant posted/draft journal accounts and stock closing (do NOT post during diagnostic). **Accounting signoff NOT YET PASSED.** Paket work remains paused for accounting gate.
+
+## ACCOUNTING — BATCH3 GL TRACE RESULTS (23 NOV 2026)
+
+Feri ran `script/audit_batch3_accounting_closing_readonly_ya.py` in `erp-yussyakmal-mrp-test`, result `READ_ONLY_BATCH3_ACCOUNTING_CLOSING_OK`.
+- Company: `inventory_valuation=periodic`, `inventory_period=manual`, `cost_method=standard`, `anglo_saxon_accounting=True`, inventory valuation account `11300180 Inventory` (`asset_current`). Category configs read earlier are average cost + real_time, and effective semantics remain subject to Odoo 19 accounting reconciliation.
+- MO `PST/MO/00001` (SKU 12379): raw valued stock.move sum **230008.75**, finished stock.move 951 **230008.75**, delta **0**, `extra_cost=0`. Evidence supports **material-valued MO consistency**, not overhead/labor costing.
+- Finished move `remaining_value=230008.75` as reported; do **not** misinterpret this alone as current value at individual store locations, since internal/transit movements `966`/`967` are nonvalued and 10 pcs passed to store.
+- Raw valued moves 941–950 each `account_move_id=False`; finished move 951 `account_move_id=False`; internal/transit 966/967 `is_valued=False` and `account_move_id=False`. **No directly linked GL entries**: expected/not expected must be judged from Odoo19 company periodic/manual settings and closing process, not from pre-19 assumptions.
+- Production Location ID 12, usage production, company My Company; no custom valuation in/out account fields appeared in the audit.
+- **Financial close/reconciliation NOT YET PASSED.** Next read-only script `script/audit_inventory_gl_balance_readonly_ya.py` prints category/company inventory-related account mapping and posted/draft GL totals, plus SKU12379 effective category config. Compare with Odoo19 Inventory Valuation report at the same company/cutoff and opening balances; do not post manual valuation closing entries just to clear audit.
+
+**Decision gate:** Continue to hold expansion to Package assembly until stock valuation vs financial reporting is assessed, or owner explicitly reprioritizes. Operational RO→store PASS remains intact.
