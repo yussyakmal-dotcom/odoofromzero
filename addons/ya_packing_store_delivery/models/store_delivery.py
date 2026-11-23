@@ -14,6 +14,16 @@ from odoo.tools import float_compare
 TEST_DB = "erp-yussyakmal-mrp-test"
 
 
+class YaStoreDeliveryMove(models.Model):
+    _inherit = "stock.move"
+
+    ya_do_not_shipped_reason = fields.Text(
+        string="Alasan Tidak Dikirim", copy=False,
+        help="Wajib jika Qty Kirim = 0. Diisi operator pembuat DO. "
+             "Demand RO tetap dicatat meski baris transfer dibatalkan.",
+    )
+
+
 class YaStoreDeliveryPicking(models.Model):
     _inherit = "stock.picking"
 
@@ -45,6 +55,7 @@ class YaStoreDeliveryPicking(models.Model):
             if self.env.cr.dbname != TEST_DB or len(self) != 1:
                 raise UserError(_("Validate YA dispatch individually in MRP test DB."))
             self._ya_check_store_dispatch_qty()
+            self._ya_cancel_zero_qty_dispatch_moves()
             return super(
                 YaStoreDeliveryPicking, self.with_context(skip_backorder=True)
             ).button_validate()
@@ -86,12 +97,20 @@ class YaStoreDeliveryPicking(models.Model):
                     raise UserError(_("DO line has incorrect stock locations."))
                 if float_compare(
                     move.quantity, 0, precision_rounding=move.product_uom.rounding
-                ) <= 0:
-                    raise UserError(_(
-                        "Qty kosong/nol pada %s. Isi Qty fisik, atau keluarkan "
-                        "baris yang tidak dikirim dari DO menurut SOP; "
-                        "RO allocation tetap tersimpan."
-                    ) % move.product_id.display_name)
+                ) < 0:
+                    raise UserError(_("Qty Kirim negatif: %s.") %
+                                    move.product_id.display_name)
+                if float_compare(
+                    move.quantity, 0, precision_rounding=move.product_uom.rounding
+                ) == 0:
+                    if not (move.ya_do_not_shipped_reason or "").strip():
+                        raise UserError(_(
+                            "Qty Kirim 0 untuk %s: isi Alasan Tidak Dikirim "
+                            "sebelum Validate DO."
+                        ) % move.product_id.display_name)
+                    # This demand remains in the cancelled native move and RO
+                    # snapshot; the SKU will not be moved to transit.
+                    continue
                 if float_compare(
                     move.quantity, move.product_uom_qty,
                     precision_rounding=move.product_uom.rounding,
@@ -118,6 +137,37 @@ class YaStoreDeliveryPicking(models.Model):
                         "Qty %(qty).3f, stock %(physical).3f."
                     ) % {"product": prod.display_name,
                          "qty": needed, "physical": physical})
+
+    def _ya_cancel_zero_qty_dispatch_moves(self):
+        """Keep the original DO demand and operator note, but move no stock.
+
+        Odoo may auto-fill zero quantities on Validate. Native cancellation
+        of only the non-shipped move avoids an invented shipment and leaves
+        that move available for audit in the DO.
+        """
+        for picking in self:
+            for move in picking.move_ids.filtered(
+                lambda m: m.state not in ("done", "cancel")
+            ):
+                if float_compare(
+                    move.quantity, 0,
+                    precision_rounding=move.product_uom.rounding,
+                ) == 0:
+                    reason = (move.ya_do_not_shipped_reason or "").strip()
+                    if not reason:
+                        raise UserError(_(
+                            "Isi Alasan Tidak Dikirim untuk %s."
+                        ) % move.product_id.display_name)
+                    move._action_cancel()
+                    picking.message_post(body=_(
+                        "SKU tidak dikirim: %(product)s | Demand %(qty)s "
+                        "%(uom)s | Qty Kirim 0 | Alasan: %(reason)s"
+                    ) % {
+                        "product": move.product_id.display_name,
+                        "qty": move.product_uom_qty,
+                        "uom": move.product_uom.name,
+                        "reason": reason,
+                    })
 
     def _ya_check_store_receipt_qty(self):
         """Prevent reception before dispatch and prevent negative transit."""
@@ -189,6 +239,7 @@ class YaStoreDeliveryPicking(models.Model):
         if self.env.cr.dbname != TEST_DB or len(dispatches) != len(self):
             raise UserError(_("Complete YA Packing dispatch separately on test DB."))
         self._ya_check_store_dispatch_qty()
+        self._ya_cancel_zero_qty_dispatch_moves()
         result = super(
             YaStoreDeliveryPicking,
             self.with_context(cancel_backorder=True),
