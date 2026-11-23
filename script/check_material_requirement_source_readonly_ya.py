@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.5.1.0'",
+        "'version': '19.0.5.1.1'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
         "'views/material_requirement_batch_views.xml'",
@@ -278,6 +278,19 @@ if "('location_id', '=', source.id)" not in confirm_source:
     errors.append('UNSAFE QTY PREFILL WITHOUT EXACT SOURCE BIN CHECK')
 if "_outstanding_unreserved_qty(doc)" not in confirm_source:
     errors.append('CDC RESERVATION CLAIM DOUBLE COUNT NOT HANDLED')
+# Native Odoo 19 _recompute_state() transitions full-reserved move from
+# Draft to Assigned when Quantity == Demand. This must NOT be treated as
+# a failed transfer. Forbid legacy overstrict guard introduced in 19.0.5.1.0.
+if "move.state != 'draft'" in confirm_source:
+    errors.append('OVERSTRICT_MOVE_STATE: native Odoo19 moves can become assigned')
+for required in (
+        "move.state in ('done', 'cancel')",
+        "picking.state in ('done', 'cancel')",
+        "move.invalidate_recordset(['quantity', 'state'])",
+        "Odoo Quantity mismatch for",
+):
+    if required not in confirm_source:
+        errors.append('MISSING QTY PREFILL STATE SAFETY: '+required)
 if "picking.action_confirm(" in confirm_source or "picking.button_validate(" in confirm_source:
     errors.append('FORBIDDEN AUTOMATIC STOCK TRANSFER CONFIRM/VALIDATE')
 # Confirmation is a document, not an inventory write. Reject any stock
