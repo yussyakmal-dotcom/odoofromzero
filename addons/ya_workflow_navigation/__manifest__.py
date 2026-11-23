@@ -1,6 +1,6 @@
 {
     'name': 'YA Workflow Navigation',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'category': 'Manufacturing',
     'summary': 'Group production menus into before, during and after production',
     'depends': [
