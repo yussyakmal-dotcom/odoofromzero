@@ -171,3 +171,17 @@ Feri ran `script/audit_package_category_bom_readonly_ya.py` on `erp-yussyakmal-m
 5. All BoM materials remain required for assembly in Packing; differentiate their replenishment paths. Never multiply shipped store quantities by component demand.
 
 No runtime package expansion has been implemented or tested. Exact category census, multi-category handling, consignment ownership/location, packaging availability, and valid BoM selection still need read-only checks before implementation. Preserve existing RO→stock toko user-tested flow for non-package SKUs.
+
+## OWNER SCOPE DECISION — TWO COMPONENT SOURCES; CONSIGNMENT PROCUREMENT OUT OF SCOPE
+
+Confirmed by owner on 2026-Nov-23:
+
+1. A Paket BoM can consume **manufactured kitchen finished goods** and **consignment products purchased from suppliers** (plus packaging as present in the existing BoMs).
+2. **Kitchen-produced finished goods**: store RO Paket demand explodes its BoM into additional **kitchen production requirement before manufacturing**; the ordinary manufacturing and finished-goods-to-Packing flow provides stock in `PCK/Stock`.
+3. **Consignment goods**: replenishment is handled by **a separate standard Odoo Purchasing/Inventory process**: buy from supplier and deliver/receive into the Packing warehouse. **PO creation, supplier purchasing, consignment receiving and replenishment rules are explicitly OUT OF SCOPE for the RO consolidation / Paket assembly workflow being implemented now.** Never auto-create Purchase Orders or incoming receipts as part of Paket consolidation. The existing procurement process remains independent.
+4. **Interface/stock dependency**: package assembly still consumes its consignment SKU quantities from actual available Packing stock under the BoM; the custom workflow must not assume consignment stock magically arrives. Insufficient ingredients (manufactured, consignment, or packaging) must prevent fictitious successful assembly; report the shortage to the operator. The consignment supply process is independent, not an automatic extension.
+5. Packing assembly consumes component quantities from all included categories and creates the finished Paket SKU. DO to stores draws on finished Paket available in Packing, preserving RO allocations and actual shipped qty.
+
+**Scope boundary:** implement Paket BoM demand explosion **only to kitchen manufacturing** for kitchen-produced components and actual assembly consumption/output in Packing; **do not implement a custom consignment procurement workflow**. The presence of consignment components in BoMs is valid. The earlier audit marker `REVIEW_COMPONENT_NOT_UNDER_FINISHED_CATEGORY` is NOT a BoM error.
+
+**Status:** business policy confirmed, runtime implementation not yet done/tested. Packaging stock sourcing policy remains as in existing standard flow; do not invent a new procurement feature for it.
