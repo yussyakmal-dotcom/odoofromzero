@@ -1,3 +1,13 @@
+# DECISION OVERRIDE — 2026-Nov-23 (LATEST / OWNER-APPROVED)
+
+**This section supersedes the proposed automatic buffer replenishment formula below.** Odoo runs alongside operational SOP, not as sole workflow gate. Every confirmed MO's entire raw material demand should be represented on its Packing batch internal transfer; kitchen buffer is permanent, accumulation is acceptable, other warehouses can exchange inventory using native transfers. Once an Internal Transfer is issued, its full demand must be fulfilled per SOP, independent of production success. Do not automatically subtract other outstanding transfers or kitchen stock from a newly-issued MO demand, suppress a transfer because of reservations, or block document creation for temporary CDC shortage. Inventory movements still occur only on native Odoo Validate, with correct actual qty and no negative physical stock. Existing transfers are not cancelled/replaced by refresh.
+
+**Implemented in GitHub source (NOT server-installed):** `material_requirement_direct_transfer.py` uses `line.required_qty` for native stock.move Demand; removes `reservation_review_count`, `cdc_shortage_count` and `short_max != short_min` blockers; preserves one batch/kitchen document per automatic generation button to avoid accidental double-click creation of the exact same document, not to prohibit standalone supplemental transfers. `views/material_requirement_batch_views.xml` explains this on-screen. Manifest version bumped to `19.0.6.1.0`. `kitchen_buffer_rules.py` is now an UNINTEGRATED prototype, not the approved calculator; do not use its formula to implement transfers.
+
+**Still pending:** validate Python/XML on actual server before upgrade; read-only test of expected full demand for 14 MO / 74 SKUs; GUI upgrade only on `erp-yussyakmal-mrp-test` after backup; confirm 1 native picking / kitchen, stock.move Demand equals full MO raw demand, Odoo Qty may only be prefilled when stock is physically available, and validation remains manual. Existing snapshots' short_min/max and CDC shortage badges are diagnostics only, NOT transfer quantities or blockers.
+
+---
+
 # CHECKPOINT — Permanent Kitchen Buffer Replenishment (2026-Nov-23)
 
 User correction: every production kitchen has its own **permanent raw-material buffer warehouse**, because the CDC is closed during night production and on holidays. CDC transfers supply the kitchen's continuing operations. Delivered raw material is **not required to be consumed by the particular MO or same-day production**; unconsumed material remains kitchen inventory for the next MO. Failed production does not silently cancel previously approved transfer obligations.
