@@ -1,3 +1,5 @@
+> **ATURAN TERBARU BUFFER DAPUR (2026-Nov-23):** Baca [CHECKPOINT_2026-11-23_KITCHEN_BUFFER.md](CHECKPOINT_2026-11-23_KITCHEN_BUFFER.md). Gudang bahan tiap dapur adalah buffer permanen untuk produksi malam/hari libur CDC. Perhitungan harus memperhitungkan semua kewajiban MO terbuka, stok fisik yang sudah dimiliki dapur, outstanding incoming yang valid, dan target buffer per SKU/dapur. Reservasi MO tidak boleh dikurangkan dua kali. Fungsi matematis baru saat ini **source-only, belum terintegrasi ke pembuat Internal Transfer**; jangan klaim runtime PASS.
+
 > **CHECKPOINT AKTIF / START HERE (23 Nov 2026):** [doc/CHECKPOINT_2026-11-23_MO_MATERIAL_CDC.md](CHECKPOINT_2026-11-23_MO_MATERIAL_CDC.md). Resume MO→Material Requirement→CDC di DB test. 20 MO Confirmed, 247 raw moves, 97 kombinasi dapur-bahan; source `ya_material_requirement` 19.0.1.1.0 belum dibuktikan terinstal; replenishment CDC via standar Purchase oleh Admin Gudang **DI LUAR** workflow. Catatan bawah adalah sejarah, bukan status terbaru.
 
 # SKILL — Workflow Odoo 19 Addon: GitHub → Feri Server → MRP Test
