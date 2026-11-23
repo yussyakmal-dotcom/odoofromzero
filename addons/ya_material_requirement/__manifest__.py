@@ -1,8 +1,8 @@
 {
     'name': 'YA MO to CDC Native Internal Transfers',
-    'version': '19.0.6.0.0',
+    'version': '19.0.6.1.0',
     'category': 'Manufacturing',
-    'summary': 'Confirmed MO net material demand into standard Odoo Internal Transfers; native printing and validation',
+    'summary': 'Confirmed MO full raw material demand into standard Odoo Internal Transfers; native printing and validation',
     'depends': ['ya_store_ro', 'mrp', 'stock'],
     'data': [
         'security/ir.model.access.csv',
