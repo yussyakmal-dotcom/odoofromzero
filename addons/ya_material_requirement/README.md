@@ -1,6 +1,6 @@
 # YA Material Requirement — Read-Only MO → Kitchen → CDC
 
-**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.5.0.1. Use only the test DB `erp-yussyakmal-mrp-test`.
+**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.5.1.0. Use only the test DB `erp-yussyakmal-mrp-test`.
 
 ## Purpose and workflow
 
@@ -131,3 +131,19 @@ Feri clicked `Buat Internal Transfer (Draft)` and sent server traceback (on exac
 **Fix:** remove `name` from stock.move payload. `product_id` still identifies the material; detailed MO-vs-Special breakdown remains in optional picking `note`. Add a runtime guard `Move._fields` for all move payload keys including `picking_id` before creating `stock.picking`, surfacing a readable `UserError` if a future Odoo schema differs. Static AST source guard explicitly forbids `name` in the `move_values.append` payload. **No automatic confirmation, reservation, stock deduction, validation or MO mutation.** Existing confirmed CDC picking should remain intact, since the RPC exception rolled back the failed request (the provisional stock.picking and stock.move are not committed by normal Odoo HTTP transactions). Nevertheless, inspect `internal_transfer_id` and search native Internal Transfers for that origin before retrying to rule out any prior separate successful actions.
 
 **Rollout:** `git pull`, run `python3 script/check_material_requirement_source_readonly_ya.py`, backup MRP test DB, copy addon into active custom-addons, `-u ya_material_requirement` on exact `erp-yussyakmal-mrp-test`, restart Odoo service when safe, and retry **same confirmed CDC picking**. If Odoo generates draft successfully, verify native stock.picking state=Draft, route CDC→same kitchen, physical Qty including Special once; do NOT validate at this stage. This is a source patch and NOT a confirmed successful GUI test until Feri supplies evidence.
+
+## 19.0.5.1.0 — Prefill Native Odoo Internal Transfer Demand and Qty (2026-Nov-23)
+
+**Feri requested:** A single standard Odoo Internal Transfer can hold ~100 material SKUs. It must save operator time: when creating a transfer from already-confirmed physical CDC picking, initialize both **Demand** (`stock.move.product_uom_qty`) and **Qty** (`stock.move.quantity`) to the **same confirmed picked_qty** per SKU. Operators should edit only discrepancies on the native Odoo form. The Special Transfer amount is already part of `picked_qty` and must NOT be added again; MO requirement remains unchanged.
+
+**Odoo 19 technical qualification:** `stock.move.quantity` is inverse/computed from `stock.move.line.quantity`. Writing a nonzero native Quantity creates/updates detail move lines, which **can reserve stock even when the top-level transfer still says Draft**. This is *not* a display-only copy and must never be implemented by bypassing native Odoo reservation/lot/FEFO. Official Odoo 19 stock.move / stock.move.line code documents these mechanisms.
+
+**Safety-aware implementation in `cdc_pick_confirmation.action_create_internal_transfer`:**
+- Create native `stock.picking` + `stock.move` Demand for every positive confirmed picked product as previously.
+- Map generated stock moves by **product ID** and write `move.quantity = picked_qty` via `move.write({'quantity': qty})` **only** for untracked materials (`product.tracking == 'none'`) with adequate *strict* free quant at the exact CDC `lot_stock_id` (unpackaged/unowned/untracked bin). This can reserve CDC stock via Odoo stock.move.line. Verify Odoo still reports `quantity == demand` and `move.state == draft`; exception rolls back all changes.
+- SKUs with lots/serials, sublocations, packages/owner details, or insufficient free stock at exact CDC root do **not** receive a fabricated detailed quantity: Demand is still set, Qty remains for manual warehouse operator to fill after **lot/FEFO/bin/actual availability** check.
+- Correct shared-stock claims for multiple kitchen confirmations: when checking CDC free quants, subtract only the **outstanding UNRESERVED** picked Qty of other confirmed sheets. For existing linked native pickings with move lines, `stock.quant.reserved_quantity` has already reduced free stock; don't double subtract it. Completed transfers have already affected on-hand stock. The same helper is used during physical picking confirmation and transfer creation.
+- Never call native Odoo Confirm, Assign, Validate or other Done/transfer completion automatically. No stock is moved from CDC to kitchen at draft creation; *however reservation may occur* and is operationally meaningful.
+- Date formatting `YYYY-Mon-DD`, Menu→List→Form→Action and permanent document source reference remain unchanged.
+
+**Source-only until tested in server GUI.** Rollout only on `erp-yussyakmal-mrp-test`: backup, `git pull`, static check + rules tests, copy module to active addons, `-u ya_material_requirement`, restart safe. Create a **new** draft only from a confirmed physical kitchen picking with no existing native link; existing draft is **not retroactively rewritten**. Start with one kitchen and inspect Demand, Qty, move lines, reserved stock, lot/FEFO cases, Draft state and that Validate was not called; test no negative stock. For already-linked drafts, do not click/create another transaction to fill Qty; edit existing native Odoo transfer manually after checking stock.
