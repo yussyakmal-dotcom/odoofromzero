@@ -223,3 +223,13 @@ Owner noticed RO Toko→Stok Toko passed *operational* test, but asked whether *
 **Required financial acceptance test (pending):** for an identifiable batch and stock moves, reconcile (a) starting and ending Qty, (b) stock valuation layer/value or relevant Odoo19 valuation mechanism, (c) raw material consumed and finished product cost from MO including correct WIP/overhead behavior (if configured), (d) internal Dapur→PCK→Transit→Toko transfer ownership/location and that it **does not represent customer sale** or prematurely recognize sales COGS, (e) general ledger movements/timing according to Odoo19 Community + installed OCA setup. Compare account balances on relevant dates, identify gaps, avoid claiming one journal per internal transfer is expected. No manufacturing-Paket or accounting posting changes until reviewed. Any test writes only on test DB with backup/rollback and documented reconciliation.
 
 **User acceptance RO→Stok Toko PASS remains valid for logistics; accounting is a separate OPEN GATE.** Pause package integration until accounting review yields a scoped action plan. Historical manufacturing/RO pass must not be relabelled financial pass.
+
+## ACCOUNTING READ-ONLY AUDIT RESULTS — 23 NOV 2026
+
+Feri executed `script/audit_mrp_inventory_accounting_readonly_ya.py` on `erp-yussyakmal-mrp-test`. Output showed `READ_ONLY_MRP_INVENTORY_ACCOUNTING_AUDIT_OK`, meaning **diagnostic completed**, NOT accounting reconciliation success.
+
+- Batch 3 `Packing 2026-Nov-23 S2`: `production_ok`, 1 MO; `PCK/OUT/00005` **done** (1 dispatch stock move); `T_RAI/IN/00001` **done** (1 store receipt move). **Preferred first finance trace target**.
+- Batch 2 `Packing 2026-Nov-25 S3`: `production_ok`, 14 MOs, no store-transfer lines shown in this diagnostic.
+- Batch 1 `Packing 2026-Nov-27 S1`: `production_ok`, 20 MOs; `PCK/OUT/00003` assigned (20 lines) and `PCK/OUT/00004` assigned (14 lines), so do not claim store receipt done for these.
+
+**Next script (source-only; not yet run):** `script/audit_batch3_mrp_to_store_valuation_readonly_ya.py` retrieves Batch3 MO and stock moves, related store dispatch/receipt, source/destination usage, any `stock.valuation.layer` and directly linked `account.move` entries available. This audit must NOT be treated as a financial PASS just because it prints `READ_ONLY_BATCH3_FINANCIAL_TRACE_OK`. Odoo19 journal timing depends on configuration; zero directly linked GL moves can be legitimate and demands informed interpretation. Further reconcile actual values, costs, GL closing with accountant.
