@@ -9,6 +9,7 @@ Strictly test DB.
 """
 from collections import defaultdict
 
+from markupsafe import Markup, escape
 from odoo import models, _
 from odoo.exceptions import UserError
 from odoo.tools import float_compare
@@ -217,13 +218,13 @@ class YaCdcStockPickingValidation(models.Model):
             if picking.state == 'done' and shortages[picking.id]:
                 # Audit discrepancy separately from original confirmed
                 # physical CDC picked quantities and DO NOT create a new MO.
-                from markupsafe import escape
+                detail = (
+                    'YA CDC No Backorder - Selisih Qty Transfer:\n'
+                    + '\n'.join(shortages[picking.id])
+                    + '\nKekurangan dibatalkan, bukan dibuat Backorder.'
+                )
                 picking.message_post(
-                    body=escape(
-                        'YA CDC No Backorder - Selisih Qty Transfer:\n'
-                        + '\n'.join(shortages[picking.id])
-                        + '\nKekurangan dibatalkan, bukan dibuat Backorder.'
-                    ).replace('\n', '<br/>'),
+                    body=Markup('<pre>%s</pre>') % escape(detail),
                     subtype_xmlid='mail.mt_note',
                 )
         return result
