@@ -39,7 +39,7 @@
   </record>
   <!-- Existing menu xmlid deliberately reused to update an installed system. -->
   <menuitem id="menu_ya_packing_preview"
-            name="Packing - Consolidation"
+            name="RO Konsolidation"
             parent="ya_production_planning.menu_ya_capacity_root"
             action="action_ya_packing_confirmed_ro"
             sequence="35"
