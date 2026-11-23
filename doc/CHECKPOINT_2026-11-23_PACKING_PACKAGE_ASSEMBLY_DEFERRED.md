@@ -21,3 +21,9 @@ Sesudah MO Done, barang jadi dipindahkan dari gudang dapur ke PCK/Stock melalui 
 - E2E rollback `script/test_finished_packing_transfer_rollback_ya.py` untuk `Packing 2026-Nov-25 S3`: 12 SKU dipindahkan, 1 picking, WIP 11076 dikecualikan, stock deltas PASS, double-click PASS, rollback PASS berdasarkan log Feri.
 - Pengujian klik GUI / transfer permanen **belum dikonfirmasi**.
 - DO dan penerimaan toko **belum diimplementasikan atau diuji pada checkpoint ini**.
+
+## Update hasil user test — 2026-Nov-23
+Owner melaporkan: **"sudah di test RO TOKO ---- > STOCK TOKO good"**.
+Status: alur RO Toko sampai stok toko dinyatakan **lulus uji operasional oleh owner**. Ini adalah laporan uji pengguna, bukan audit otomatis tambahan; catatan tidak memuat bukti nomor dokumen/detail kuantitas tiap tahap.
+
+**Tindak lanjut:** Buka kembali pekerjaan yang sebelumnya sengaja ditunda, **Rakit Paket di Packing**. Sebelum membuat kode, petakan SKU paket, komponen per paket, trigger perakitan, lokasi stok input-output, pencatatan qty aktual dan kaitan dengan RO/DO. Jangan mengubah workflow RO→stok toko yang sudah lolos tanpa alasan dan pengujian regresi. Gunakan addon terpisah dan DB test `erp-yussyakmal-mrp-test`.
