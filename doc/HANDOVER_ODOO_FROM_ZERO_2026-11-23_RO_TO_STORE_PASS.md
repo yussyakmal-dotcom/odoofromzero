@@ -382,3 +382,24 @@ Observed:
 Next new source-only read-only diagnostic: `script/audit_package_exceptions_and_slot_readonly_ya.py` prints precise BoM-less Paket SKUs, OTHER component categories/examples, nested Paket examples, counts of unique missing component SKUs, and per-date/slot Published Planning route readiness. Run only in `erp-yussyakmal-mrp-test` before any RO/Pre Produksi ORM redesign. **Source audit script available, not executed.**
 
 Current code gap: `ya.store.ro.planning_id` is required and RO import/template accepts only one Published Planning kitchen's SKU rows; a new Paket-demand entry design must maintain store/date/slot traceability without forcing a Packing SKU into fake kitchen Published Planning and without breaking existing direct RO. `packing_preview.py` and `packing_batch.py` both assume every planned MO corresponds to a direct store RO and must be refactored carefully with protected package-demand snapshot. `store_delivery.py` consumes existing final allocation rows, requiring final after package assembly. No Paket module installed, no end-to-end Paket test yet.
+
+## PACKAGE EXCEPTION AUDIT RESULT — 2026-11-23 (READ-ONLY)
+
+Feri ran `script/audit_package_exceptions_and_slot_readonly_ya.py` on `erp-yussyakmal-mrp-test`: `READ_ONLY_PACKAGE_EXCEPTIONS_AND_SLOT_OK`. Exact package category contains **208 SKUs**, **195 active normal unique BoMs**, **13 lacking active BoM**. No package RO confirmed so far.
+
+13 no-BoM package SKUs: `12094,12099,12115,12122,12129,12140,12154,12181,12229,12230,12257,12267,12268`. Nested package lines: Paket `12100` contains Paket `12091`; Paket `12104` contains Paket `12094` (the latter has no active BoM). Do not automatically recurse these until supported, or manufacture nested package in kitchen.
+60 OTHER component lines are actually **49 raw-material lines** (Buah 6, Bumbu Kering 10, Daging 1, Filling 2, Keju 1, Percetakan 24, Sayuran 1, Seeds 3, Tepung 1) plus **11 WIP Dapur** lines. Owner previously explicitly scoped kitchen-manufactured finished goods and purchased consignment; **handling of raw materials and WIP in package BoMs is not approved**; do not silently classify as packaging or kitchen finished goods. Mark these package SKUs as requiring explicit sourcing/routing design or master cleanup. Some 'Percetakan' raw items may be physical package materials but their category is Bahan Baku; only master owner can confirm intended handling.
+**10 unique finished SKU components** absent from all published Planning: `10021,11628,11635,10023,10022,10034,12337,11653,12403,10030` (33 BoM lines). Historical plans may be incomplete, so **absence is not evidence missing kitchen manufacturing master**. Source routing must be resolved on the exact RO delivery date/slot.
+
+Same-date-slot component routing over 195 BoM-bearing Paket SKUs (not sufficient to claim assembly-ready):
+- `2026-11-22 S1`: 4 matching all finished components, 191 missing;
+- `2026-11-23 S2`: 4 matching, 191 missing;
+- `2026-11-24 S1`: **165 matching**, 30 missing;
+- `2026-11-24 S3`: 4 matching, 191 missing;
+- `2026-11-25 S3`: 33 matching, 162 missing;
+- `2026-11-27 S1`: 17 matching, 178 missing.
+These counts ignore raw/WIP/nested and stock state; therefore 165 is **potential route matches**, not 165 valid pilots.
+
+**Next committed source-only script**: `script/audit_package_pilot_candidates_readonly_ya.py` (target 2026-11-24 S1) filters to exact Paket category, unique active normal BoM output one unit, integer base-UoM component quantities, no nested/raw/WIP, unique published same-slot kitchen route per finished component, and separated consignment/packaging stock needs. Intended as **conservative single pilot selector**, not a general rule that all Paket must have 1-output BoM or integer Gram. Output lists candidate Paket SKUs and reason-counts. It neither modifies master nor performs Odoo operations. Run before choosing controlled first Package RO/assembly E2E.
+
+**Critical unmodified code:** RO template/import/confirmation presently requires kitchen Planning and template SKU eligibility; no actual Paket RO today. Need a proper Paket RO entry path or supervised pilot fixture tied to store/date/slot **without faking kitchen Planning**. Existing Pre Produksi frozen allocations and MO release still assume direct store RO = kitchen production; do not deploy package behavior by simply injecting component quantities. Preserve no-Paket flow.
