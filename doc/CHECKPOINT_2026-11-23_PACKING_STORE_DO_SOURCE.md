@@ -41,3 +41,9 @@ Tanggal: 2026-Nov-23. **SOURCE-ONLY; BELUM TERINSTAL ATAU LULUS UJI ODOO.**
 - Laporan adalah instruksi penyiapan barang; **bukan** bukti stok sudah berpindah atau bukti toko menerima barang.
 - Jika Qty Kirim 0 karena MO Cancel/tidak tersedia, SKU tetap terlihat beserta alasan operator; ini tidak boleh menjadi pengiriman fiktif.
 - Implementasi source GitHub **belum diuji instalasi, render PDF, maupun klik UI**. Sebelum dipakai operator, wajib pemeriksaan source, instalasi database test, cetak laporan, verifikasi konten dan stok tidak berubah.
+
+## Keputusan terbaru — kembali ke laporan Picking Operations standar Odoo
+- Owner memilih mencoba **Picking Operations standar Odoo** dari native `stock.picking` (bukan mengembangkan PDF custom).
+- Modul tombol `Cetak Picking List` kini langsung memanggil `stock.action_report_picking`; file custom QWeb sebelumnya tetap berada di repo sebagai referensi tetapi **tidak dimuat di manifest**.
+- Periksa lewat `script/audit_native_picking_report_readonly_ya.py` di database test; kemudian cetak DO uji sebelum validasi dan cocokkan daftar SKU, Qty, toko, serta bagaimana perlakuan Qty 0. Jika alasan tidak dikirim tidak muncul di report standar, operator mengisi di tab DO dan tidak otomatis berarti ada di PDF.
+- Source-only dan report metadata check bukan bukti rendering atau ketepatan jumlah, wajib GUI QA sebelum dinyatakan selesai.
