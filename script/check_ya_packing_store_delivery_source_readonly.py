@@ -24,6 +24,9 @@ for term in (
     "ya_do_not_shipped_reason",
     "_ya_cancel_zero_qty_dispatch_moves",
     "move._action_cancel()",
+    "description_picking",
+    "Catatan: %s",
+    "_onchange_ya_do_not_shipped_reason",
 ):
     assert term in code, term
 xml = ET.parse(addon / "views" / "store_delivery_views.xml")
