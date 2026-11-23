@@ -54,10 +54,10 @@ class YaStoreDeliveryPicking(models.Model):
         if incoming:
             if self.env.cr.dbname != TEST_DB or len(self) != 1:
                 raise UserError(_("Validate YA receipt individually in MRP test DB."))
-            for p in incoming:
-                if not p.ya_source_dispatch_id or p.ya_source_dispatch_id.state != "done":
-                    raise UserError(_("Packing dispatch must be Done before store receipt."))
-            return super().button_validate()
+            self._ya_check_store_receipt_qty()
+            return super(
+                YaStoreDeliveryPicking, self.with_context(skip_backorder=True)
+            ).button_validate()
         return super().button_validate()
 
     def _ya_check_store_dispatch_qty(self):
@@ -119,7 +119,68 @@ class YaStoreDeliveryPicking(models.Model):
                     ) % {"product": prod.display_name,
                          "qty": needed, "physical": physical})
 
+    def _ya_check_store_receipt_qty(self):
+        """Prevent reception before dispatch and prevent negative transit."""
+        Quant = self.env["stock.quant"].sudo()
+        for picking in self:
+            dispatch = picking.ya_source_dispatch_id
+            if not dispatch or dispatch.state != "done":
+                raise UserError(_("Packing dispatch must be Done before store receipt."))
+            if (picking.location_id != dispatch.location_dest_id or
+                    picking.location_dest_id != picking.ya_store_warehouse_id.lot_stock_id or
+                    picking.state in ("done", "cancel")):
+                raise UserError(_("Invalid destination or closed store receipt."))
+            shipped = defaultdict(float)
+            received = defaultdict(float)
+            for move in dispatch.move_ids.filtered(lambda m: m.state == "done"):
+                shipped[move.product_id.id] += move.product_uom._compute_quantity(
+                    move.quantity, move.product_id.uom_id, round=False
+                )
+            for move in picking.move_ids:
+                if move.state == "cancel":
+                    continue
+                if (move.location_id != picking.location_id or
+                        move.location_dest_id != picking.location_dest_id):
+                    raise UserError(_("Incorrect transit-to-store line locations."))
+                if float_compare(move.quantity, 0,
+                                 precision_rounding=move.product_uom.rounding) < 0:
+                    raise UserError(_("Received Qty cannot be negative."))
+                if float_compare(move.quantity, move.product_uom_qty,
+                                 precision_rounding=move.product_uom.rounding) > 0:
+                    raise UserError(_("Received Qty exceeds receipt Demand."))
+                received[move.product_id.id] += move.product_uom._compute_quantity(
+                    move.quantity, move.product_id.uom_id, round=False
+                )
+            if not any(qty > 0 for qty in received.values()):
+                raise UserError(_("Enter received Qty before validating."))
+            for pid, qty in received.items():
+                prod = self.env["product.product"].browse(pid)
+                if float_compare(qty, shipped.get(pid, 0.0),
+                                 precision_rounding=prod.uom_id.rounding) > 0:
+                    raise UserError(_("Cannot receive more than dispatched: %s.") %
+                                    prod.display_name)
+                in_transit = sum(Quant.search([
+                    ("product_id", "=", pid),
+                    ("location_id", "=", picking.location_id.id),
+                    ("company_id", "=", picking.company_id.id),
+                ]).mapped("quantity"))
+                if float_compare(qty, in_transit,
+                                 precision_rounding=prod.uom_id.rounding) > 0:
+                    raise UserError(_("Not enough stock in transit: %s.") %
+                                    prod.display_name)
+
     def _action_done(self):
+        receipts = self.filtered(
+            lambda p: p.ya_store_stage == "receipt" and p.ya_store_batch_id
+        )
+        if receipts:
+            if self.env.cr.dbname != TEST_DB or len(receipts) != len(self):
+                raise UserError(_("Complete YA store receipts separately in test DB."))
+            self._ya_check_store_receipt_qty()
+            return super(
+                YaStoreDeliveryPicking,
+                self.with_context(cancel_backorder=True),
+            )._action_done()
         dispatches = self.filtered(
             lambda p: p.ya_store_stage == "dispatch" and p.ya_store_batch_id
         )
