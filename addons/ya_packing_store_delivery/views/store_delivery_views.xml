@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_store_distribution_batch_form" model="ir.ui.view">
+    <field name="name">ya.packing.batch.store.distribution.form</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="inherit_id" ref="ya_store_ro.view_ya_packing_batch_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//form/header/button[@name='action_open_mos']" position="after">
+        <button name="action_ya_generate_store_do" type="object"
+                string="Generate DO Toko" class="btn-primary"
+                groups="ya_store_ro.group_ya_packing_admin,stock.group_stock_manager"
+                invisible="state != 'production_ok' or ya_store_delivery_count != 0"
+                confirm="Buat draft DO per toko sesuai alokasi RO? Tidak ada stok berpindah sampai DO divalidasi."/>
+        <button name="action_ya_open_store_deliveries" type="object"
+                string="Lihat DO dan Penerimaan Toko"
+                invisible="ya_store_delivery_count == 0"/>
+      </xpath>
+      <xpath expr="//form/sheet/group/group[2]" position="inside">
+        <field name="ya_store_delivery_count" readonly="1"/>
+      </xpath>
+    </field>
+  </record>
+  <record id="action_ya_store_distribution_batches" model="ir.actions.act_window">
+    <field name="name">DO Toko dari Packing</field>
+    <field name="res_model">ya.packing.batch</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="ya_store_ro.view_ya_packing_batch_list"/>
+    <field name="domain">[('state','=','production_ok')]</field>
+  </record>
+  <menuitem id="menu_ya_store_distribution_batches"
+            name="DO Toko"
+            parent="ya_workflow_navigation.menu_ya_after_production"
+            action="action_ya_store_distribution_batches"
+            sequence="20"
+            groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin,stock.group_stock_manager"/>
+</odoo>
