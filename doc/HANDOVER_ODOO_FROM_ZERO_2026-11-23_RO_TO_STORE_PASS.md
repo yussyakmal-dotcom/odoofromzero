@@ -324,3 +324,20 @@ Owner requested continue following GL balance audit: company `inventory_valuatio
 New read-only source audit committed `script/audit_odoo19_inventory_valuation_closing_access_readonly_ya.py`: examine Odoo 19 Community installed valuation/closing modules, actual `ir.ui.menu` and `ir.actions.act_window` report routes, relevant model registry and available methods, and valuation journals. Does not execute actions or post/modify anything. The goal is to determine **whether an actual built-in accounting closing/report path exists**, rather than assuming an Enterprise screen is in Community. Run it on `erp-yussyakmal-mrp-test` then interpret output; only afterward design equal-cutoff valuation-versus-GL comparison. A script suffix `_OK` means diagnostic execution success, NOT financial PASS.
 
 Owner BOP decision reaffirmed: overhead paid/booked through standard Accounting transactions, not background MO or custom package costing. Do not distract from inventory/finished-goods costing and its financial reporting.
+
+## CLOSING CAPABILITY AUDIT RESULT — 23 NOV 2026
+
+Feri reran corrected `script/audit_odoo19_inventory_valuation_closing_access_readonly_ya.py` successfully in `erp-yussyakmal-mrp-test`; result `READ_ONLY_ODOO19_VALUATION_CLOSING_ACCESS_OK`.
+
+Observed:
+- Company 1 `My Company`: `inventory_valuation=periodic`, `inventory_period=manual`, `cost_method=standard`, `account_stock_valuation_id=11300180 Inventory`, `anglo_saxon_accounting=True`.
+- Installed `account`, `stock`, `account_financial_report`, `stock_account`, `mrp_account`.
+- `ir.actions.act_window` 408 **Valuation** `res_model=stock.move`; action 407 **Adjust Valuation** `res_model=product.value`. Valuation report model `stock_account.stock.valuation.report` found in registry. Inventory Valuation menu under Accounting not found among existing filtered menu candidates (does not mean functionality absent; could be action/no menu/user rights).
+- Odoo `res.company` methods found: `action_close_stock_valuation`, `_action_close_stock_valuation`, `_cron_post_stock_valuation`, `_get_location_valuation_vals`, `_get_stock_valuation_account_vals`, `_get_valuation_product_domain`.
+- Journal 8 `Inventory Valuation`, code `STJ`, type general.
+
+**Meaning:** standard Odoo19 valuation/closing code is present, but actual closing semantics, account mapping, posting behavior, user exposure, dated report values, and ledger reconciliation remain **NOT VERIFIED**. Never invoke `action_close_stock_valuation` speculatively: it might create/post accounting entries. The lack of move-linked GL entries during material consumption and MO Done is consistent with periodic/manual setup but not a full finance PASS.
+
+**Next read-only source inspection**: `script/audit_odoo19_stock_closing_implementation_readonly_ya.py` (commit 20a6172) reads Python signatures and source of closing and mapping functions using `inspect.getsource`, plus report action metadata. **Does not execute closing methods**, alter data, or post entries. After Feri runs it, inspect its output and design controlled dry-run with rollback if justified, with test DB only. Avoid inventing an Accounting menu or closing wizard without verifying real accessible UI.
+
+BOP: strictly outside scope, booked independently through standard Odoo Accounting.
