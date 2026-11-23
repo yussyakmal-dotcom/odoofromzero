@@ -243,3 +243,16 @@ Feri ran `script/audit_batch3_mrp_to_store_valuation_readonly_ya.py` on `erp-yus
 - Also **do not infer an accounting PASS** solely from these moves: explicit costs, valuation, accounts and periodic/continuous timing have not been reconciled.
 
 **New source-only Odoo19-specific audit**: `script/audit_batch3_odoo19_cost_fields_readonly_ya.py` probes installed `stock_account`/`mrp_account`, company and category configuration, Odoo19 `stock.move` cost/valuation fields, MO costing fields, and actual Batch3 move values. Run READ ONLY; do not change accounting settings or install modules until its outputs are interpreted. Reference official docs: https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/cheat_sheet.html and https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/operations_valuation.html.
+
+## ACCOUNTING — BATCH 3 COST TRACE FINDINGS (23 NOV 2026)
+
+Feri ran `script/audit_batch3_odoo19_cost_fields_readonly_ya.py` on `erp-yussyakmal-mrp-test`, output `READ_ONLY_ODOO19_COST_FIELDS_OK`. Installed modules: account, stock, stock_account, mrp, mrp_account, purchase_stock, account_financial_report. Company inventory valuation `periodic`, inventory period `manual`, cost method `standard`, Anglo-Saxon `True`, valuation account `11300180 Inventory`. Category override for Bahan Baku, Konsinyasi Masuk, Packaging, Produk Jadi and Paket: cost method `average`, category valuation `real_time`, with specific inventory accounts (e.g. Bahan Baku 1130012, Barang Jadi 1130017), all to be interpreted against Odoo19 company effective settings.
+
+For batch3 MO42 `PST/MO/00001`, SKU12379, 40 pcs:
+- Raw stock.move IDs 941–950 were `is_valued=True`; their values: 9000 + 7600 + 123200 + 7800 + 33600 + 3062.5 + 7656.25 + 20570 + 10520 + 7000 = **230008.75**.
+- Finished move 951 was `is_valued=True`, 40 pcs × unit cost `5750.21875`, `value=230008.75`.
+- **Observed raw consumption value equals finished goods value exactly**, delta zero. This is a *material-to-finished product cost consistency check*, NOT proof of overhead/labor or company HPP account correct.
+- PCK→transit outgoing 966, 10pcs, and transit→T_RAI incoming 967, 10pcs, both `is_valued=False` and `value=0` as internal/transit movements. **This does not itself mean the goods have zero asset value**, and does not create customer sale/COGS.
+- Direct GL by stock move and accounting closing still requires checking; no automatic journal was observed in earlier legacy-style lookup. Odoo19 accounting may recognize inventory at invoices and at closing according to settings, not automatically one entry per move.
+
+**Next:** read-only script `script/audit_batch3_accounting_closing_readonly_ya.py` to inspect direct `stock.move.account_move_id`, actual `remaining_value`, production location accounts, category/company settings. Subsequently accountant should compare Accounting > Review > Inventory Valuation and relevant posted/draft journal accounts and stock closing (do NOT post during diagnostic). **Accounting signoff NOT YET PASSED.** Paket work remains paused for accounting gate.
