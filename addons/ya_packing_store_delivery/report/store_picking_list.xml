@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="action_report_ya_store_picking_list" model="ir.actions.report">
+    <field name="name">Picking List - DO Toko</field>
+    <field name="model">stock.picking</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">ya_packing_store_delivery.report_ya_store_picking_list</field>
+    <field name="report_file">ya_packing_store_delivery.report_ya_store_picking_list</field>
+    <field name="print_report_name">'Picking List - %s' % (object.name or 'DO')</field>
+  </record>
+
+  <template id="report_ya_store_picking_list">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="o">
+        <t t-call="web.external_layout">
+          <div class="page">
+            <h2>PICKING LIST — PERSIAPAN BARANG TOKO</h2>
+            <p><strong>DO:</strong> <span t-field="o.name"/>
+              <span style="margin-left:20px"><strong>Toko:</strong>
+                <span t-field="o.ya_store_warehouse_id.name"/></span></p>
+            <p><strong>Batch / Jadwal:</strong>
+              <span t-field="o.ya_store_batch_id.name"/>
+              <span style="margin-left:20px"><strong>Status DO:</strong>
+                <span t-field="o.state"/></span></p>
+            <p><strong>Dari:</strong> <span t-field="o.location_id.complete_name"/>
+              <span style="margin-left:20px"><strong>Tujuan Pengiriman:</strong>
+                Transit → <span t-field="o.ya_store_warehouse_id.lot_stock_id.complete_name"/></span></p>
+            <p style="font-size:11px">Checklist untuk petugas Packing.
+              Qty Alokasi RO adalah kebutuhan awal; Qty Kirim adalah rencana/kuantitas
+              pada dokumen saat dicetak. Barang dianggap dikirim hanya setelah
+              DO divalidasi di Odoo. SKU yang tidak dikirim tetap tercantum
+              dan wajib memiliki alasan.</p>
+            <table class="table table-sm table-bordered" style="width:100%;font-size:11px">
+              <thead>
+                <tr>
+                  <th style="width:4%">No</th>
+                  <th style="width:12%">SKU</th>
+                  <th>Nama Produk</th>
+                  <th style="width:11%;text-align:right">Qty Alokasi RO</th>
+                  <th style="width:11%;text-align:right">Qty Kirim</th>
+                  <th style="width:7%">UoM</th>
+                  <th style="width:7%">Cek</th>
+                  <th style="width:21%">Alasan Tidak Dikirim / Catatan</th>
+                </tr>
+              </thead>
+              <tbody>
+                <t t-foreach="o.move_ids.sorted(lambda m: (m.product_id.default_code or '', m.product_id.id, m.id))" t-as="m">
+                  <tr>
+                    <td><span t-esc="m_index + 1"/></td>
+                    <td><span t-esc="m.product_id.default_code or '-'"/></td>
+                    <td><span t-field="m.product_id.name"/></td>
+                    <td style="text-align:right"><span t-esc="m.product_uom_qty"/></td>
+                    <td style="text-align:right"><span t-esc="m.quantity"/></td>
+                    <td><span t-field="m.product_uom.name"/></td>
+                    <td style="text-align:center">□</td>
+                    <td><span t-esc="m.ya_do_not_shipped_reason or ''"/></td>
+                  </tr>
+                </t>
+              </tbody>
+            </table>
+            <div style="margin-top:25px">
+              <p><strong>Disiapkan oleh:</strong> ___________________
+                <span style="margin-left:35px"><strong>Diperiksa oleh:</strong> ___________________</span></p>
+              <p><strong>Catatan:</strong> ______________________________________________________________</p>
+            </div>
+          </div>
+        </t>
+      </t>
+    </t>
+  </template>
+</odoo>
