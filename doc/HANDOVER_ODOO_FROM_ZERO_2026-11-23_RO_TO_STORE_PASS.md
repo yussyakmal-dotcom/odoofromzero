@@ -268,3 +268,13 @@ Feri ran `script/audit_batch3_accounting_closing_readonly_ya.py` in `erp-yussyak
 - **Financial close/reconciliation NOT YET PASSED.** Next read-only script `script/audit_inventory_gl_balance_readonly_ya.py` prints category/company inventory-related account mapping and posted/draft GL totals, plus SKU12379 effective category config. Compare with Odoo19 Inventory Valuation report at the same company/cutoff and opening balances; do not post manual valuation closing entries just to clear audit.
 
 **Decision gate:** Continue to hold expansion to Package assembly until stock valuation vs financial reporting is assessed, or owner explicitly reprioritizes. Operational RO→store PASS remains intact.
+
+## TENTATIVE OWNER ACCOUNTING POLICY — BOP GLOBAL, NOT PER-SKU BOM (23 NOV 2026)
+
+Owner stated **possible** policy (not yet final approval): overhead production (BOP), including utilities such as electricity and gas, may be recorded/allocated globally rather than inserted into per-product BoMs. **Do not assume approved permanent financial treatment or make accounting configuration changes from this alone.**
+
+- Existing Batch3 `PST/MO/00001`: direct material stock move values total `230008.75`, finished output `230008.75` for 40 units; `extra_cost=0`. This is currently a **material-based unit manufacturing cost**, and does not establish that electricity, gas, factory labor, depreciation or production overhead have been absorbed.
+- Separate **operational/managerial product-level direct material cost** from **financial statement inventory valuation and COGS**. Not putting gas/electricity in SKU BoM is feasible; it **does not necessarily exempt relevant conversion overhead from financial inventory valuation**. PSAK 202 / IAS 2 generally require systematic allocation of applicable fixed and variable production overhead to conversion costs, depending on reporting framework; nonallocated abnormal overhead may go to expense. Have accounting professional define capitalization, timing, allocation basis, and period close.
+- Decide explicitly which production labor, packaging, gas and electricity are direct components vs indirect BOP, accounting for the fact that packaging physically incorporated in products can already be included as a BoM component.
+- Avoid custom BOP-per-SKU or automatic BOP global journals until owner/accounting determines methodology and GL reconciliation.
+- Accounting valuation/GL closing audit remains OPEN; do not mark full HPP PASS based solely on raw=finished MO value.
