@@ -49,5 +49,13 @@ for view in views:
           "| active:", view.active,
           "| priority:", view.priority,
           "| upload_button:", "action_open_upload" in str(view.arch_db or ""))
+# Effective default list architecture with server-side view resolution.
+try:
+    effective = env["ya.store.ro"].sudo().get_view(view_type="list")
+    arch = str(effective.get("arch") or "")
+    print("EFFECTIVE_LIST_VIEW_ID:", effective.get("id"))
+    print("EFFECTIVE_LIST_HAS_UPLOAD:", "action_open_upload" in arch)
+except Exception as exc:
+    print("EFFECTIVE_LIST_QUERY_ERROR:", type(exc).__name__, str(exc)[:300])
 print("RESULT: Check GUI user's Manufacturing Manager group separately.")
 print("READ_ONLY_RO_UPLOAD_AUDIT_OK")
