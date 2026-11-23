@@ -233,3 +233,13 @@ Feri executed `script/audit_mrp_inventory_accounting_readonly_ya.py` on `erp-yus
 - Batch 1 `Packing 2026-Nov-27 S1`: `production_ok`, 20 MOs; `PCK/OUT/00003` assigned (20 lines) and `PCK/OUT/00004` assigned (14 lines), so do not claim store receipt done for these.
 
 **Next script (source-only; not yet run):** `script/audit_batch3_mrp_to_store_valuation_readonly_ya.py` retrieves Batch3 MO and stock moves, related store dispatch/receipt, source/destination usage, any `stock.valuation.layer` and directly linked `account.move` entries available. This audit must NOT be treated as a financial PASS just because it prints `READ_ONLY_BATCH3_FINANCIAL_TRACE_OK`. Odoo19 journal timing depends on configuration; zero directly linked GL moves can be legitimate and demands informed interpretation. Further reconcile actual values, costs, GL closing with accountant.
+
+## ACCOUNTING BATCH 3 TRACE — ODOO 19 CORRECTION, 23 NOV 2026
+
+Feri ran `script/audit_batch3_mrp_to_store_valuation_readonly_ya.py` on `erp-yussyakmal-mrp-test` and obtained `READ_ONLY_BATCH3_FINANCIAL_TRACE_OK` (diagnostic only).
+- Batch 3, `2026-Nov-23 S2`: MO `PST/MO/00001` ID42, SKU `12379`, **Done 40 Pcs**. Ten Done raw moves IDs 941–950, finished move ID951 (40 pcs Production→PST/Stock).
+- `PCK/OUT/00005` Done stock move ID966 (10 pcs SKU12379 PCK/Stock→Inter-warehouse transit); `T_RAI/IN/00001` Done stock move ID967 (same 10 pcs transit→T_RAI/Stock).
+- `SVL_AVAILABLE: False`; `GL_AVAILABLE: True`; no directly linked GL entries and `production_cost` field missing. **These are not proof of accounting failure**, because Odoo 19 reworked inventory valuation and journal recognition (including posting on invoicing/closing, depending on settings). The original script is an older-model trace and is NOT a suitable financial signoff on its own.
+- Also **do not infer an accounting PASS** solely from these moves: explicit costs, valuation, accounts and periodic/continuous timing have not been reconciled.
+
+**New source-only Odoo19-specific audit**: `script/audit_batch3_odoo19_cost_fields_readonly_ya.py` probes installed `stock_account`/`mrp_account`, company and category configuration, Odoo19 `stock.move` cost/valuation fields, MO costing fields, and actual Batch3 move values. Run READ ONLY; do not change accounting settings or install modules until its outputs are interpreted. Reference official docs: https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/cheat_sheet.html and https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/operations_valuation.html.
