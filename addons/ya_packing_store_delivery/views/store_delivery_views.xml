@@ -33,4 +33,34 @@
             action="action_ya_store_distribution_batches"
             sequence="20"
             groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin,stock.group_stock_manager"/>
+  <record id="view_ya_store_do_reason_picking_form" model="ir.ui.view">
+    <field name="name">ya.store.do.zero.qty.reason.picking.form</field>
+    <field name="model">stock.picking</field>
+    <field name="inherit_id" ref="stock.view_picking_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="inside">
+        <field name="ya_store_stage" invisible="1"/>
+      </xpath>
+      <xpath expr="//sheet/notebook" position="inside">
+        <page string="SKU Tidak Dikirim / Catatan DO"
+              invisible="ya_store_stage != 'dispatch'">
+          <div class="alert alert-info" role="alert">
+            Bila Qty Kirim = 0, isi Alasan Tidak Dikirim pada baris SKU.
+            Demand RO tetap tercatat; SKU tersebut tidak masuk pengiriman.
+          </div>
+          <field name="move_ids" readonly="state in ('done', 'cancel')">
+            <list editable="bottom" create="false" delete="false">
+              <field name="product_id" readonly="1"/>
+              <field name="product_uom_qty" string="Qty Alokasi RO" readonly="1"/>
+              <field name="quantity" string="Qty Kirim"/>
+              <field name="product_uom" readonly="1"/>
+              <field name="ya_do_not_shipped_reason"
+                     string="Alasan Tidak Dikirim"/>
+              <field name="state" readonly="1"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+    </field>
+  </record>
 </odoo>
