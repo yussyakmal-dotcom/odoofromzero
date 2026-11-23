@@ -21,6 +21,9 @@ for term in (
     "button_validate",
     "_action_done",
     '"receipt"',
+    "ya_do_not_shipped_reason",
+    "_ya_cancel_zero_qty_dispatch_moves",
+    "move._action_cancel()",
 ):
     assert term in code, term
 xml = ET.parse(addon / "views" / "store_delivery_views.xml")
@@ -29,4 +32,6 @@ assert "action_ya_generate_store_do" in names
 assert "action_ya_open_store_deliveries" in names
 assert any(e.attrib.get("name") == "DO Toko"
            for e in xml.findall(".//menuitem"))
+assert "SKU Tidak Dikirim / Catatan DO" in (addon / "views" / "store_delivery_views.xml").read_text()
+assert "stock.view_picking_form" in (addon / "views" / "store_delivery_views.xml").read_text()
 print("YA_PACKING_STORE_DELIVERY_SOURCE_OK")
