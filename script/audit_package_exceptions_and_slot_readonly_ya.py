@@ -34,6 +34,7 @@ finished_missing = Counter()
 missing_examples = []
 bom_kind = Counter()
 boms_ok = 0
+package_finished_parts = {}
 for pkg in pkgs:
     boms = B.search([
         ("active", "=", True),
@@ -45,6 +46,11 @@ for pkg in pkgs:
         continue
     bom = boms[0]
     boms_ok += 1
+    package_finished_parts[pkg.id] = [
+        row.product_id.id for row in bom.bom_line_ids
+        if (row.product_id.categ_id.complete_name or '').startswith('All / Produk Jadi /')
+        and not (row.product_id.categ_id.complete_name or '').startswith('All / Produk Jadi / Paket')
+    ]
     bom_kind[bom.type] += 1
     for row in bom.bom_line_ids:
         comp = row.product_id
@@ -89,19 +95,10 @@ for (date, slot), plans in sorted(by_slot.items())[-12:]:
     viable = 0
     missing_route = 0
     ambiguous_route = 0
-    for pkg in pkgs:
-        boms = B.search([
-            ("active", "=", True), ("product_tmpl_id", "=", pkg.product_tmpl_id.id),
-            "|", ("product_id", "=", False), ("product_id", "=", pkg.id),
-        ])
-        if len(boms) != 1:
-            continue
-        parts = [row.product_id for row in boms.bom_line_ids
-                 if (row.product_id.categ_id.complete_name or "").startswith("All / Produk Jadi /")
-                 and not (row.product_id.categ_id.complete_name or "").startswith("All / Produk Jadi / Paket")]
-        if any(len(eligible[p.id]) == 0 for p in parts):
+    for package_id, parts in package_finished_parts.items():
+        if any(len(eligible[p]) == 0 for p in parts):
             missing_route += 1
-        elif any(len(eligible[p.id]) > 1 for p in parts):
+        elif any(len(eligible[p]) > 1 for p in parts):
             ambiguous_route += 1
         else:
             viable += 1
