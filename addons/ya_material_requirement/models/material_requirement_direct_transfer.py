@@ -84,7 +84,7 @@ class YaMrDirectBatch(models.Model):
         """Generate one standard Internal Transfer per kitchen from confirmed MO.
 
         No CDC picking confirmation record and no custom transfer report.
-        Demand = fresh MO net shortage, Qty initially matches Demand for
+        Demand = full confirmed-MO raw material requirement for this batch, regardless\n        of kitchen buffer levels, reserved quantities or other outstanding\n        transfers. Qty initially matches Demand for
         available UNTRACKED exact-bin products; stock reservation is native
         Odoo behavior (may show Ready before Validate).
         Never confirm/validate or move any stock in this action.
@@ -117,11 +117,11 @@ class YaMrDirectBatch(models.Model):
                 'Batch ini masih memiliki dokumen Konfirmasi Picking CDC '
                 'dari alur lama tanpa Internal Transfer. '
                 'Periksa/reconcile bersama admin sebelum menggunakan '
-                'alur baru agar CDC tidak terkirim dua kali.'
+                'alur baru tanpa mengganti dokumen yang sudah diterbitkan.'
             ))
 
-        # Detect old/manual native transfer using the same deterministic
-        # origin even when there is no YA link; fail closed, not duplicate.
+        # This protects against double-click creation of the SAME batch document,
+        # NOT against legitimate separate transfers or warehouse buffer build-up.
         Picking = self.env['stock.picking']
         origin_prefix = 'YA-MR-%s-CDC-' % self.id
         orphan = Picking.search([
@@ -129,24 +129,17 @@ class YaMrDirectBatch(models.Model):
         ], limit=1)
         if orphan:
             raise UserError(_(
-                'Internal Transfer with YA origin already exists (%s). '
-                'Reconcile before creating another.'
+                'Internal Transfer for this SAME batch already exists (%s). '
+                'Open that document; create any additional shipment via native SOP.'
             ) % orphan.display_name)
 
         # Reuse confirmed-MO, kitchen/CDC stock calculation in the existing
         # module; no independent BoM or MO quantity calculations.
         wizard = self._mr_calculate_wizard()
         self._mr_store_snapshot(wizard)
-        if wizard.reservation_review_count:
-            raise UserError(_(
-                'Perhitungan kebutuhan dapur belum pasti karena reservasi MO. '
-                'Periksa reservasi sebelum membuat Internal Transfer.'
-            ))
-        if wizard.cdc_shortage_count:
-            raise UserError(_(
-                'Stok bebas CDC belum mencukupi seluruh kebutuhan dapur. '
-                'Admin Gudang perlu menyelesaikan stok CDC dahulu.'
-            ))
+        # Inventory availability and MO reservations are informative only.
+        # CDC fulfils issued transfers via native Odoo + warehouse SOP;
+        # shortage is NOT a reason to suppress the transfer document.
 
         cdc = wizard.cdc_warehouse_id
         if not cdc or cdc.code != 'CDC':
@@ -164,18 +157,10 @@ class YaMrDirectBatch(models.Model):
 
         grouped = defaultdict(list)
         for line in wizard.kitchen_line_ids:
-            qty = line.short_min_qty
+            qty = line.required_qty
             if float_compare(qty, 0,
                              precision_rounding=line.uom_id.rounding) <= 0:
                 continue
-            if float_compare(
-                    line.short_max_qty, qty,
-                    precision_rounding=line.uom_id.rounding) != 0:
-                raise UserError(_(
-                    'Ambiguous MO reservation for %s / %s. '
-                    'Recalculate and reconcile before transfer.'
-                ) % (line.warehouse_id.display_name,
-                     line.product_id.display_name))
             if (line.product_id.uom_id != line.uom_id or
                     (line.product_id.company_id and
                      line.product_id.company_id != cdc.company_id)):
@@ -189,7 +174,7 @@ class YaMrDirectBatch(models.Model):
             grouped[line.warehouse_id.id].append(line)
         if not grouped:
             raise UserError(_(
-                'Tidak ada kekurangan bahan dari MO untuk ditransfer.'
+                'Tidak ada kebutuhan bahan dari MO Confirmed untuk ditransfer.'
             ))
 
         Move = self.env['stock.move'].with_company(cdc.company_id)
@@ -224,7 +209,7 @@ class YaMrDirectBatch(models.Model):
             if 'note' in Picking._fields:
                 vals['note'] = (
                     'YA MO batch %s | Tanggal Kirim %s | Slot %s | '
-                    'CDC → %s. Demand berasal dari kebutuhan netto MO. '
+                    'CDC → %s. Demand adalah total kebutuhan bahan MO Confirmed, '\n                    'tanpa pemotongan buffer dapur atau outstanding transfer. '
                     'Picking Operations / Delivery Slip gunakan Print '
                     'standar Odoo. Koreksi Qty aktual sebelum Validate; '
                     'Special Transfer tambahan dicatat pada note dan '
@@ -237,7 +222,7 @@ class YaMrDirectBatch(models.Model):
                 'picking_id': picking.id,
                 'product_id': line.product_id.id,
                 'product_uom': line.uom_id.id,
-                'product_uom_qty': line.short_min_qty,
+                'product_uom_qty': line.required_qty,
                 'location_id': source.id,
                 'location_dest_id': dest.id,
                 'company_id': cdc.company_id.id,
@@ -251,7 +236,7 @@ class YaMrDirectBatch(models.Model):
                 ))
             for line in grouped[wh_id]:
                 product = line.product_id
-                qty = line.short_min_qty
+                qty = line.required_qty
                 # No FEFO/lot requirement is enabled by this addon.
                 # Tracked/Sublocation material must be reviewed in native UI.
                 if product.tracking != 'none':
