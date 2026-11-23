@@ -34,13 +34,8 @@ assert any(e.attrib.get("name") == "DO Toko"
            for e in xml.findall(".//menuitem"))
 assert "SKU Tidak Dikirim / Catatan DO" in (addon / "views" / "store_delivery_views.xml").read_text()
 assert "stock.view_picking_form" in (addon / "views" / "store_delivery_views.xml").read_text()
-report = ET.parse(addon / "report" / "store_picking_list.xml")
-assert report.getroot().find(".//template[@id='report_ya_store_picking_list']") is not None
-report_source = (addon / "report" / "store_picking_list.xml").read_text()
-for label in ("PICKING LIST", "Qty Alokasi RO", "Qty Kirim",
-              "Alasan Tidak Dikirim", "Disiapkan oleh"):
-    assert label in report_source, label
-assert "report/store_picking_list.xml" in manifest["data"]
+assert "report/store_picking_list.xml" not in manifest["data"]
+assert 'stock.action_report_picking' in code
 assert "action_ya_print_store_picking_list" in code
 assert "Cetak Picking List" in (addon / "views" / "store_delivery_views.xml").read_text()
 print("YA_PACKING_STORE_DELIVERY_SOURCE_OK")
