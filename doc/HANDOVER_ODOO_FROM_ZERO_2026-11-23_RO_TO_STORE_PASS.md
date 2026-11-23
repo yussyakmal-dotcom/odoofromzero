@@ -81,7 +81,9 @@ Principle: **Menu follows workflow; system supports SOP; minimize operator click
 
 ## 6. NEXT WORK — RAKIT PAKET DI PACKING
 
-**Do not code before read-only analysis and package-policy confirmation.** Existing older handover defines `Paket` as its own SKU with BoM of multiple finished products, assembled in Packing and then held in `PCK/Stock` for distribution. Distinguish that from packaging several items without creating a new sellable product SKU.
+**OWNER CONFIRMED DEFINITION (23 NOV 2026):** **Produk Paket adalah SKU produk jadi yang dibuat melalui BoM; semua komponennya merupakan PRODUK JADI dari satu atau lebih dapur produksi.** Paket dirakit di Packing sebagai proses produksi/perakitan tahap kedua; bukan pembuatan ulang masing-masing komponen. Komponen produk jadi dari dapur masuk ke `PCK/Stock`, kemudian dikonsumsi oleh BoM Paket pada saat perakitan, dan outputnya adalah stok SKU Paket Jadi di Packing. Ini berbeda dari sekadar membungkus beberapa SKU tanpa membuat SKU produk jadi paket. Komponen harus berkurang dan SKU Paket harus bertambah sesuai kuantitas aktual hasil rakitan, tanpa stok ganda.
+
+**Implementation still pending.** Do not code before read-only analysis of actual SKU Paket, their finished-product BoMs, warehouse/locations and stock. Do not assume package quantities, timing, reservations, batch splits, operator role or allocation policy without owner approval.
 
 Suggested *questions to resolve from real data*, not assumed policies:
 1. Which SKU are finished **package SKUs**, their BoMs, and whether all components are finished-stock SKUs (no accidental WIP-only components).
