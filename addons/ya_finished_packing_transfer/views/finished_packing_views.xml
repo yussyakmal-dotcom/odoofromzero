@@ -20,4 +20,19 @@
       </xpath>
     </field>
   </record>
+  <!-- Existing historical Packing menu is deliberately inactive.
+       Provide a visible route that always opens the batch LIST first. -->
+  <record id="ya_fg_packing_batch_action" model="ir.actions.act_window">
+    <field name="name">Packing - Produksi OK</field>
+    <field name="res_model">ya.packing.batch</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="ya_store_ro.view_ya_packing_batch_list"/>
+    <field name="domain">[('state','=','production_ok')]</field>
+  </record>
+  <menuitem id="ya_fg_packing_batch_menu"
+            name="Packing - Produksi OK"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="ya_fg_packing_batch_action"
+            sequence="44"
+            groups="mrp.group_mrp_manager,ya_store_ro.group_ya_packing_admin,stock.group_stock_manager"/>
 </odoo>
