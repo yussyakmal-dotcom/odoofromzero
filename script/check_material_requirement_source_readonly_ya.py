@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.5.2.0'",
+        "'version': '19.0.6.0.0'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
         "'views/material_requirement_batch_views.xml'",
@@ -18,7 +18,8 @@ required = {
     'models/__init__.py': ['from . import material_requirement',
                            'from . import material_requirement_batch',
                            'from . import cdc_pick_confirmation',
-                           'from . import stock_picking_validation'],
+                           'from . import stock_picking_validation',
+                           'from . import material_requirement_direct_transfer'],
     'models/material_requirement_batch.py': [
         "_inherit = 'ya.packing.batch'",
         "TEST_DB = 'erp-yussyakmal-mrp-test'",
@@ -62,6 +63,18 @@ required = {
         "('state', '=', 'confirmed')",
         "('location_id', 'child_of', self.cdc_warehouse_id.lot_stock_id.id)",
         "'SELECT id FROM stock_warehouse WHERE id = %s FOR UPDATE'",
+    ],
+    'models/material_requirement_direct_transfer.py': [
+        "_inherit = 'stock.picking'",
+        "_inherit = 'ya.packing.batch'",
+        "ya_mr_batch_id = fields.Many2one(",
+        "ya_mr_kitchen_id = fields.Many2one(",
+        "UNIQUE(ya_mr_batch_id, ya_mr_kitchen_id)",
+        "def action_mr_generate_native_transfers(self):",
+        "def action_mr_open_native_transfers(self):",
+        "self._mr_calculate_wizard()",
+        "self._mr_store_snapshot(wizard)",
+        "self._mr_guard()",
     ],
     'models/stock_picking_validation.py': [
         "_inherit = 'stock.picking'",
@@ -310,6 +323,44 @@ for required in (
 ):
     if required not in confirm_source:
         errors.append('MISSING QTY PREFILL STATE SAFETY: '+required)
+# v19.0.6.0.0 uses the existing Packing batch as a single entrypoint.
+# New native transfers belong to stock.picking, not extra confirmation docs.
+new_source = (root / 'models/material_requirement_direct_transfer.py').read_text(
+    encoding='utf-8')
+new_view = (root / 'views/material_requirement_batch_views.xml').read_text(
+    encoding='utf-8')
+for needle in (
+        "'stock.picking'",
+        "'ya.packing.batch'",
+        "def action_mr_generate_native_transfers(self):",
+        "def action_mr_open_native_transfers(self):",
+        "self._mr_calculate_wizard()",
+        "self._mr_store_snapshot(wizard)",
+        "if historical:",
+        "if existing:",
+        "picking = Picking.create(vals)",
+        "moves = Move.create(move_values)",
+        "move.write({'quantity': qty})",
+        "product.tracking != 'none'",
+        "UNIQUE(ya_mr_batch_id, ya_mr_kitchen_id)",
+):
+    if needle not in new_source:
+        errors.append('NATIVE DIRECT FLOW MISSING: '+needle)
+for action in ('action_mr_generate_native_transfers',
+               'action_mr_open_native_transfers'):
+    if 'name="%s"' % action not in new_view:
+        errors.append('BATCH FORM BUTTON MISSING: '+action)
+for outdated in ('name="action_mr_open_pick_confirmations"',
+                 'name="action_mr_print"'):
+    if outdated in new_view:
+        errors.append('OVERENGINEERED OLD BUTTON STILL VISIBLE: '+outdated)
+for node in ast.walk(ast.parse(new_source)):
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+        if node.func.attr in ('button_validate', 'action_confirm',
+                              'action_assign', '_action_done', 'commit',
+                              '_update_available_quantity'):
+            errors.append('UNSAFE DIRECT TRANSFER METHOD: %s line %s' %
+                          (node.func.attr, node.lineno))
 # The only native Validate interception is scoped to YA CDC linked transfers,
 # and other native stock pickings must retain their standard Odoo behavior.
 validation_source = (root / 'models/stock_picking_validation.py').read_text(
@@ -327,6 +378,11 @@ for needle in (
         "Qty = 0/kosong sementara Demand > 0",
         "requested + other_claims",
         "'internal_transfer_id', '=', picking.id",
+        "def _ya_check_direct_mr_validation(self):",
+        "self._ya_check_direct_mr_validation()",
+        "direct = self.filtered(lambda p: p.ya_mr_batch_id)",
+        "self.with_context(cancel_backorder=True)",
+
 ):
     if needle not in validation_source:
         errors.append('YA CDC VALIDATION SAFETY GUARD MISSING: '+needle)
