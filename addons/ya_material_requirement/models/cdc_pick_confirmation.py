@@ -458,9 +458,64 @@ class YaCdcPickConfirmation(models.Model):
         if 'note' in Picking._fields:
             picking_vals['note'] = '\n'.join(notes)
         picking = Picking.create(picking_vals)
-        Move.create([
+        moves = Move.create([
             dict(values, picking_id=picking.id) for values in move_values
         ])
+        # Odoo 19: stock.move.quantity is the sum of stock.move.line
+        # quantities, and writing it invokes standard native reservation
+        # behavior. Feri requested Demand=Qty initial for bulk transfers.
+        # Only prefill materials with NO lot/serial tracking and adequate
+        # free stock in the EXACT CDC source bin: never invent lot, bin,
+        # owner or package and never bypass FEFO. For anything else keep
+        # the Qty blank for native warehouse review and lot/bin selection.
+        if 'quantity' not in Move._fields:
+            raise UserError(_(
+                'Odoo stock.move Quantity field is missing. '
+                'Internal Transfer was not created; contact administrator.'
+            ))
+        prefilled = 0
+        manual = []
+        Quant = self.env['stock.quant'].with_company(self.company_id)
+        for move, values in zip(moves, move_values):
+            qty = values['product_uom_qty']
+            product = move.product_id
+            if product.tracking != 'none':
+                manual.append(product.display_name)
+                continue
+            strict_quants = Quant.search([
+                ('product_id', '=', product.id),
+                ('location_id', '=', source.id),
+                ('company_id', '=', self.company_id.id),
+                ('lot_id', '=', False),
+                ('package_id', '=', False),
+                ('owner_id', '=', False),
+            ])
+            strict_free = sum(max(0.0, q.quantity - q.reserved_quantity)
+                              for q in strict_quants)
+            if float_compare(
+                    qty, strict_free,
+                    precision_rounding=product.uom_id.rounding) > 0:
+                manual.append(product.display_name)
+                continue
+            # This writes actual stock.move.line quantity in Odoo 19, which
+            # may reserve stock immediately, even while picking is Draft.
+            # No action_confirm/assign/validate is called.
+            move.write({'quantity': qty})
+            if (float_compare(
+                    move.quantity, qty,
+                    precision_rounding=product.uom_id.rounding) != 0 or
+                    move.state != 'draft'):
+                raise UserError(_(
+                    'Odoo did not preserve Draft Demand=Qty for %s. '
+                    'Transaction rolled back; check stock configuration.'
+                ) % product.display_name)
+            prefilled += 1
+        if manual and 'note' in Picking._fields:
+            previous_note = picking.note or ''
+            picking.note = previous_note + '\\n' + (
+                'Qty perlu diisi manual (lot/FEFO/bin/stok): %s'
+                % ', '.join(manual)
+            )
         self.with_context(ya_link_cdc_internal_transfer=True).write({
             'internal_transfer_id': picking.id,
         })
