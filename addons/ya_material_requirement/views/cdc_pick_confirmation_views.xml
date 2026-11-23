@@ -31,7 +31,7 @@
                   string="Konfirmasi Qty Picking" class="btn-primary"
                   invisible="state != 'draft'"/>
           <button name="action_create_internal_transfer" type="object"
-                  string="Buat Internal Transfer (Draft)" class="btn-primary"
+                  string="Buat Internal Transfer Odoo" class="btn-primary"
                   invisible="state != 'confirmed' or internal_transfer_id"/>
           <button name="action_open_internal_transfer" type="object"
                   string="Buka Internal Transfer"
@@ -45,9 +45,11 @@
             Qty lebih besar dari kebutuhan MO boleh untuk Special Transfer ke
             dapur tujuan yang sama, dengan centang dan alasan.
             Tambahan menjadi stok dapur, BUKAN penambahan konsumsi MO.
-            Tombol Buat Internal Transfer hanya membuat DRAFT standar Odoo
-            (CDC ke dapur ini); belum reservasi atau perpindahan stok.
-            Periksa lot/FEFO dan rute gudang sebelum validasi.
+            Tombol Buat Internal Transfer membuat dokumen standar Odoo
+            (CDC ke dapur ini). Pengisian Qty dapat melakukan reservasi stok
+            dan mengubah status menjadi Ready, tetapi TIDAK melakukan
+            validasi atau perpindahan stok. Periksa stok dan rute dahulu.
+            Lot hanya diperlukan bila produk memang memakai tracking.
           </div>
           <group>
             <group>
