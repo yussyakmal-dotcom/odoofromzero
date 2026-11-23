@@ -98,6 +98,8 @@
     <field name="name">RO Toko</field>
     <field name="res_model">ya.store.ro</field>
     <field name="view_mode">list,form</field>
+    <!-- Pin RO menu to its own list, not the Packing selection list for the same model. -->
+    <field name="view_id" ref="view_ya_store_ro_list"/>
     <field name="search_view_id" ref="view_ya_store_ro_search"/>
   </record>
   <menuitem id="menu_ya_store_ro"
