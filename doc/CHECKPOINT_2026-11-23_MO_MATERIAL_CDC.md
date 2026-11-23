@@ -311,3 +311,26 @@ Feri strongly reiterates that **MO and the CDC Internal Transfer are only the MI
 5. **Accounting / control:** Every leg maps to native Odoo stock operations, traceable source documents, quants and accounting/valuation where relevant; no double transfer for same batch+kitchen, no phantom UI document, default Quantity=Demand to reduce input mistakes over hundreds of SKUs and ten kitchens; no early Validate, don't implicitly switch off standard permissions/reservations across unrelated transfers.
 
 **Implementation principle:** *Minimum Input, Maximum Automation, Exception-Based Control*, but evaluate within end-to-end architecture, not an isolated MO or Internal Transfer. Before further coding, create a clear stage-by-stage integration contract (inputs, outputs, locations, approval, native documents, stock states) to validate next stages and reconcile the Central→Transit→Dapur vs direct CDC→Dapur discrepancy. Prior pilot v19.0.6.0.0 has only created native transfer source code, not validated the entire end-to-end flow.
+
+## 26. 2026-Nov-23 — Diagnosing why 20 confirmed MO have no Work Orders (WO)
+
+Feri asks **"ko mo tidak memicu wo ya?"** Do NOT assume internal transfers/stock availability create WO. Read earlier checkpoints, full RO→Packing→MO→material→WO→Packing sequence.
+
+**Verified official Odoo 19 source `addons/mrp/models/mrp_production.py`:**
+- `workorder_ids` is a stored computed field, `_compute_workorder_ids` on draft MO, generated using **BoM `operation_ids`** (`mrp.routing.workcenter`) and each operation's `workcenter_id`.
+- `mrp.production.action_confirm()` confirms available WO records but is not itself a guarantee of creating them if BoM operations are missing.
+- `mrp.production.button_plan()` plans existing WO / scheduling for work centers. Clicking Plan alone does NOT invent missing BoM operations.
+- Official `addons/mrp/models/mrp_bom.py` has `operation_ids`; official `addons/mrp/models/mrp_routing.py` defines `mrp.routing.workcenter`.
+- Current YA `addons/ya_store_ro/models/packing_batch.py` `action_generate_selected_mo` creates standard MO with explicit `bom_id` and calls `mo.action_confirm()` but does not call `mo.button_plan()`. This explains not-yet-planned WO, NOT necessarily zero WO. Do not auto-call Plan until material availability gate is satisfied.
+
+**Not verified from live DB:** whether all/any of the 20 test MO BoM have Operations and how many actual `mrp.workorder` rows exist. Earlier read-only output `BO_M_OPERATIONS_COUNT: None` is not proof that every BoM has zero operations: that audit had a conditional registry-model lookup. Likewise 16 Work Centers does not imply any BoM Operations. Do not create fake single-operation per work center or edit BoM on guessing.
+
+**New read-only test script committed:** `script/audit_mo_workorders_readonly_ya.py` for exact `erp-yussyakmal-mrp-test`, `Packing 2026-Nov-27 S1`. It prints module states, whether operation/workorder models exist, global operation count, 20 MO names, linked BoM operation count, workorder count/state/workcenter, and totals. Run via:
+```bash
+cd ~/odoofromzero
+git pull
+sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell \
+ -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http \
+ < script/audit_mo_workorders_readonly_ya.py
+```
+No ORM writes, no Plan, no inventory movement. Once output is received, determine whether missing BoM Operations, MO creation path, disabled feature, or merely unplanned workorders. Verify intended Operations per SKU/dapur before importing them. Preserve upstream and downstream process; avoid starting WO when materials are Not Available.
