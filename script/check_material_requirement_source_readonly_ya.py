@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.5.0.1'",
+        "'version': '19.0.5.1.0'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
         "'views/material_requirement_batch_views.xml'",
@@ -226,6 +226,13 @@ const_required_guards = [
     "'origin': origin",
     "('origin', '=', origin)",
     "'internal_transfer_id': picking.id",
+    "move.write({'quantity': qty})",
+    "product.tracking != 'none'",
+    "strict_quants = Quant.search([",
+    "if float_compare(",
+    "_outstanding_unreserved_qty(doc)",
+    "move_by_product = {move.product_id.id: move for move in moves}",
+
 ]
 confirm_source = (root / 'models/cdc_pick_confirmation.py').read_text(
     encoding='utf-8')
@@ -263,6 +270,14 @@ for node in ast.walk(ast.parse(confirm_source)):
                 )
 if 'move_fields = set(Move._fields)' not in confirm_source:
     errors.append('MISSING_RUNTIME_STOCK_MOVE_SCHEMA_GUARD')
+if "move.write({'quantity': qty})" not in confirm_source:
+    errors.append('QTY PREFILL MISSING: quantity must match demand for safe SKU')
+if "product.tracking != 'none':" not in confirm_source:
+    errors.append('UNSAFE QTY PREFILL WITHOUT LOT/SERIAL EXCLUSION')
+if "('location_id', '=', source.id)" not in confirm_source:
+    errors.append('UNSAFE QTY PREFILL WITHOUT EXACT SOURCE BIN CHECK')
+if "_outstanding_unreserved_qty(doc)" not in confirm_source:
+    errors.append('CDC RESERVATION CLAIM DOUBLE COUNT NOT HANDLED')
 if "picking.action_confirm(" in confirm_source or "picking.button_validate(" in confirm_source:
     errors.append('FORBIDDEN AUTOMATIC STOCK TRANSFER CONFIRM/VALIDATE')
 # Confirmation is a document, not an inventory write. Reject any stock
