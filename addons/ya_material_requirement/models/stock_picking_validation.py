@@ -151,6 +151,55 @@ class YaCdcStockPickingValidation(models.Model):
             if not has_positive:
                 raise UserError(_('Tidak ada Qty positif yang boleh ditransfer.'))
 
+            # Conservative negative-stock guard. Native Odoo can process a
+            # manually entered Done Qty without requiring a complete quant
+            # reservation. Compare total CDC physical quantities against this
+            # transfer plus ALL OTHER outstanding CDC move-line claims, not
+            # only stock.quant.free (which already includes this picking's
+            # own reservations). Never claim stock in another warehouse.
+            Quant = self.env['stock.quant'].sudo()
+            MoveLine = self.env['stock.move.line'].sudo()
+            for product_id, requested in qty_total.items():
+                product = self.env['product.product'].browse(product_id)
+                if float_compare(
+                        requested, 0.0,
+                        precision_rounding=product.uom_id.rounding) <= 0:
+                    continue
+                domain = [
+                    ('product_id', '=', product_id),
+                    ('location_id', 'child_of', source.id),
+                    ('location_id.usage', '=', 'internal'),
+                    ('company_id', '=', picking.company_id.id),
+                ]
+                physical_quants = Quant.search(domain)
+                physical_qty = sum(physical_quants.mapped('quantity'))
+                others = MoveLine.search([
+                    ('picking_id', '!=', picking.id),
+                    ('state', 'not in', ('done', 'cancel')),
+                    ('product_id', '=', product_id),
+                    ('location_id', 'child_of', source.id),
+                    ('company_id', '=', picking.company_id.id),
+                    ('quantity', '>', 0),
+                ])
+                other_claims = sum(
+                    line.quantity_product_uom for line in others
+                )
+                if float_compare(
+                        requested + other_claims, physical_qty,
+                        precision_rounding=product.uom_id.rounding) > 0:
+                    raise UserError(_(
+                        'STOK CDC TIDAK CUKUP untuk %(product)s: '
+                        'Qty transfer %(qty).3f, komitmen transfer lain '
+                        '%(claims).3f, stok fisik CDC %(physical).3f. '
+                        'Tidak boleh Validate sampai stok diperbaiki '
+                        'atau Qty fisik disesuaikan.'
+                    ) % {
+                        'product': product.display_name,
+                        'qty': requested,
+                        'claims': other_claims,
+                        'physical': physical_qty,
+                    })
+
     def button_validate(self):
         """Use Odoo native validation; prevent unwanted zero auto-fill/backorder."""
         linked = self._ya_cdc_linked_transfers()
