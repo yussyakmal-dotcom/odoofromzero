@@ -1,6 +1,6 @@
 {
     'name': 'YA Packing to Store Delivery',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Inventory',
     'summary': 'Generate store delivery documents from RO allocations; receipt after dispatch',
     'depends': [
@@ -9,7 +9,6 @@
         'stock',
     ],
     'data': [
-        'report/store_picking_list.xml',
         'views/store_delivery_views.xml',
     ],
     'license': 'LGPL-3',
