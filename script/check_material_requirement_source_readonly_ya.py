@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.5.0.0'",
+        "'version': '19.0.5.0.1'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
         "'views/material_requirement_batch_views.xml'",
@@ -232,6 +232,37 @@ confirm_source = (root / 'models/cdc_pick_confirmation.py').read_text(
 for needle in const_required_guards:
     if needle not in confirm_source:
         errors.append('MISSING TRANSFER SAFETY GUARD: '+needle)
+
+# Odoo 19 deployed stock.move rejects 'name'. Inspect the actual payload
+# AST rather than matching other legitimate name fields in model/notes.
+for node in ast.walk(ast.parse(confirm_source)):
+    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+        continue
+    if (node.func.attr == 'append'
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == 'move_values'):
+        for arg in node.args:
+            if not isinstance(arg, ast.Dict):
+                continue
+            keys = [
+                key.value for key in arg.keys
+                if isinstance(key, ast.Constant) and isinstance(key.value, str)
+            ]
+            if 'name' in keys:
+                errors.append(
+                    "OD00_19_INVALID_FIELD: stock.move 'name' in transfer payload"
+                )
+            required_move_fields = {
+                'product_id', 'product_uom', 'product_uom_qty',
+                'location_id', 'location_dest_id', 'company_id',
+            }
+            if not required_move_fields.issubset(keys):
+                errors.append(
+                    'MISSING_REQUIRED_STOCK_MOVE_FIELDS: %s'
+                    % sorted(required_move_fields.difference(keys))
+                )
+if 'move_fields = set(Move._fields)' not in confirm_source:
+    errors.append('MISSING_RUNTIME_STOCK_MOVE_SCHEMA_GUARD')
 if "picking.action_confirm(" in confirm_source or "picking.button_validate(" in confirm_source:
     errors.append('FORBIDDEN AUTOMATIC STOCK TRANSFER CONFIRM/VALIDATE')
 # Confirmation is a document, not an inventory write. Reject any stock
