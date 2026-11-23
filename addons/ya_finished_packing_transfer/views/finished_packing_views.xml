@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="ya_fg_batch_form_inherit" model="ir.ui.view">
+    <field name="name">ya.packing.batch.finished.to.packing.form</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="inherit_id" ref="ya_store_ro.view_ya_packing_batch_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//form/header/button[@name='action_open_mos']" position="after">
+        <button name="action_ya_fg_move_to_packing" type="object"
+                string="Pindahkan ke Packing" class="btn-primary"
+                groups="ya_store_ro.group_ya_packing_admin,stock.group_stock_manager"
+                invisible="state != 'production_ok' or ya_fg_transfer_count != 0"
+                confirm="Pindahkan semua hasil MO Done batch ini ke Packing dan selesaikan mutasi stok sekarang?"/>
+        <button name="action_ya_fg_open_transfers" type="object"
+                string="Lihat Mutasi ke Packing"
+                invisible="ya_fg_transfer_count == 0"/>
+      </xpath>
+      <xpath expr="//form/sheet/group/group[2]" position="inside">
+        <field name="ya_fg_transfer_count" readonly="1"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
