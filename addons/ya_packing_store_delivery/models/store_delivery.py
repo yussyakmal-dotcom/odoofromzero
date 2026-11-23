@@ -48,6 +48,19 @@ class YaStoreDeliveryPicking(models.Model):
         "A store may have only one dispatch and one receipt per RO batch.",
     )
 
+    def action_ya_print_store_picking_list(self):
+        """Printable preparation checklist derived directly from the native DO.
+
+        This is a preparation document, NOT a stock movement or validation.
+        """
+        if (self.env.cr.dbname != TEST_DB or not self or
+                any(p.ya_store_stage != "dispatch" or
+                    not p.ya_store_batch_id for p in self)):
+            raise UserError(_("Picking List Toko is available on YA dispatch in test DB only."))
+        return self.env.ref(
+            "ya_packing_store_delivery.action_report_ya_store_picking_list"
+        ).report_action(self)
+
     def button_validate(self):
         outgoing = self.filtered(
             lambda p: p.ya_store_stage == "dispatch" and p.ya_store_batch_id
