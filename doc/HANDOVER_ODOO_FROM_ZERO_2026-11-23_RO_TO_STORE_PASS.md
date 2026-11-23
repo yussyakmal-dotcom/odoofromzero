@@ -294,3 +294,25 @@ Owner clarified the previously tentative BOP proposal: **electricity, gas and la
 Owner reconfirmed the prior BOP decision: BOP expenses (electricity, gas, labor, etc.) belong to a **separate flow in the standard Odoo Accounting module**, completely outside the active custom RO→Manufacturing→Packing→Store workflow. Do **not** request BOP allocation, modify BoMs to insert nonphysical utilities, or generate BOP journals as a prerequisite for the operational project. Any accounting policy / period-end financial reporting treatment remains the Accounting team's separate responsibility, not an extension of the current ERP production design.
 
 **Current active accounting work ONLY:** validate material/finished-product operational valuation and how it reconciles to actual accounting ledger or Odoo19 periodic inventory closing. Script ready: `script/audit_inventory_gl_balance_readonly_ya.py`. Source exists in GitHub; run on test DB and inspect its posted and draft GL account balances. This is a diagnostic; a financial PASS requires comparing at a common cutoff with Inventory Valuation and opening balances. After accounting gate decision resume Package-first manufacturing & assembly. No production DB changes.
+
+## ACCOUNTING GL ACCOUNT AUDIT — RESULTS AND 19.0 PERIODIC INTERPRETATION (23 NOV 2026)
+
+Feri ran `script/audit_inventory_gl_balance_readonly_ya.py` on `erp-yussyakmal-mrp-test`; output `READ_ONLY_INVENTORY_GL_BALANCE_OK`, read-only only. `company.inventory_valuation=periodic`, `company.inventory_period=manual`, IDR, company `My Company`.
+
+Posted ledger totals across all available dates (NOT same-cutoff or opening-adjusted):
+- `1130012` Persediaan Bahan Baku: 6 posted lines; debit 379824.00; credit 0; net **379824.00**.
+- `1130013` Persediaan Bahan Pembantu: 0 posted/draft, net 0.
+- `1130014` Persediaan Barang Konsinyasi: 0 posted/draft, net 0.
+- `1130017` Persediaan Barang Jadi: 0 posted/draft, net 0.
+- `11300180` Inventory (company valuation account): 0 posted/draft, net 0.
+- Sample SKU12379 Pastry: category average cost + category real_time, valuation account 1130017; product unit cost 5750.21875; test MO raw & finished stock.move value 230008.75 each.
+
+**Interpretation:** source stock.move valuations DO EXIST and MO raw=finished. In **Odoo19 Periodic inventory accounting**, journal recognition for stock valuation can occur on inventory closing, rather than per each inventory move. Official Odoo19 documentation specifically says periodic valuation uses closing entries generated from Inventory Valuation report. This explains why zero posted product-finished ledger entries and no move-linked GL are plausible. **DO NOT call zero GL account entries a discovered failure, and DO NOT treat it as a successful reconciliation.** Test DB ledger totals are all-history aggregates and may contain purchases/import opening entries; the Rp379824 posted raw-material balance is NOT directly comparable with a single MO consumption of Rp230008.75.
+
+**Next decision/acceptance gate:** identify whether Accounting > Review > Inventory Valuation is available in this installed Odoo 19 Community + OCA setup. At consistent company and cutoff (after Batch3 2026-11-23), inspect inventory physical valuation and generated **draft/proposed closing variation** without posting, compare with ledger balances and account mapping. If menu missing, audit installed account valuation report/closing code and find supported equivalent; never claim manual postings are automatically handled. If the test DB carries synthetic inventory balances or has no clean opening balance, record limitation and only sign off the mechanics, not real company GL totals. Do not post closing or alter configuration on production.
+
+**Scope reconfirmed:** BOP separate standard Accounting workflow, completely out of current custom RO/MRP/Packing development. No BOP adjustments in SKU BoMs or manufacturing code. Package implementation can resume after accounting valuation **mechanics** and missing closing step have been identified and the operational integration gate is documented; full financial policy/period-end closing remains with accountant.
+
+Official Odoo19 references:
+- https://www.odoo.com/documentation/19.0/applications/finance/accounting/get_started/inventory_valuation.html
+- https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/cheat_sheet.html
