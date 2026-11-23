@@ -27,7 +27,7 @@ for xid in [
     if item._name == "ir.ui.menu":
         print("  MENU:", item.name, "| active:", item.active,
               "| action:", item.action.display_name if item.action else "(NONE)",
-              "| groups:", item.groups_id.mapped("display_name"))
+              "| groups:", item.group_ids.mapped("display_name"))
     elif item._name == "ir.actions.act_window":
         print("  ACTION:", item.name, "| model:", item.res_model,
               "| view_mode:", item.view_mode,
