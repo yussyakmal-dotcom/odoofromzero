@@ -209,3 +209,11 @@ Implementation GitHub:
 - User next: `git pull`, source preflight, backup DB TEST, deploy addon to active custom-addons, `-u ya_material_requirement` test DB, restart only if safe, in browser open CONFIRMED dapur → `Buat Internal Transfer (Draft)`, verify stock.picking draft, Qty physical including Special, duplicate-click not duplicated. Do not confirm/reserve/validate transfer yet.
 
 Business invariant: menu→list→form→buttons; display dates `YYYY-Mon-DD`. No changes to purchasing/premik/WIP or main DB.
+
+## 17. FIX atas RPC_ERROR Odoo 19 di Buat Internal Transfer Draft — PATCH 19.0.5.0.1 (2026-Nov-23)
+
+Feri mencoba tombol `Buat Internal Transfer (Draft)` di model `ya.cdc.pick.confirmation` dan memberi traceback riil dari Odoo 19 pada `2026-Nov-23`: `ValueError: Invalid field 'name' in 'stock.move'`, terjadi di `Move.create([...])` `addons/ya_material_requirement/models/cdc_pick_confirmation.py`. Ini **bug kode native stock.move field**, BUKAN warning docutils sebelumnya. Terjadi karena versi 19.0.5.0.0 mengirim `'name': line.product_id.display_name` sedangkan registry stock.move Odoo 19 di server tidak memiliki field `name`.
+
+GitHub hotfix **`19.0.5.0.1`**: hapus key `name` dari stock.move create payload, tetap pakai `product_id`, notes transfer tetap menyimpan rincian Qty MO vs Special. Sebelum `Picking.create`, cek semua move keys terhadap `Move._fields` dan raise UserError yang dapat dibaca bila schema masih berbeda. Ubah preflight `script/check_material_requirement_source_readonly_ya.py` agar AST menolak key `name` pada `move_values.append({...})` dan mewajibkan runtime guard. README diperbarui. Tidak mengubah alur bisnis/RO/MO atau stok. User harus `git pull`, cek source, backup DB test, deploy, `-u ya_material_requirement` pada DB **erp-yussyakmal-mrp-test saja**, restart aman, lalu retry dari **dokumen konfirmasi yang sudah Confirmed**; **JANGAN membuat konfirmasi ulang atau MO ulang**. RPC exception biasanya me-rollback seluruh create attempt, tetapi cek field `internal_transfer_id` / Odoo standard Transfers sebelum retry, jangan mengasumsikan otomatis tidak ada duplicate sukses dari klik lain. Draft saja—jangan validate/reserve sebelum FEFO/route dan stok diperiksa.
+
+Status: patch GitHub SOURCE committed; deployment Odoo/test GUI belum dibuktikan, masih menunggu hasil user.
