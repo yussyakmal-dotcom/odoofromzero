@@ -29,3 +29,8 @@ Owner melaporkan: **"sudah di test RO TOKO ---- > STOCK TOKO good"**.
 Status: alur RO Toko sampai stok toko dinyatakan **lulus uji operasional oleh owner**. Ini adalah laporan uji pengguna, bukan audit otomatis tambahan; catatan tidak memuat bukti nomor dokumen/detail kuantitas tiap tahap.
 
 **Tindak lanjut:** Buka kembali pekerjaan yang sebelumnya sengaja ditunda, **Rakit Paket di Packing**. Sebelum membuat kode, petakan SKU paket, komponen per paket, trigger perakitan, lokasi stok input-output, pencatatan qty aktual dan kaitan dengan RO/DO. Jangan mengubah workflow RO→stok toko yang sudah lolos tanpa alasan dan pengujian regresi. Gunakan addon terpisah dan DB test `erp-yussyakmal-mrp-test`.
+
+## Definisi final Produk Paket — dikonfirmasi owner 23 Nov 2026
+**Produk Paket adalah SKU produk jadi yang diproduksi berdasarkan BoM, tetapi komponen BoM-nya adalah produk JADI dari satu atau lebih dapur.** Perakitan berlangsung di Packing setelah hasil produksi dapur dipindahkan ke `PCK/Stock`. Saat rakit paket, stok SKU komponen produk jadi dikonsumsi dan stok SKU Paket hasil rakitan bertambah di Packing. Tidak boleh ada stok ganda atau memindahkan komponen sebagai barang dikirim bila sudah dikonsumsi menjadi paket.
+
+**Belum ditetapkan:** jadwal/trigger perakitan, Qty batch, operasi MO per SKU paket, alokasi paket ke toko, pengecualian dan catatan shortage. Semua harus mengikuti audit BoM dan keputusan owner, jangan berasumsi implementasi sudah berjalan.
