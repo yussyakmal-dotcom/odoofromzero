@@ -39,9 +39,12 @@
         </header>
         <sheet>
           <div class="alert alert-info" role="alert">
-            MO Confirmed → Hitung kebutuhan netto per dapur →
-            Buat Internal Transfers Odoo. Sistem membuat satu dokumen standar
-            per dapur. Dari Inventory, gunakan Print → Picking Operations
+            MO Confirmed → Hitung kebutuhan bahan →
+            Buat Internal Transfers Odoo. Demand transfer = kebutuhan penuh
+            bahan MO Confirmed (tanpa dikurangi stok buffer dapur, reservasi,
+            atau transfer outstanding). Sistem membuat satu dokumen standar
+            per dapur untuk batch ini. Internal Transfer yang terbit wajib
+            dipenuhi melalui SOP gudang; stok sisa tetap di gudang dapur. Dari Inventory, gunakan Print → Picking Operations
             untuk mengambil barang dan Delivery Slip untuk dokumen pengiriman.
             Periksa dan koreksi Qty sebelum Validate. Pembuatan transfer
             belum memindahkan stok; pengisian Qty dapat mereservasi stok.
@@ -68,23 +71,24 @@
           </div>
           <div class="alert alert-danger" role="alert"
                invisible="mr_cdc_shortage_count == 0">
-            Stok CDC kurang: pengadaan ditindaklanjuti Admin Gudang melalui
-            proses standar Odoo di luar alur Material Requirement.
+            Stok CDC saat ini kurang dibanding estimasi. Ini informasi untuk
+            Admin Gudang, bukan penghalang pembuatan Internal Transfer.
+            Pemenuhan stok/pengiriman mengikuti SOP dan transaksi Odoo.
           </div>
           <notebook>
             <page string="Kebutuhan Bahan per Dapur">
               <field name="mr_kitchen_line_ids" readonly="1" nolabel="1">
                 <list create="false" edit="false" delete="false"
                       decoration-danger="status == 'short'"
-                      decoration-warning="status == 'review'">
+                      >
                   <field name="warehouse_id" string="Dapur"/>
                   <field name="product_id" string="Bahan"/>
-                  <field name="required_qty"/>
+                  <field name="required_qty" string="Rencana Kirim CDC / Kebutuhan MO"/>
                   <field name="on_hand_qty"/>
                   <field name="reserved_qty"/>
                   <field name="free_qty"/>
-                  <field name="short_min_qty"/>
-                  <field name="short_max_qty"/>
+                  <field name="short_min_qty" optional="hide"/>
+                  <field name="short_max_qty" optional="hide"/>
                   <field name="uom_id"/>
                   <field name="status"/>
                 </list>
