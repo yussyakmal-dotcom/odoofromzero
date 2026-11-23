@@ -92,12 +92,14 @@ class YaFinishedPackingBatch(models.Model):
         if dest.usage != "internal":
             raise UserError(_("Packing stock location must be Internal."))
 
-        # Exclude intermediate materials explicitly by SKU via System Parameter.
-        # The parameter is empty by default: NO hidden WIP assumptions.
+        # WIP filling Jamur (11076) observed in the tested batches is an
+        # intermediate component, not a finished product for Packing.
+        # The default exclusion may be overridden through a System Parameter
+        # after the owner approves an explicit finished-goods SKU policy.
         excluded_codes = {
             x.strip() for x in (
                 self.env["ir.config_parameter"].sudo().get_param(
-                    "ya_finished_packing_transfer.exclude_sku_codes", ""
+                    "ya_finished_packing_transfer.exclude_sku_codes", "11076"
                 ) or ""
             ).split(",") if x.strip()
         }
