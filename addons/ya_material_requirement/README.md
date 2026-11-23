@@ -1,6 +1,6 @@
 # YA Material Requirement — Read-Only MO → Kitchen → CDC
 
-**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.5.1.0. Use only the test DB `erp-yussyakmal-mrp-test`.
+**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.5.1.1. Use only the test DB `erp-yussyakmal-mrp-test`.
 
 ## Purpose and workflow
 
@@ -147,3 +147,13 @@ Feri clicked `Buat Internal Transfer (Draft)` and sent server traceback (on exac
 - Date formatting `YYYY-Mon-DD`, Menu→List→Form→Action and permanent document source reference remain unchanged.
 
 **Source-only until tested in server GUI.** Rollout only on `erp-yussyakmal-mrp-test`: backup, `git pull`, static check + rules tests, copy module to active addons, `-u ya_material_requirement`, restart safe. Create a **new** draft only from a confirmed physical kitchen picking with no existing native link; existing draft is **not retroactively rewritten**. Start with one kitchen and inspect Demand, Qty, move lines, reserved stock, lot/FEFO cases, Draft state and that Validate was not called; test no negative stock. For already-linked drafts, do not click/create another transaction to fill Qty; edit existing native Odoo transfer manually after checking stock.
+
+## 19.0.5.1.1 — Fix false Invalid Operation for Odoo 19 Assigned/Ready (2026-Nov-23)
+
+**Real GUI error Feri observed after creating Internal Transfer** for product `[10278] Garam Dolphin 12x1Kg`: `Invalid Operation: Odoo did not preserve Draft Demand=Qty ... Transaction rolled back`. Source v19.0.5.1.0 had an overly strict condition: `move.write({'quantity': qty})` followed by `move.state != 'draft'` raised `UserError`.
+
+**Root cause confirmed in native Odoo 19 source** (public `odoo/odoo` branch `19.0`, `addons/stock/models/stock_move.py`): `stock.move.quantity` is stored computed/inverse from move lines; writing Quantity creates/reserves native stock.move.line, then `_recompute_state()` sets move state to `assigned` when `quantity >= product_uom_qty`. Native `stock.picking._compute_state()` can report **Ready** when moves are assigned. This is **not a transfer Done** and does not imply product tracking/FEFO was activated. Consequently, insisting every move stay Draft conflicts with native Odoo 19 reservation workflow.
+
+**Fix:** while safely pre-filling `Demand = Qty` for eligible untracked materials, allow native Odoo to transition to `assigned` / `partially_available` or any other non-final normal state. Require actual `move.quantity` equals confirmed picked Qty; reject `done` / `cancel` on both move and picking. If Qty mismatch, error now displays Demand, actual Qty, product, and move state. Button label changed to **`Buat Internal Transfer Odoo`** rather than implying exact Draft status; form explicitly explains Quantity may reserve CDC stock and make transfer Ready while still unvalidated. No auto-validation, no physical stock deduction/arrival.
+
+**Rollout:** source patch committed on GitHub, **not server-tested yet**. Backup MRP-test DB, `git pull`, run the source checker and rules tests, deploy to active addon path, `-u ya_material_requirement` for `erp-yussyakmal-mrp-test`, restart Odoo when safe. Retry button on **SAME existing confirmed CDC picking record**; previous RPC `UserError` rolled back transaction, so no new picking should have been committed from that failed click. Still first check linked `internal_transfer_id` and existing native Inventory transfers to rule out other successful clicks. Do NOT recreate Picking List, confirmed sheet, MO or SO. Expect native transfer to be **Ready** or Draft depending on whether/how the Odoo 19 ORM reserved items; do NOT Validate yet. Verify Qty=Demand on eligible rows including Garam Dolphin and no stock quantity moved. Confirmed Special quantity remains included once in physical actual.
