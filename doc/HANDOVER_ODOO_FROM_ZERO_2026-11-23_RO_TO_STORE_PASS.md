@@ -185,3 +185,20 @@ Confirmed by owner on 2026-Nov-23:
 **Scope boundary:** implement Paket BoM demand explosion **only to kitchen manufacturing** for kitchen-produced components and actual assembly consumption/output in Packing; **do not implement a custom consignment procurement workflow**. The presence of consignment components in BoMs is valid. The earlier audit marker `REVIEW_COMPONENT_NOT_UNDER_FINISHED_CATEGORY` is NOT a BoM error.
 
 **Status:** business policy confirmed, runtime implementation not yet done/tested. Packaging stock sourcing policy remains as in existing standard flow; do not invent a new procurement feature for it.
+
+## PRIORITY OVERRIDE — PACKAGE COMPONENTS BEFORE DIRECT STORE ALLOCATION (OWNER 2026-11-23)
+
+**Owner clarification (authoritative, overrides any older contradictory flow):** **Rakit Paket dilakukan sebelum alokasi toko.** Paket has higher allocation priority over store RO requests for ordinary finished-good SKUs that are also consumed as Paket components. This priority must be reflected in pre-production planning and in physical Packing allocation. DO must never allocate component stock to normal RO before Paket requirements are fulfilled.
+
+Example: Paket X BoM = Y×1 + Z×1. Store RO Y=10, Z=10, Paket X=5 → kitchen gross demand Y=15 and Z=15. **First reserve/consume Y=5 and Z=5 to assemble X=5**, then assign remaining Y=10, Z=10 to direct store RO. Store receives 5 X, 10 Y, 10 Z, never 15 Y / 15 Z.
+
+Shortage example: if finished Y actual=12 rather than 15, the package component requirement Y=5 has priority, leaving only Y=7 for ordinary store RO (shortage of 3). Package assembly completion nevertheless requires *all* BoM components present including Z, purchased consignment components, packaging and applicable source/location/traceability; do not post fictitious completed packages. For multiple Paket SKUs competing for scarce components or incomplete package components, the allocation/tie-break and handling of unbuildable reservation still require explicit detailed design, not arbitrary iteration order.
+
+**Required logical sequence**:
+1. RO consolidated across stores with Paket recognized from category `All / Produk Jadi / Paket` and BoM explosion; compute kitchen gross production demand including package component needs, without modifying direct RO demand.
+2. Carry package component priority as a distinct *protected demand bucket* into Pre Produksi and actual Packing stock allocation; do not prematurely allocate all Y/Z to ordinary RO.
+3. Following MO Done / kitchen→PCK receipts, ensure package components are available, then assemble Paket using native stock consumption and finished package receipt in PCK (subject to owner-approved shortages/timing).
+4. **Only after package assembly/priority accounting** calculate and finalize direct-store allocations of leftover ordinary finished SKUs; package SKU itself allocated as finished package according to RO.
+5. Generate DO → native Picking Operations → Dispatch → Transit → Store Receipt.
+
+**CRITICAL INTEGRATION GAP:** existing RO Consolidation/Pre Produksi currently computes immutable store allocations before manufacturing; owner now specifies Paket is *before store allocation*. Existing code cannot be assumed compatible. Do not simply insert a Paket MO after frozen normal allocations. Study current models/actions and redesign only the necessary boundary between package-priority reservation and final store allocation. Preserve current RO→stock toko PASS path for batches without Paket, and regression test. **Business requirement confirmed; code NOT implemented/tested.** Consignment PO/receipt remains standard Odoo and outside custom flow.
