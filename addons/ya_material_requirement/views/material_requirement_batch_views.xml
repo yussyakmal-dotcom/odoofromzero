@@ -30,20 +30,21 @@
         <header>
           <button name="action_mr_refresh" type="object"
                   string="Hitung / Refresh Kebutuhan" class="btn-primary"/>
-          <button name="action_mr_print" type="object"
-                  string="Cetak Picking List CDC (Draft)"
-                  invisible="mr_component_count == 0"/>
-          <button name="action_mr_open_pick_confirmations" type="object"
-                  string="Konfirmasi Qty Picking CDC"
-                  invisible="mr_component_count == 0"/>
+          <button name="action_mr_generate_native_transfers" type="object"
+                  string="Buat Internal Transfers Odoo" class="btn-primary"/>
+          <button name="action_mr_open_native_transfers" type="object"
+                  string="Buka Internal Transfers"
+                  invisible="mr_native_transfer_count == 0"/>
           <field name="state" widget="statusbar" statusbar_visible="production_ok"/>
         </header>
         <sheet>
           <div class="alert alert-info" role="alert">
-            Pilih batch yang sudah Produksi OK dari daftar. Tombol Hitung /
-            Refresh menghitung ulang bahan dari MO; dokumen ini belum memindahkan
-            stok. Petugas CDC mengambil barang berdasarkan Picking List yang
-            dicetak setelah pengecekan stok dan reservasi.
+            MO Confirmed → Hitung kebutuhan netto per dapur →
+            Buat Internal Transfers Odoo. Sistem membuat satu dokumen standar
+            per dapur. Dari Inventory, gunakan Print → Picking Operations
+            untuk mengambil barang dan Delivery Slip untuk dokumen pengiriman.
+            Periksa dan koreksi Qty sebelum Validate. Pembuatan transfer
+            belum memindahkan stok; pengisian Qty dapat mereservasi stok.
           </div>
           <group>
             <group>
@@ -58,7 +59,7 @@
               <field name="mr_component_count" readonly="1"/>
               <field name="mr_product_count" readonly="1"/>
               <field name="mr_cdc_shortage_count" readonly="1"/>
-              <field name="mr_pick_confirmation_count" readonly="1"/>
+              <field name="mr_native_transfer_count" readonly="1"/>
             </group>
           </group>
           <div class="alert alert-warning" role="alert"
