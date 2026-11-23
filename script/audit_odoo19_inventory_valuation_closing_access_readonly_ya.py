@@ -28,12 +28,16 @@ Menu = env["ir.ui.menu"].sudo()
 menus = Menu.search(["|", "|",
     ("name", "ilike", "valuation"),
     ("name", "ilike", "inventory"),
-    ("name", "ilike", "closing")], order="complete_name")
+    ("name", "ilike", "closing")], order="id")
+# complete_name is computed/non-stored in Odoo 19; sort in Python only.
+menus = menus.sorted(key=lambda m: (m.complete_name or "", m.id))
 print("MENU_CANDIDATES:", len(menus))
 for menu in menus[:100]:
+    menu_groups = (menu["groups_id"] if "groups_id" in menu._fields else
+                   menu["group_ids"] if "group_ids" in menu._fields else [])
     print("MENU:", menu.id, repr(menu.complete_name),
           "ACTION:", menu.action,
-          "GROUPS:", [g.display_name for g in menu.group_ids],
+          "GROUPS:", [g.display_name for g in menu_groups],
           "ACTIVE:", menu.active if "active" in menu._fields else "N/A")
 print("=== REPORT ACTION METADATA ===")
 Act = env["ir.actions.act_window"].sudo()
