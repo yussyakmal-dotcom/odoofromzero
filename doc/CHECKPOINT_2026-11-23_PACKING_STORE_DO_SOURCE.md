@@ -34,3 +34,10 @@ Tanggal: 2026-Nov-23. **SOURCE-ONLY; BELUM TERINSTAL ATAU LULUS UJI ODOO.**
 - `10031` dan `11076` Qty nol pada DO. Native Odoo dapat mengisi Qty nol otomatis pada Validate; custom guard mencegah pengiriman fiktif. Jika benar-benar tidak dikirim, baris harus diproses mengikuti SOP dengan jejak alokasi RO tetap ada, bukan membuat stok palsu.
 - Pemakaian stock route internal Odoo tidak membuktikan semua rule otomatis memicu. Modul sengaja membuat dokumen native sendiri tanpa memanggil procurement trigger.
 - Belum ada implementasi rakit paket.
+
+## Tambahan keputusan — Picking List sebelum pengiriman
+- Setelah native DO per toko dibuat dari alokasi RO, petugas Packing **harus dapat mencetak Picking List** sebelum stok dipindahkan ke transit.
+- Tombol `Cetak Picking List` pada DO Packing membuka laporan QWeb PDF `report_ya_store_picking_list`, memuat batch/slot, toko, SKU, Qty Alokasi RO, Qty Kirim, alasan tidak dikirim, checklist fisik, dan tanda petugas.
+- Laporan adalah instruksi penyiapan barang; **bukan** bukti stok sudah berpindah atau bukti toko menerima barang.
+- Jika Qty Kirim 0 karena MO Cancel/tidak tersedia, SKU tetap terlihat beserta alasan operator; ini tidak boleh menjadi pengiriman fiktif.
+- Implementasi source GitHub **belum diuji instalasi, render PDF, maupun klik UI**. Sebelum dipakai operator, wajib pemeriksaan source, instalasi database test, cetak laporan, verifikasi konten dan stok tidak berubah.
