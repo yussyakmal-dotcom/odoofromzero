@@ -425,7 +425,9 @@ class YaCdcPickConfirmation(models.Model):
                     note += ' | Ref: %s' % line.special_reference.strip()
             notes.append(note)
             move_values.append({
-                'name': line.product_id.display_name,
+                # Odoo 19 stock.move has no 'name' field in the deployed
+                # registry. The product is identified by product_id and
+                # the detailed MO/Special breakdown stays in picking notes.
                 'product_id': line.product_id.id,
                 'product_uom': line.uom_id.id,
                 'product_uom_qty': qty,
@@ -435,6 +437,17 @@ class YaCdcPickConfirmation(models.Model):
             })
         if not move_values:
             raise UserError(_('No transferable positive Qty on confirmation.'))
+        # Validate field compatibility BEFORE creating stock.picking, so a
+        # future Odoo schema difference fails cleanly with no draft orphans.
+        move_fields = set(Move._fields)
+        invalid_move_keys = set().union(*(set(row) for row in move_values))
+        invalid_move_keys.add('picking_id')
+        invalid_move_keys -= move_fields
+        if invalid_move_keys:
+            raise UserError(_(
+                'Stock Move fields unsupported in this Odoo version: %s. '
+                'Please contact Odoo administrator before retrying.'
+            ) % ', '.join(sorted(invalid_move_keys)))
         picking_vals = {
             'picking_type_id': picking_type.id,
             'location_id': source.id,
