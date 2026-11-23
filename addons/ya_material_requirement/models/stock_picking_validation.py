@@ -210,7 +210,10 @@ class YaCdcStockPickingValidation(models.Model):
         for picking in self:
             batch = picking.ya_mr_batch_id
             kitchen = picking.ya_mr_kitchen_id
-            if not batch or not kitchen or batch.state != 'production_ok':
+            # A transfer may be validated after the Packing batch leaves
+            # production_ok; check its original linkage, not a moving batch
+            # status. Creating a NEW transfer still requires confirmed MOs.
+            if not batch or not kitchen:
                 raise UserError(_(
                     'YA CDC transfer has an invalid MO batch or destination.'
                 ))
@@ -382,8 +385,8 @@ class YaCdcStockPickingValidation(models.Model):
                 if picking.state == 'done' and shortage_notes[picking.id]:
                     picking.message_post(
                         body=Markup('<pre>%s</pre>') % escape(
-                            'YA CDC: selisih dikirim tanpa backorder.\\n'
-                            + '\\n'.join(shortage_notes[picking.id])
+                            'YA CDC: selisih dikirim tanpa backorder.\n'
+                            + '\n'.join(shortage_notes[picking.id])
                         ),
                         subtype_xmlid='mail.mt_note',
                     )
