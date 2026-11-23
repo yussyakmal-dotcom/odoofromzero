@@ -7,6 +7,7 @@ No package assembly in this phase. TEST DATABASE ONLY.
 """
 from collections import defaultdict
 
+from markupsafe import Markup, escape
 from odoo import fields, models, _
 from odoo.exceptions import UserError
 from odoo.tools import float_compare
@@ -159,15 +160,13 @@ class YaStoreDeliveryPicking(models.Model):
                             "Isi Alasan Tidak Dikirim untuk %s."
                         ) % move.product_id.display_name)
                     move._action_cancel()
-                    picking.message_post(body=_(
-                        "SKU tidak dikirim: %(product)s | Demand %(qty)s "
-                        "%(uom)s | Qty Kirim 0 | Alasan: %(reason)s"
-                    ) % {
-                        "product": move.product_id.display_name,
-                        "qty": move.product_uom_qty,
-                        "uom": move.product_uom.name,
-                        "reason": reason,
-                    })
+                    note = (
+                        "SKU tidak dikirim: %s | Demand %s %s | "
+                        "Qty Kirim 0 | Alasan: %s"
+                    ) % (move.product_id.display_name,
+                         move.product_uom_qty, move.product_uom.name, reason)
+                    picking.message_post(body=Markup("<pre>%s</pre>") %
+                                         escape(note))
 
     def _ya_check_store_receipt_qty(self):
         """Prevent reception before dispatch and prevent negative transit."""
