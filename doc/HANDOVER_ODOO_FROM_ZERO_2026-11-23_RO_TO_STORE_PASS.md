@@ -341,3 +341,15 @@ Observed:
 **Next read-only source inspection**: `script/audit_odoo19_stock_closing_implementation_readonly_ya.py` (commit 20a6172) reads Python signatures and source of closing and mapping functions using `inspect.getsource`, plus report action metadata. **Does not execute closing methods**, alter data, or post entries. After Feri runs it, inspect its output and design controlled dry-run with rollback if justified, with test DB only. Avoid inventing an Accounting menu or closing wizard without verifying real accessible UI.
 
 BOP: strictly outside scope, booked independently through standard Odoo Accounting.
+
+## OWNER SCOPE GATE CLOSED — ACCOUNTING AUDIT DEFERRED, RESUME PAKET (23 NOV 2026)
+
+Owner explicitly instructed that **Accounting transaction audit, inventory valuation GL reconciliation, and actual closing are OUT OF SCOPE for current RO→Manufacturing→Packing→Store flow**; handle them later when working on the separate standard Odoo Accounting flow. **STOP requesting more finance audit scripts/logs or posting/creating journal closing as a prerequisite for Paket.** BOP remains entirely in standard Accounting, not custom manufacturing. This is a **scope closure**, NOT a financial accounting PASS.
+
+Last source inspection supplied by Feri (`script/audit_odoo19_stock_closing_implementation_readonly_ya.py`, output `READ_ONLY_ODOO19_STOCK_CLOSING_IMPLEMENTATION_OK`):
+- Odoo19 `res.company._action_close_stock_valuation(at_date=None)` computes candidate journal lines from location valuation, stock valuation account and realtime variation.
+- `res.company.action_close_stock_valuation(at_date=None, auto_post=False)` actually **creates an `account.move` and saves closing ID**; with `auto_post=True` also posts it; NEVER call this in a read-only audit. Monthly/daily cron triggers posting for eligible companies; current company period is manual.
+- Source stock.move value of Batch3 MO raw materials `230008.75` equals finished output value `230008.75`; finished-stock and internal transfer quantities checked operationally. GL reconciliation remains intentionally DEFERRED to Accounting project.
+- Inventory valuation action 408 (`stock.move`) and report `stock_account.stock.valuation.report` present. Account journal STJ exists. No accounting customizations necessary for manufacturing flow on the basis of this inspection.
+
+**NEXT ACTIVE PRIORITY:** resume Paket assembly, remembering owner rule Paket allocation is hierarchically prior to ordinary direct store SKU allocation. Demand explosion from Paket BoM must add only manufactured-finished kitchen SKU demand; supplier consignment procurement stays in standard Purchasing/Inventory outside scope, packaging sourced as stock. Study existing RO consolidated snapshot/immutable allocations and implement package-priority buckets, production release, physical assembly before final ordinary store allocation and DO, with no-Paket regression tests. Financial closing audit is NOT a gate to proceeding further.
