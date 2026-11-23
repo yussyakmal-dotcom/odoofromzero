@@ -57,9 +57,7 @@ class YaStoreDeliveryPicking(models.Model):
                 any(p.ya_store_stage != "dispatch" or
                     not p.ya_store_batch_id for p in self)):
             raise UserError(_("Picking List Toko is available on YA dispatch in test DB only."))
-        return self.env.ref(
-            "ya_packing_store_delivery.action_report_ya_store_picking_list"
-        ).report_action(self)
+        return self.env.ref("stock.action_report_picking").report_action(self)
 
     def button_validate(self):
         outgoing = self.filtered(
