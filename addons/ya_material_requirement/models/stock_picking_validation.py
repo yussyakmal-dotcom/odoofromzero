@@ -48,15 +48,15 @@ class YaCdcStockPickingValidation(models.Model):
                 ('internal_transfer_id', '=', picking.id),
                 ('state', '=', 'confirmed'),
             ], limit=1)
-            if not source_doc or source_doc.internal_transfer_id != picking:
+            if not source_doc or source_doc.internal_transfer_id.id != picking.id:
                 raise UserError(_('Missing confirmed YA CDC source document.'))
             source = source_doc.cdc_warehouse_id.lot_stock_id
             dest = source_doc.warehouse_id.lot_stock_id
             if (picking.state in ('done', 'cancel') or
-                    picking.company_id != source_doc.company_id or
-                    picking.picking_type_id != source_doc.cdc_warehouse_id.int_type_id or
-                    picking.location_id != source or
-                    picking.location_dest_id != dest):
+                    picking.company_id.id != source_doc.company_id.id or
+                    picking.picking_type_id.id != source_doc.cdc_warehouse_id.int_type_id.id or
+                    picking.location_id.id != source.id or
+                    picking.location_dest_id.id != dest.id):
                 raise UserError(_(
                     'CDC transfer must keep original company, source CDC, '
                     'destination kitchen and Internal Operation Type. '
@@ -83,7 +83,7 @@ class YaCdcStockPickingValidation(models.Model):
                     raise UserError(_(
                         'Transfer has a product already Done: %s.'
                     ) % move.product_id.display_name)
-                if (move.location_id != source or move.location_dest_id != dest):
+                if (move.location_id.id != source.id or move.location_dest_id.id != dest.id):
                     raise UserError(_(
                         'Changed source/destination for %s is not allowed '
                         'in YA CDC transfer.'
