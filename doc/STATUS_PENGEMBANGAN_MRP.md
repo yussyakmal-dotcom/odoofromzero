@@ -1,3 +1,5 @@
+> **START HERE — STATUS TERBARU 23 NOV 2026:** [HANDOVER_ODOO_FROM_ZERO_2026-11-23_RO_TO_STORE_PASS.md](HANDOVER_ODOO_FROM_ZERO_2026-11-23_RO_TO_STORE_PASS.md). Owner telah menguji alur **RO Toko → Stok Toko** dan menyatakan **good** (user acceptance pass, belum otomatis audit akuntansi/HPP). Desain/menu/do/transit/penerimaan ada di handover baru. **NEXT: Rakit Paket di Packing**, mulai dari audit read-only SKU/BoM. Pernyataan lama di bawah seperti “RO/DO belum implementasi” bersifat historis dan tidak lagi menjadi status terkini.
+
 > **CHECKPOINT AKTIF / START HERE (23 Nov 2026):** [doc/CHECKPOINT_2026-11-23_MO_MATERIAL_CDC.md](CHECKPOINT_2026-11-23_MO_MATERIAL_CDC.md). Resume MO→Material Requirement→CDC di DB test. 20 MO Confirmed, 247 raw moves, 97 kombinasi dapur-bahan; source `ya_material_requirement` 19.0.1.1.0 belum dibuktikan terinstal; replenishment CDC via standar Purchase oleh Admin Gudang **DI LUAR** workflow. Catatan bawah adalah sejarah, bukan status terbaru.
 
 # ODOO FROM ZERO — Status Pengembangan dan Handoff Manufacturing
