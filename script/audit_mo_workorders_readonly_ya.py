@@ -48,7 +48,7 @@ else:
     totals = Counter()
     for mo in mos.sorted(lambda m: m.name):
         bom = mo.bom_id
-        operations = bom.operation_ids if bom else env["mrp.routing.workcenter"]
+        operations = bom.operation_ids if bom else []
         wos = mo.workorder_ids
         totals["mo"] += 1
         totals["mos_with_bom_operations"] += bool(operations)
