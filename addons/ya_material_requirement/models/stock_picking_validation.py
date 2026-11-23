@@ -200,8 +200,131 @@ class YaCdcStockPickingValidation(models.Model):
                         'physical': physical_qty,
                     })
 
+    def _ya_check_direct_mr_validation(self):
+        """Small Validate guard for NEW MO→native CDC transfers only.
+
+        No custom confirmation document. Physical Qty may be below Demand;
+        the gap is cancelled in _action_done (YA no-backorder). All additions
+        for Special Transfer must be reflected in native Demand and Qty.
+        """
+        for picking in self:
+            batch = picking.ya_mr_batch_id
+            kitchen = picking.ya_mr_kitchen_id
+            if not batch or not kitchen or batch.state != 'production_ok':
+                raise UserError(_(
+                    'YA CDC transfer has an invalid MO batch or destination.'
+                ))
+            company = kitchen.company_id
+            cdc = self.env['stock.warehouse'].search([
+                ('company_id', '=', company.id), ('code', '=', 'CDC'),
+            ])
+            if (len(cdc) != 1 or picking.state in ('done', 'cancel') or
+                    picking.company_id != company or
+                    picking.picking_type_id != cdc.int_type_id or
+                    picking.location_id != cdc.lot_stock_id or
+                    picking.location_dest_id != kitchen.lot_stock_id):
+                raise UserError(_(
+                    'Periksa rute CDC → Dapur, perusahaan, dan Operation Type '
+                    'pada transfer %s sebelum Validate.'
+                ) % picking.display_name)
+            if not picking.move_ids:
+                raise UserError(_('Internal Transfer CDC tidak memiliki bahan.'))
+            quantities = defaultdict(float)
+            nonzero = False
+            for move in picking.move_ids:
+                if move.state == 'cancel':
+                    continue
+                if (move.state == 'done' or
+                        move.location_id != cdc.lot_stock_id or
+                        move.location_dest_id != kitchen.lot_stock_id):
+                    raise UserError(_(
+                        'Baris bahan %s sudah Done atau lokasi berubah.'
+                    ) % move.product_id.display_name)
+                rounding = move.product_uom.rounding or 0.00001
+                demand, qty = move.product_uom_qty, move.quantity
+                if float_compare(demand, 0, precision_rounding=rounding) < 0 or (
+                        float_compare(qty, 0, precision_rounding=rounding) < 0):
+                    raise UserError(_(
+                        'Demand/Qty negatif tidak diperbolehkan untuk %s.'
+                    ) % move.product_id.display_name)
+                if (float_compare(demand, 0,
+                                  precision_rounding=rounding) > 0 and
+                        float_compare(qty, 0,
+                                      precision_rounding=rounding) == 0):
+                    raise UserError(_(
+                        'VALIDATE DIBLOKIR: Qty = 0 pada %s tetapi Demand '
+                        'masih ada. Odoo bisa mengisi Qty nol otomatis. '
+                        'Periksa barang dan koreksi/hapus baris yang '
+                        'tidak dikirim dahulu.'
+                    ) % move.product_id.display_name)
+                if float_compare(qty, demand,
+                                 precision_rounding=rounding) > 0:
+                    raise UserError(_(
+                        'Qty > Demand pada %s. Koreksi Demand serta Qty '
+                        'dan catat Special Transfer bila diperlukan.'
+                    ) % move.product_id.display_name)
+                if float_compare(qty, 0,
+                                 precision_rounding=rounding) > 0:
+                    nonzero = True
+                    quantities[move.product_id.id] += (
+                        move.product_uom._compute_quantity(
+                            qty, move.product_id.uom_id, round=False
+                        )
+                    )
+            if not nonzero:
+                raise UserError(_('Tidak ada Qty positif untuk dipindahkan.'))
+
+            # Conservative nonnegative-stock check: include this transfer's
+            # total Qty and other outstanding move-line claims, but never
+            # subtract this transfer's own reservation a second time.
+            Quants = self.env['stock.quant'].sudo()
+            MoveLines = self.env['stock.move.line'].sudo()
+            for product_id, qty in quantities.items():
+                product = self.env['product.product'].browse(product_id)
+                physical = sum(Quants.search([
+                    ('product_id', '=', product_id),
+                    ('company_id', '=', company.id),
+                    ('location_id', 'child_of', cdc.lot_stock_id.id),
+                    ('location_id.usage', '=', 'internal'),
+                ]).mapped('quantity'))
+                others = MoveLines.search([
+                    ('picking_id', '!=', picking.id),
+                    ('state', 'not in', ('done', 'cancel')),
+                    ('product_id', '=', product_id),
+                    ('company_id', '=', company.id),
+                    ('location_id', 'child_of', cdc.lot_stock_id.id),
+                    ('quantity', '>', 0),
+                ])
+                other_claims = sum(
+                    line.quantity_product_uom for line in others
+                )
+                if float_compare(
+                        qty + other_claims, physical,
+                        precision_rounding=product.uom_id.rounding) > 0:
+                    raise UserError(_(
+                        'Stok CDC kurang untuk %(product)s. '
+                        'Qty %(qty).3f + komitmen lain %(other).3f '
+                        '> stok CDC %(physical).3f. Koreksi sebelum Validate.'
+                    ) % {
+                        'product': product.display_name,
+                        'qty': qty,
+                        'other': other_claims,
+                        'physical': physical,
+                    })
+
     def button_validate(self):
-        """Use Odoo native validation; prevent unwanted zero auto-fill/backorder."""
+        """Use native Odoo validation for every transfer, with YA-only guards."""
+        direct = self.filtered(lambda p: p.ya_mr_batch_id)
+        if direct:
+            if self.env.cr.dbname != TEST_DB or len(self) != 1:
+                raise UserError(_(
+                    'Validate direct YA CDC transfers individually on MRP test DB only.'
+                ))
+            self._ya_check_direct_mr_validation()
+            return super(
+                YaCdcStockPickingValidation,
+                self.with_context(skip_backorder=True),
+            ).button_validate()
         linked = self._ya_cdc_linked_transfers()
         if not linked:
             return super().button_validate()
@@ -226,7 +349,45 @@ class YaCdcStockPickingValidation(models.Model):
         ).button_validate()
 
     def _action_done(self):
-        """Cancel YA CDC shortages without a backorder; no global policy change."""
+        """No backorder on YA CDC only; ordinary pickings are untouched."""
+        direct = self.filtered(lambda p: p.ya_mr_batch_id)
+        if direct:
+            if self.env.cr.dbname != TEST_DB or len(direct) != len(self):
+                raise UserError(_(
+                    'YA CDC direct transfer must complete separately on test DB.'
+                ))
+            self._ya_check_direct_mr_validation()
+            shortage_notes = {}
+            for picking in self:
+                shortages = []
+                for move in picking.move_ids:
+                    if move.state in ('done', 'cancel'):
+                        continue
+                    if float_compare(
+                            move.quantity, move.product_uom_qty,
+                            precision_rounding=move.product_uom.rounding) < 0:
+                        shortages.append(
+                            '%s: Demand %.3f %s, Qty aktual %.3f %s' % (
+                                move.product_id.display_name,
+                                move.product_uom_qty, move.product_uom.name,
+                                move.quantity, move.product_uom.name,
+                            )
+                        )
+                shortage_notes[picking.id] = shortages
+            result = super(
+                YaCdcStockPickingValidation,
+                self.with_context(cancel_backorder=True),
+            )._action_done()
+            for picking in self:
+                if picking.state == 'done' and shortage_notes[picking.id]:
+                    picking.message_post(
+                        body=Markup('<pre>%s</pre>') % escape(
+                            'YA CDC: selisih dikirim tanpa backorder.\\n'
+                            + '\\n'.join(shortage_notes[picking.id])
+                        ),
+                        subtype_xmlid='mail.mt_note',
+                    )
+            return result
         linked = self._ya_cdc_linked_transfers()
         if not linked:
             return super()._action_done()
