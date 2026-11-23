@@ -278,3 +278,13 @@ Owner stated **possible** policy (not yet final approval): overhead production (
 - Decide explicitly which production labor, packaging, gas and electricity are direct components vs indirect BOP, accounting for the fact that packaging physically incorporated in products can already be included as a BoM component.
 - Avoid custom BOP-per-SKU or automatic BOP global journals until owner/accounting determines methodology and GL reconciliation.
 - Accounting valuation/GL closing audit remains OPEN; do not mark full HPP PASS based solely on raw=finished MO value.
+
+## OWNER DECISION — BOP THROUGH SEPARATE ACCOUNTING TRANSACTIONS (2026-11-23)
+
+Owner clarified the previously tentative BOP proposal: **electricity, gas and labor costs are to be recorded via their own Accounting transactions / manual journal at payment or the appropriate accounting recognition date**, not through automated manufacturing background postings, extra MO cost, or electricity/gas/labor lines in individual SKU BoMs. Accounting handles these transactions separately from the RO→MO→Packing→Store logistics workflow.
+
+**Implementation boundary:** do not build automatic BOP allocations per SKU, do not silently add BOP to MO `extra_cost`, and do not change existing physical-component BoMs to carry nonphysical utility expenses. Operational SKU cost remains material-based unless separately configured by owner.
+
+**Finance caution:** Payment date and expense recognition are not always identical (accruals, payroll payable, prepaid utilities); the Accounting team selects suitable entries. Under applicable financial reporting standards, eligible manufacturing conversion overhead may need systematic allocation into inventory/COGS at period end, even if not tracked in SKU BoMs. Such period-end adjustments belong in Accounting closing policy, not this automated production flow. This is a reporting caveat, NOT an instruction to implement automatic per-MO overhead.
+
+**Existing accounting gate remains open:** Validate real stock.move costing and stock-to-GL reconciliation for materials and finished goods, separately from owner-managed manual BOP journals. The existing test of Batch3 materials matching finished goods does not establish fully absorbed financial HPP.
