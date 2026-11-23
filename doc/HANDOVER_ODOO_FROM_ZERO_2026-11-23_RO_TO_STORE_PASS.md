@@ -316,3 +316,11 @@ Posted ledger totals across all available dates (NOT same-cutoff or opening-adju
 Official Odoo19 references:
 - https://www.odoo.com/documentation/19.0/applications/finance/accounting/get_started/inventory_valuation.html
 - https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/cheat_sheet.html
+
+## CURRENT NEXT STEP — PERIODIC INVENTORY VALUATION CLOSING CAPABILITY (23 NOV 2026)
+
+Owner requested continue following GL balance audit: company `inventory_valuation=periodic`, `inventory_period=manual`, Odoo19 stock.move value correctly captured; GL inventory accounts largely zero and have not been reconciled. **No source evidence of posted stock closing yet.**
+
+New read-only source audit committed `script/audit_odoo19_inventory_valuation_closing_access_readonly_ya.py`: examine Odoo 19 Community installed valuation/closing modules, actual `ir.ui.menu` and `ir.actions.act_window` report routes, relevant model registry and available methods, and valuation journals. Does not execute actions or post/modify anything. The goal is to determine **whether an actual built-in accounting closing/report path exists**, rather than assuming an Enterprise screen is in Community. Run it on `erp-yussyakmal-mrp-test` then interpret output; only afterward design equal-cutoff valuation-versus-GL comparison. A script suffix `_OK` means diagnostic execution success, NOT financial PASS.
+
+Owner BOP decision reaffirmed: overhead paid/booked through standard Accounting transactions, not background MO or custom package costing. Do not distract from inventory/finished-goods costing and its financial reporting.
