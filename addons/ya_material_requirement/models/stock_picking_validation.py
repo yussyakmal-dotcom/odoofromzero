@@ -44,16 +44,34 @@ class YaCdcStockPickingValidation(models.Model):
         than sent as a backorder, preserving the original YA pick document.
         """
         for picking in self:
-            if picking.state in ('done', 'cancel'):
+            source_doc = self.env['ya.cdc.pick.confirmation'].sudo().search([
+                ('internal_transfer_id', '=', picking.id),
+                ('state', '=', 'confirmed'),
+            ], limit=1)
+            if not source_doc or source_doc.internal_transfer_id != picking:
+                raise UserError(_('Missing confirmed YA CDC source document.'))
+            source = source_doc.cdc_warehouse_id.lot_stock_id
+            dest = source_doc.warehouse_id.lot_stock_id
+            if (picking.state in ('done', 'cancel') or
+                    picking.company_id != source_doc.company_id or
+                    picking.picking_type_id != source_doc.cdc_warehouse_id.int_type_id or
+                    picking.location_id != source or
+                    picking.location_dest_id != dest):
                 raise UserError(_(
-                    'Cannot validate finished/cancelled CDC transfer %s.'
+                    'CDC transfer must keep original company, source CDC, '
+                    'destination kitchen and Internal Operation Type. '
+                    'Check transfer %s.'
                 ) % picking.display_name)
-            if picking.picking_type_id.code != 'internal':
-                raise UserError(_(
-                    'YA CDC stock picking must use an Internal Transfer.'
-                ))
             if not picking.move_ids:
                 raise UserError(_('CDC Internal Transfer has no product lines.'))
+            approved = {
+                line.product_id.id: line.picked_qty
+                for line in source_doc.line_ids
+                if line.picked_qty > 0
+            }
+            demand_total = defaultdict(float)
+            qty_total = defaultdict(float)
+            product_names = {}
             missing = []
             excess = []
             invalid = []
@@ -61,6 +79,23 @@ class YaCdcStockPickingValidation(models.Model):
             for move in picking.move_ids:
                 if move.state == 'cancel':
                     continue
+                if move.state == 'done':
+                    raise UserError(_(
+                        'Transfer has a product already Done: %s.'
+                    ) % move.product_id.display_name)
+                if (move.location_id != source or move.location_dest_id != dest):
+                    raise UserError(_(
+                        'Changed source/destination for %s is not allowed '
+                        'in YA CDC transfer.'
+                    ) % move.product_id.display_name)
+                product = move.product_id
+                product_names[product.id] = product.display_name
+                demand_total[product.id] += move.product_uom._compute_quantity(
+                    move.product_uom_qty, product.uom_id, round=False,
+                )
+                qty_total[product.id] += move.product_uom._compute_quantity(
+                    move.quantity, product.uom_id, round=False,
+                )
                 rounding = move.product_uom.rounding or 0.00001
                 demand = move.product_uom_qty
                 qty = move.quantity
@@ -75,6 +110,23 @@ class YaCdcStockPickingValidation(models.Model):
                     excess.append(move.product_id.display_name)
                 else:
                     has_positive = True
+            approval_errors = []
+            for pid in set(demand_total) | set(qty_total):
+                product = self.env['product.product'].browse(pid)
+                approved_qty = approved.get(pid, 0.0)
+                rounding = product.uom_id.rounding or 0.00001
+                if (float_compare(demand_total[pid], approved_qty,
+                                  precision_rounding=rounding) > 0 or
+                        float_compare(qty_total[pid], approved_qty,
+                                      precision_rounding=rounding) > 0):
+                    approval_errors.append(product_names[pid])
+            if approval_errors:
+                raise UserError(_(
+                    'Qty/Demand exceeds confirmed CDC physical picking or '
+                    'uses an unapproved SKU: %s. '
+                    'Correct native transfer; never add unauthorized '
+                    'Special Transfer quantity during Validate.'
+                ) % ', '.join(approval_errors[:15]))
             if invalid:
                 raise UserError(_(
                     'CDC transfer has negative Demand/Qty for: %s. '
