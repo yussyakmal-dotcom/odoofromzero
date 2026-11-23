@@ -26,6 +26,37 @@ def _guard_role(env):
         raise UserError(_('MRP Manager / YA Packing Admin access required.'))
 
 
+def _outstanding_unreserved_qty(doc):
+    """Qty claimed by a confirmed sheet but not yet reserved by native transfer.
+
+    Stock.quant free already subtracts reservations from stock.move.line.
+    Never count those quantities a second time when confirming another
+    sheet or creating the next kitchen transfer.
+    Completed transfers are reflected in on-hand stock instead.
+    """
+    outstanding = defaultdict(float)
+    transfer = doc.internal_transfer_id
+    if transfer and transfer.state in ('done', 'cancel'):
+        return outstanding
+    for line in doc.line_ids:
+        if line.picked_qty > 0:
+            outstanding[line.product_id.id] += line.picked_qty
+    if transfer:
+        for move in transfer.move_ids:
+            if move.state in ('done', 'cancel'):
+                continue
+            if move.product_id.id not in outstanding:
+                continue
+            product = move.product_id
+            represented = move.product_uom._compute_quantity(
+                move.quantity, product.uom_id, round=False,
+            )
+            outstanding[product.id] = max(
+                0.0, outstanding[product.id] - represented,
+            )
+    return outstanding
+
+
 class YaCdcPickConfirmation(models.Model):
     _name = 'ya.cdc.pick.confirmation'
     _description = 'YA CDC Picking Confirmation Per Kitchen'
@@ -215,9 +246,14 @@ class YaCdcPickConfirmation(models.Model):
             ('state', '=', 'confirmed'),
         ])
         needs = defaultdict(float)
-        for doc in docs | self:
-            for line in doc.line_ids:
+        for line in self.line_ids:
+            if line.picked_qty > 0:
                 needs[line.product_id.id] += line.picked_qty
+        for doc in docs:
+            if doc == self:
+                continue
+            for pid, qty in _outstanding_unreserved_qty(doc).items():
+                needs[pid] += qty
         Quants = self.env['stock.quant']
         for pid, qty in needs.items():
             product = self.env['product.product'].browse(pid)
@@ -357,15 +393,12 @@ class YaCdcPickConfirmation(models.Model):
         if not needed:
             raise UserError(_('No positive picked quantities to transfer.'))
         for doc in pending:
-            # Count outgoing claims not yet transferred as well as native
-            # transfer drafts/waiting/assigned, conservatively. Completed
-            # transfers are already deducted from actual stock quantities.
-            if doc.internal_transfer_id and doc.internal_transfer_id.state in (
-                    'done', 'cancel'):
-                continue
-            for line in doc.line_ids:
-                if line.picked_qty > 0 and line.product_id.id in needed:
-                    needed[line.product_id.id] += line.picked_qty
+            # Existing reserved move lines already reduce stock.quant free.
+            # Only an unreserved shortfall of another confirmed sheet is
+            # still a claim against CDC free stock.
+            for pid, qty in _outstanding_unreserved_qty(doc).items():
+                if pid in needed:
+                    needed[pid] += qty
         Quant = self.env['stock.quant'].with_company(self.company_id)
         for product_id, qty in needed.items():
             product = self.env['product.product'].browse(product_id)
@@ -476,7 +509,14 @@ class YaCdcPickConfirmation(models.Model):
         prefilled = 0
         manual = []
         Quant = self.env['stock.quant'].with_company(self.company_id)
-        for move, values in zip(moves, move_values):
+        move_by_product = {move.product_id.id: move for move in moves}
+        if len(move_by_product) != len(move_values):
+            raise UserError(_(
+                'Duplicate or mismatched native stock move lines. '
+                'No transfer was saved.'
+            ))
+        for values in move_values:
+            move = move_by_product[values['product_id']]
             qty = values['product_uom_qty']
             product = move.product_id
             if product.tracking != 'none':
@@ -512,7 +552,7 @@ class YaCdcPickConfirmation(models.Model):
             prefilled += 1
         if manual and 'note' in Picking._fields:
             previous_note = picking.note or ''
-            picking.note = previous_note + '\\n' + (
+            picking.note = previous_note + '\n' + (
                 'Qty perlu diisi manual (lot/FEFO/bin/stok): %s'
                 % ', '.join(manual)
             )
