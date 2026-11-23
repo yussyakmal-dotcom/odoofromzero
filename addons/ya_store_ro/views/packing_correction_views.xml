@@ -21,13 +21,13 @@
     </field>
   </record>
   <record id="action_ya_packing_qty_correction" model="ir.actions.act_window">
-    <field name="name">Packing - Koreksi RO Confirmed</field>
+    <field name="name">RO Confirmed Koreksi</field>
     <field name="res_model">ya.packing.qty.correction</field>
     <field name="view_mode">form</field>
     <field name="target">new</field>
   </record>
   <menuitem id="menu_ya_packing_qty_correction"
-            name="Packing - Koreksi RO Confirmed"
+            name="RO Confirmed Koreksi"
             parent="ya_production_planning.menu_ya_capacity_root"
             action="action_ya_packing_qty_correction"
             sequence="32"
