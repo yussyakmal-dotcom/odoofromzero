@@ -16,6 +16,10 @@
     <field name="parent_id" ref="menu_ya_before_production"/>
     <field name="sequence" eval="10"/>
   </record>
+  <record id="ya_store_ro.menu_ya_store_ro_template" model="ir.ui.menu">
+    <field name="parent_id" ref="menu_ya_before_production"/>
+    <field name="sequence" eval="15"/>
+  </record>
   <record id="ya_store_ro.menu_ya_store_ro" model="ir.ui.menu">
     <field name="parent_id" ref="menu_ya_before_production"/>
     <field name="sequence" eval="20"/>
