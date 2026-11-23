@@ -1,3 +1,5 @@
+**Current source version 19.0.6.0.0 — SIMPLE NATIVE ODOO FLOW.**
+
 # YA Material Requirement — Read-Only MO → Kitchen → CDC
 
 **Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.5.2.0. Use only the test DB `erp-yussyakmal-mrp-test`.
@@ -173,3 +175,30 @@ For a linked YA CDC picking in `erp-yussyakmal-mrp-test` only:
 - Explicitly no automatically executed validation: the user must click native Odoo **Validate** after reviewing. No new menus and no changed global warehouse backorder settings.
 
 **Source is GitHub-only until tested**. Release `19.0.5.2.0` requires `git pull`, static preflight and test rules, GUI backup, copy to active custom addons, `-u ya_material_requirement` **test DB only**, safe restart. Unlike the Demand=Qty prefill release, this Validate override applies to **already created** YA-linked Internal Transfer records once loaded. Test a transfer in test DB with Qty=Dmd, Qty< Dmd and Qty=0, inspect no backorder and stock deltas. Coordinate a controlled test before pressing Validate, as Validate on a real transfer commits inventory moves and is not a preview. Native picking.state may be Ready before Validate.
+
+## 19.0.6.0.0 — Simplify MO → Standard Odoo Internal Transfer (2026-Nov-23)
+
+**Decision approved by Feri:** previous workflow **MO → custom CDC Picking List PDF → separate confirmation per kitchen → Internal Transfer** was too complex. From now on the preferred NEW workflow is:
+
+`MO confirmed` → existing `Packing batch Produksi OK` (delivery date + slot) → `Hitung / Refresh Kebutuhan` (optional preview) → **`Buat Internal Transfers Odoo`** → ONE native `stock.picking` per kitchen → **Print → Picking Operations** for physical picking and **Print → Delivery Slip** for DO → staff checks/edits Qty → native **Validate** moves stock CDC → kitchen. **NO NEW CUSTOM CONFIRMATION DOCUMENT, NO NEW CUSTOM PICKING PDF**. Both reports are already defined on `stock.picking` by the official Odoo 19 stock reporting module; check the actual layout with user and adjust only if operationally required.
+
+### Implementation
+
+- New `models/material_requirement_direct_transfer.py` inherits existing `ya.packing.batch` and native `stock.picking`. Native pickings have traceability `ya_mr_batch_id`, `ya_mr_kitchen_id` and unique batch+destination constraint. It reuses the **existing confirmed MO net kitchen shortage engine**, not reimplementing it. Recalculation is performed before generation even if user did not click Refresh; ambiguous MO reservations, CDC shortages, inconsistent company/UoM, wrong warehouse config block creation.
+- Existing Material Requirement menu stays **existing batch LIST → selected batch FORM → buttons**. Form has `Hitung / Refresh Kebutuhan`, **`Buat Internal Transfers Odoo`**, and **`Buka Internal Transfers`**; old custom print and confirmation buttons are hidden from the normal route (their code/data retained for historic documents). `Buka Internal Transfers` opens native **LIST → selected Odoo stock.picking FORM**. From Odoo native FORM use the standard Print action: Picking Operations, Delivery Slip.
+- One native picking per `batch_id + kitchen_id`; deterministic origin `YA-MR-<batch_id>-CDC-<warehouse_code>`. PostgreSQL row lock and unique SQL constraint, plus existing-picking check, prevent duplicate generation on clicks.
+- Native `stock.move.product_uom_qty` Demand=MO/net shortage. Initial native `stock.move.quantity` Qty=Demand only for untracked products with enough free stock at exact CDC/Stock bin; Odoo 19 may RESERVE stock and show Ready before Validate. Other products show Demand only; warehouse operator must check location and edit Qty. No Lot or FEFO setting is activated by this module. Destination is the same warehouse kitchen's Stock location. MO demand and raw consumption are never modified by generating transfers.
+- Existing **historical `ya.cdc.pick.confirmation` records are NOT deleted**. If an old confirmation already has a linked Odoo transfer, Generate simply opens existing standard Odoo transfer(s). If old confirmations have no transfer, Generate blocks until they are reconciled (avoid physical dispatch twice). Existing generated new native transfers are opened, not duplicated. Data migration is not silently performed or repeated; do not create duplicates.
+- Native Validate guard on **new transfers only** is a small branch in the existing `stock_picking_validation.py`: block Demand-positive Qty zero, negative Qty, Qty over Demand, cross-warehouse location/operation mistakes and knowingly insufficient CDC physical quants; allow Qty below Demand, with **no backorder** only for linked YA transfers. Native Odoo Validate is always initiated by the user and performs the real stock mutation. Differences are logged in native chatter. Original legacy transfer-specific safeguards remain for historical links; unrelated stock.picking validations are untouched.
+- For Special Transfer extra going to SAME kitchen, warehouse staff increases **Demand and Qty** on native picking (or adds a native line) and documents reason in picking note; extra is not added to MO demand, and system checks free physical stock at Validate. Do not put the Special quantity into production MO raw material consumption.
+- This design is deliberately limited to one physical handoff CDC → kitchen stock per picking. A configured Transit route, separate kitchen receipt, or separate dispatch signature may require additional standard stock operations; inspect actual warehouse configuration before production use.
+
+### Safe rollout / acceptance
+
+**GitHub source only; NOT TESTED on Feri's Odoo server**. Use exact test DB `erp-yussyakmal-mrp-test`, NOT production `erp-yussyakmal`.
+
+1. Backup test DB. `cd ~/odoofromzero && git pull`; run `python3 script/check_material_requirement_source_readonly_ya.py` and `python3 script/test_material_requirement_rules_ya.py`.
+2. Deploy `addons/ya_material_requirement` to `/opt/odoo19/custom-addons`; upgrade `-u ya_material_requirement` on exact test database with `--stop-after-init --no-http`; restart safely and refresh browser.
+3. For a **fresh Produksi OK batch without any legacy CDC confirmation/transfer**, click new **Buat Internal Transfers Odoo** and inspect generated native Inventory transfers (one per kitchen, correct source/destination/SKU/units and Demand). Verify native **Print → Picking Operations**, **Print → Delivery Slip**. No custom printed confirmation step.
+4. Validate with a controlled known SKU/test transfer only after Qty and stock inspection, confirm CDC down / kitchen up. Test partial Qty no backorder and zero Qty blocked; ensure ordinary unrelated standard Internal Transfers remain unchanged. This is a real stock mutation inside TEST DB.
+5. For existing batch `Packing 2026-Nov-27 S1` with old records, use **Buka Internal Transfers** for existing native pickings. Do not regenerate them. Check backup and stock before test.
