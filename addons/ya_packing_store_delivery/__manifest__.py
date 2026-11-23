@@ -1,6 +1,6 @@
 {
     'name': 'YA Packing to Store Delivery',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Inventory',
     'summary': 'Generate store delivery documents from RO allocations; receipt after dispatch',
     'depends': [
