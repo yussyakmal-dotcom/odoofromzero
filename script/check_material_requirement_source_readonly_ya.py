@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1] / 'addons' / 'ya_material_requirement
 required = {
     '__init__.py': ['from . import models'],
     '__manifest__.py': [
-        "'version': '19.0.5.1.1'",
+        "'version': '19.0.5.2.0'",
         "'ya_store_ro'",
         "'views/material_requirement_views.xml'",
         "'views/material_requirement_batch_views.xml'",
@@ -17,7 +17,8 @@ required = {
     ],
     'models/__init__.py': ['from . import material_requirement',
                            'from . import material_requirement_batch',
-                           'from . import cdc_pick_confirmation'],
+                           'from . import cdc_pick_confirmation',
+                           'from . import stock_picking_validation'],
     'models/material_requirement_batch.py': [
         "_inherit = 'ya.packing.batch'",
         "TEST_DB = 'erp-yussyakmal-mrp-test'",
@@ -61,6 +62,24 @@ required = {
         "('state', '=', 'confirmed')",
         "('location_id', 'child_of', self.cdc_warehouse_id.lot_stock_id.id)",
         "'SELECT id FROM stock_warehouse WHERE id = %s FOR UPDATE'",
+    ],
+    'models/stock_picking_validation.py': [
+        "_inherit = 'stock.picking'",
+        "def _ya_cdc_linked_transfers(self):",
+        "def _ya_check_cdc_validation(self):",
+        "def button_validate(self):",
+        "def _action_done(self):",
+        "self.with_context(skip_backorder=True)",
+        "self.with_context(cancel_backorder=True)",
+        "if len(self) != 1:",
+        "float_compare(qty, 0, precision_rounding=rounding) == 0",
+        "Qty = 0/kosong sementara Demand > 0",
+        "Qty aktual melebihi Demand",
+        "('internal_transfer_id', '=', picking.id)",
+        "requested + other_claims",
+        "STOK CDC TIDAK CUKUP",
+        "YA CDC No Backorder - Selisih Qty Transfer",
+        "raise UserError",
     ],
     'models/material_rules.py': [
         'def shortage_bounds(',
@@ -291,6 +310,37 @@ for required in (
 ):
     if required not in confirm_source:
         errors.append('MISSING QTY PREFILL STATE SAFETY: '+required)
+# The only native Validate interception is scoped to YA CDC linked transfers,
+# and other native stock pickings must retain their standard Odoo behavior.
+validation_source = (root / 'models/stock_picking_validation.py').read_text(
+    encoding='utf-8')
+validation_ast = ast.parse(validation_source)
+for needle in (
+        "_inherit = 'stock.picking'",
+        "if not linked:",
+        "return super().button_validate()",
+        "return super()._action_done()",
+        "if self.env.cr.dbname != TEST_DB:",
+        "self.with_context(skip_backorder=True)",
+        "self.with_context(cancel_backorder=True)",
+        "source_doc.internal_transfer_id.id != picking.id",
+        "Qty = 0/kosong sementara Demand > 0",
+        "requested + other_claims",
+        "'internal_transfer_id', '=', picking.id",
+):
+    if needle not in validation_source:
+        errors.append('YA CDC VALIDATION SAFETY GUARD MISSING: '+needle)
+for name in ('stock.quant', 'stock.move.line'):
+    if name not in validation_source:
+        errors.append('YA CDC NEGATIVE STOCK PREFLIGHT MISSING: '+name)
+for node in ast.walk(validation_ast):
+    if not isinstance(node, ast.Call):
+        continue
+    if isinstance(node.func, ast.Attribute) and node.func.attr in (
+            'commit', 'sudo_stock', '_update_available_quantity',
+            'action_confirm', 'action_assign'):
+        errors.append('UNSAFE VALIDATION ACTION: %s line %s' %
+                      (node.func.attr, node.lineno))
 if "picking.action_confirm(" in confirm_source or "picking.button_validate(" in confirm_source:
     errors.append('FORBIDDEN AUTOMATIC STOCK TRANSFER CONFIRM/VALIDATE')
 # Confirmation is a document, not an inventory write. Reject any stock
