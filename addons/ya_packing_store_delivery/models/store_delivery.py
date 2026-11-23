@@ -8,7 +8,7 @@ No package assembly in this phase. TEST DATABASE ONLY.
 from collections import defaultdict
 
 from markupsafe import Markup, escape
-from odoo import fields, models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.tools import float_compare
 
@@ -23,6 +23,42 @@ class YaStoreDeliveryMove(models.Model):
         help="Wajib jika Qty Kirim = 0. Diisi operator pembuat DO. "
              "Demand RO tetap dicatat meski baris transfer dibatalkan.",
     )
+
+
+    @api.onchange("ya_do_not_shipped_reason")
+    def _onchange_ya_do_not_shipped_reason(self):
+        """Show saved reason immediately beneath the product in stock DO lines."""
+        for move in self:
+            if move.picking_id.ya_store_stage != "dispatch":
+                continue
+            current = (move.description_picking or "").strip()
+            reason = (move.ya_do_not_shipped_reason or "").strip()
+            if reason:
+                move.description_picking = "Catatan: %s" % reason
+            elif current.startswith("Catatan: "):
+                move.description_picking = False
+
+    def write(self, vals):
+        """Keep operator notes typed directly in the native below-product line.
+
+        Standard Odoo shows description_picking beneath the SKU. When the
+        operator writes 'Catatan: ...' there, persist the same note as the
+        formal missing-shipment reason used by DO validation.
+        """
+        if "description_picking" in vals and "ya_do_not_shipped_reason" not in vals:
+            raw = (vals.get("description_picking") or "").strip()
+            if raw.lower().startswith("catatan:"):
+                reason = raw.split(":", 1)[1].strip()
+                if all(move.picking_id.ya_store_stage == "dispatch"
+                       for move in self):
+                    vals = dict(vals, ya_do_not_shipped_reason=reason)
+        if "ya_do_not_shipped_reason" in vals and "description_picking" not in vals:
+            if all(move.picking_id.ya_store_stage == "dispatch"
+                   for move in self):
+                reason = (vals.get("ya_do_not_shipped_reason") or "").strip()
+                vals = dict(vals, description_picking=(
+                    "Catatan: %s" % reason if reason else False))
+        return super().write(vals)
 
 
 class YaStoreDeliveryPicking(models.Model):
