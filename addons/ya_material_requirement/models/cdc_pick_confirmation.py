@@ -541,14 +541,33 @@ class YaCdcPickConfirmation(models.Model):
             # may reserve stock immediately, even while picking is Draft.
             # No action_confirm/assign/validate is called.
             move.write({'quantity': qty})
-            if (float_compare(
+            # Odoo 19 recomputes move.state from quantity. In particular,
+            # quantity == demand may transition stock.move DRAFT -> ASSIGNED
+            # and the parent stock.picking to READY. This is normal native
+            # reservation behavior and does NOT mean inventory was moved.
+            # Only require quantities to match and forbid actual Done/Cancel.
+            move.invalidate_recordset(['quantity', 'state'])
+            if float_compare(
                     move.quantity, qty,
-                    precision_rounding=product.uom_id.rounding) != 0 or
-                    move.state != 'draft'):
+                    precision_rounding=product.uom_id.rounding) != 0:
                 raise UserError(_(
-                    'Odoo did not preserve Draft Demand=Qty for %s. '
-                    'Transaction rolled back; check stock configuration.'
-                ) % product.display_name)
+                    'Odoo Quantity mismatch for %(product)s: Demand %(demand).3f, '
+                    'Qty %(actual).3f, state %(state)s. '
+                    'No Internal Transfer was saved.'
+                ) % {
+                    'product': product.display_name,
+                    'demand': qty,
+                    'actual': move.quantity,
+                    'state': move.state,
+                })
+            if move.state in ('done', 'cancel'):
+                raise UserError(_(
+                    'Unexpected finalized/cancelled stock move for %(product)s: '
+                    '%(state)s. Nothing was saved.'
+                ) % {
+                    'product': product.display_name,
+                    'state': move.state,
+                })
             prefilled += 1
         if manual and 'note' in Picking._fields:
             previous_note = picking.note or ''
@@ -556,6 +575,14 @@ class YaCdcPickConfirmation(models.Model):
                 'Qty perlu diisi manual (lot/FEFO/bin/stok): %s'
                 % ', '.join(manual)
             )
+        # Native Odoo may display READY/ASSIGNED once all quantities are
+        # reserved, even though no transfer has been validated or completed.
+        picking.invalidate_recordset(['state'])
+        if picking.state in ('done', 'cancel'):
+            raise UserError(_(
+                'Internal Transfer unexpectedly became %(state)s. '
+                'No transfer was saved.'
+            ) % {'state': picking.state})
         self.with_context(ya_link_cdc_internal_transfer=True).write({
             'internal_transfer_id': picking.id,
         })
