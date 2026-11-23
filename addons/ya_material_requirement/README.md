@@ -1,6 +1,6 @@
 # YA Material Requirement — Read-Only MO → Kitchen → CDC
 
-**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.5.0.0. Use only the test DB `erp-yussyakmal-mrp-test`.
+**Status:** source-only implementation, NOT installed or tested in an Odoo registry yet. Current source version 19.0.5.0.1. Use only the test DB `erp-yussyakmal-mrp-test`.
 
 ## Purpose and workflow
 
@@ -123,3 +123,11 @@ After GUI backup test DB, `git pull`, run `python3 script/check_material_require
 **Safe rollout:** backup GUI `erp-yussyakmal-mrp-test`; `git pull`, run `python3 script/check_material_requirement_source_readonly_ya.py` and `python3 script/test_material_requirement_rules_ya.py`; copy addon to active custom-addons, `-u ya_material_requirement` on exact MRP test DB; restart only when safe. **Source is committed; not deployed/GUI-tested on server**. The user will execute upgrade and test one confirmed kitchen record. Verify native picking `state=draft`, `picking_type_id.code=internal`, source/destination, quantity, and single link. Reclick button/open link and verify no duplicate; **do not validate/assign the transfer yet**.
 
 **Important remaining phase:** live FEFO/lot picking, route-specific Transit legs if configured, warehouse Dispatch and Kitchen Receive, inventory/accounting valuation must be separately configured and tested; no claim of end-to-end successful stock transfer at this stage.
+
+## 19.0.5.0.1 — Odoo 19 stock.move field compatibility hotfix (2026-Nov-23)
+
+Feri clicked `Buat Internal Transfer (Draft)` and sent server traceback (on exact `ya.cdc.pick.confirmation`): `ValueError: Invalid field 'name' in 'stock.move'` at `Move.create([...])`. This is an actual Odoo 19 runtime failure, not a harmless docutils warning. **Cause:** the prior transfer creator supplied legacy `'name': line.product_id.display_name` in native `stock.move` values; this field is absent in Feri's Odoo 19 `stock.move` registry.
+
+**Fix:** remove `name` from stock.move payload. `product_id` still identifies the material; detailed MO-vs-Special breakdown remains in optional picking `note`. Add a runtime guard `Move._fields` for all move payload keys including `picking_id` before creating `stock.picking`, surfacing a readable `UserError` if a future Odoo schema differs. Static AST source guard explicitly forbids `name` in the `move_values.append` payload. **No automatic confirmation, reservation, stock deduction, validation or MO mutation.** Existing confirmed CDC picking should remain intact, since the RPC exception rolled back the failed request (the provisional stock.picking and stock.move are not committed by normal Odoo HTTP transactions). Nevertheless, inspect `internal_transfer_id` and search native Internal Transfers for that origin before retrying to rule out any prior separate successful actions.
+
+**Rollout:** `git pull`, run `python3 script/check_material_requirement_source_readonly_ya.py`, backup MRP test DB, copy addon into active custom-addons, `-u ya_material_requirement` on exact `erp-yussyakmal-mrp-test`, restart Odoo service when safe, and retry **same confirmed CDC picking**. If Odoo generates draft successfully, verify native stock.picking state=Draft, route CDC→same kitchen, physical Qty including Special once; do NOT validate at this stage. This is a source patch and NOT a confirmed successful GUI test until Feri supplies evidence.
