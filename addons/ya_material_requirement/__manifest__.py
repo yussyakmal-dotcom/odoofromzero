@@ -1,8 +1,8 @@
 {
-    'name': 'YA Material Requirement - CDC Picking & Internal Transfer Draft',
-    'version': '19.0.5.2.0',
+    'name': 'YA MO to CDC Native Internal Transfers',
+    'version': '19.0.6.0.0',
     'category': 'Manufacturing',
-    'summary': 'MO material requirement, CDC physical picking and native Odoo internal transfer draft',
+    'summary': 'Confirmed MO net material demand into standard Odoo Internal Transfers; native printing and validation',
     'depends': ['ya_store_ro', 'mrp', 'stock'],
     'data': [
         'security/ir.model.access.csv',
