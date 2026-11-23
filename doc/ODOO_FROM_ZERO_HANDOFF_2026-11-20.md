@@ -1,3 +1,5 @@
+> **START HERE — STATUS TERBARU 23 NOV 2026:** [HANDOVER_ODOO_FROM_ZERO_2026-11-23_RO_TO_STORE_PASS.md](HANDOVER_ODOO_FROM_ZERO_2026-11-23_RO_TO_STORE_PASS.md). Owner telah menguji alur **RO Toko → Stok Toko** dan menyatakan **good** (user acceptance pass, belum otomatis audit akuntansi/HPP). Desain/menu/do/transit/penerimaan ada di handover baru. **NEXT: Rakit Paket di Packing**, mulai dari audit read-only SKU/BoM. Pernyataan lama di bawah seperti “RO/DO belum implementasi” bersifat historis dan tidak lagi menjadi status terkini.
+
 # ODOO FROM ZERO — Handoff Proyek
 **Tanggal:** 20 November 2026 WIB  
 **Pemilik pekerjaan teknis/server:** Feri  
