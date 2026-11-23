@@ -34,3 +34,28 @@ Status: alur RO Toko sampai stok toko dinyatakan **lulus uji operasional oleh ow
 **Produk Paket adalah SKU produk jadi yang diproduksi berdasarkan BoM, tetapi komponen BoM-nya adalah produk JADI dari satu atau lebih dapur.** Perakitan berlangsung di Packing setelah hasil produksi dapur dipindahkan ke `PCK/Stock`. Saat rakit paket, stok SKU komponen produk jadi dikonsumsi dan stok SKU Paket hasil rakitan bertambah di Packing. Tidak boleh ada stok ganda atau memindahkan komponen sebagai barang dikirim bila sudah dikonsumsi menjadi paket.
 
 **Belum ditetapkan:** jadwal/trigger perakitan, Qty batch, operasi MO per SKU paket, alokasi paket ke toko, pengecualian dan catatan shortage. Semua harus mengikuti audit BoM dan keputusan owner, jangan berasumsi implementasi sudah berjalan.
+
+## OWNER RULE — BOM PACKAGE EXPLOSION MUST HAPPEN IN RO CONSOLIDATION (23 NOV 2026)
+
+**This rule is approved.** Before production, store RO for Paket SKU must be expanded into FINISHED-GOODS component demand according to Paket BoM. Component demand is added to direct store demand for that product, grouped by its SOURCE KITCHEN, and becomes production demand for kitchen MO. The Paket SKU itself is an assembly demand for Packing, **not a kitchen production line**.
+
+Exact example from owner:
+- Paket X BoM = 1 × finished Y + 1 × finished Z.
+- RO store demands Y=10, Z=10, X=5.
+- Pre-production consolidation / kitchen demand becomes **Y=15; Z=15**; Packing assembly requirement **X=5**.
+- On arrival in PCK, allocate **Y=5 and Z=5 to assembly**, make **X=5**, then only **Y=10, Z=10, X=5** are destined to store.
+- Never ship 15 Y and 15 Z to store; those include package components. Never count Paket X as an independent kitchen output or count component demand twice.
+
+Formulas (same slot/date and relevant store demands):
+```text
+Kitchen demand(component C) = direct_store_RO(C)
+  + sum_over_package_ROs(package_qty(P) * package_BoM_qty(C per P))
+
+Packing assembly demand(P) = store_RO(P)
+Store distribution demand(C) = direct_store_RO(C), NOT expanded kitchen qty
+Store distribution demand(P) = store_RO(P) once assembly is completed
+```
+
+**Important implementation gap:** Existing owner-tested RO→store flow does not establish package BoM explosion in RO consolidation. Current immutable allocations and existing kitchen/MO generation must be audited BEFORE changes. Explosion must preserve independent vectors (direct store delivery vs component demand for assembly), link source RO/BoM/snapshot, and respect existing capacity/prorata/rounding decisions. Define treatment of shortages and final allocations if capacity limited; do not assume original formula can be applied unchanged in insufficient-capacity cases. Avoid changing established ordinary SKU behavior; regression-test no-paket RO, mixed paket+nonpaket, multi-kitchen components, multiple stores, duplicate components, cancellation, shortage, and inventory reconciliation.
+
+**STATUS: business rule confirmed, implementation NOT YET DONE or TESTED.**
