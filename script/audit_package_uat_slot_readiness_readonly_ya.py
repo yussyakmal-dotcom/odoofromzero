@@ -134,8 +134,6 @@ for date, slot in sorted(slots, reverse=True):
 
         other_requirements = []
         for product, need in other_parts:
-            if product.type not in ("consu", "product"):
-                continue
             stock = sum(Quants.search([
                 ("product_id", "=", product.id),
                 ("location_id", "=", pck.lot_stock_id.id),
