@@ -22,8 +22,12 @@
       <form string="RO Paket Toko" delete="false">
         <header>
           <button name="action_confirm" type="object" string="Confirm Paket RO"
-                  class="btn-primary" groups="mrp.group_mrp_manager"
+                  class="btn-primary" groups="ya_package_store_ro.group_ya_package_ro_creator"
                   invisible="state != 'draft'"/>
+          <button name="action_open_packing_qty_correction" type="object"
+                  string="Koreksi Qty (Packing)"
+                  groups="ya_store_ro.group_ya_packing_admin"
+                  invisible="state != 'confirmed'"/>
           <field name="state" widget="statusbar" statusbar_visible="draft,confirmed"/>
         </header>
         <sheet>
@@ -46,6 +50,20 @@
               <field name="uom_id" readonly="1"/>
             </list>
           </field>
+          <notebook>
+            <page string="Riwayat Koreksi Packing">
+              <field name="correction_ids" readonly="1">
+                <list create="false" delete="false">
+                  <field name="product_id"/>
+                  <field name="qty_before"/>
+                  <field name="qty_after"/>
+                  <field name="reason"/>
+                  <field name="changed_by"/>
+                  <field name="changed_at"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
         </sheet>
       </form>
     </field>
@@ -59,5 +77,5 @@
   <menuitem id="menu_ya_package_store_ro" name="RO Paket Toko"
             parent="ya_production_planning.menu_ya_capacity_root"
             action="action_ya_package_store_ro"
-            sequence="21" groups="mrp.group_mrp_manager"/>
+            sequence="21" groups="ya_package_store_ro.group_ya_package_ro_creator,ya_store_ro.group_ya_packing_admin"/>
 </odoo>
