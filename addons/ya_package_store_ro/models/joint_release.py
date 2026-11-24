@@ -211,8 +211,10 @@ class YaPackingBatchLineJointRelease(models.Model):
                 raise UserError(_("Published Planning SKU no longer unique."))
             capacity = capacity_row.uom_id._compute_quantity(
                 capacity_row.max_capacity, product.uom_id, round=False)
-            if abs(output - round(output)) > 1e-9 or round(output) <= 0:
-                raise UserError(_("Kitchen BoM output is invalid."))
+            if (abs(output - round(output)) > 1e-9 or round(output) <= 0 or
+                    int(round(output)) != line.ya_kitchen_bom_output or
+                    line.uom_id != product.uom_id):
+                raise UserError(_("Kitchen BoM output/UoM changed after snapshot."))
             if (int(round(capacity)) != line.max_capacity or
                     abs(capacity - line.max_capacity) > 1e-9 or
                     line.qty_production <= 0 or
