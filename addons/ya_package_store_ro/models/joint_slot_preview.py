@@ -157,6 +157,7 @@ class YaPackageJointSlotPreview(models.TransientModel):
                     })
                 package_rows.append({
                     "ro_id": ro.id,
+                    "bom_id": bom.id,
                     "product_id": product.id,
                     "store_id": ro.store_warehouse_id.id,
                     "qty": line.qty_requested,
