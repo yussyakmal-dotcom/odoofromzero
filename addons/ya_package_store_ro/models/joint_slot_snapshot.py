@@ -54,6 +54,11 @@ class YaPackingBatchLinePackageFields(models.Model):
         string="Prioritas Komponen Paket", readonly=True, copy=False,
         help="Qty produk jadi dapur yang dialokasikan untuk perakitan Paket di Packing.",
     )
+    ya_kitchen_bom_output = fields.Integer(
+        string="BoM Output Dapur Saat Snapshot",
+        readonly=True, copy=False,
+        help="Frozen manufacturing BoM output, in product base UoM.",
+    )
 
 
 class YaPackingPackageDemand(models.Model):
