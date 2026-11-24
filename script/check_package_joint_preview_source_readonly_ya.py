@@ -36,7 +36,7 @@ for p in (rules, orm, view, manifest_path, acl, init, tests):
 manifest = ast.literal_eval(manifest_path.read_text(encoding="utf8"))
 assert "ya_store_ro" in manifest["depends"]
 assert "views/joint_slot_preview_views.xml" in manifest["data"]
-assert manifest["version"] == "19.0.1.2.0"
+assert manifest["version"] == "19.0.1.3.0"
 
 model_text = orm.read_text(encoding="utf8")
 for token in (
