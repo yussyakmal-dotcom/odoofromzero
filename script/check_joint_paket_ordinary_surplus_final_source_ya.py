@@ -38,7 +38,6 @@ required = (
     '"picking_type_id": surplus_operation.id',
     "surplus_picking.action_confirm()",
     'move.write({"quantity": move.product_uom_qty})',
-    "NATIVE_PCK_SURPLUS_INTERNAL_TRANSFER_DONE_PASS",
     "JOINT_SURPLUS_NATIVE_INTERNAL_TRANSFER_DONE_PASS",
     "JOINT_PCK_NO_SURPLUS_FROM_THIS_BATCH_PASS",
     "JOINT_NO_FAKE_SURPLUS_RO_OR_EXTRA_DO_PASS",
