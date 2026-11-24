@@ -63,7 +63,7 @@
                 <field name="qty_requested" string="Total RO"/>
                 <field name="bom_output" string="BoM Output"/>
                 <field name="qty_production" string="Rencana Qty MO"/>
-                <field name="qty_surplus" string="Sisa BoM Belum Dialokasikan"/>
+                <field name="qty_surplus" string="Sisa untuk Internal Transfer"/>
                 <field name="qty_shortage" string="Kekurangan"/>
                 <field name="max_capacity" string="Planning Max"/>
                 <field name="capacity_status" string="Capacity" widget="badge"
