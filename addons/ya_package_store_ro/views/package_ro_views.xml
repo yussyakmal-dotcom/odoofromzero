@@ -41,7 +41,7 @@
           </group>
           <field name="line_ids" readonly="state == 'confirmed'">
             <list editable="bottom">
-              <field name="product_id" domain="[('categ_id.complete_name','=','All / Produk Jadi / Paket')]"/>
+              <field name="product_id"/>
               <field name="qty_requested"/>
               <field name="uom_id" readonly="1"/>
             </list>
