@@ -784,3 +784,27 @@ Next Feri commands:
 If actual master/Planning changed, investigate rather than override it. If an error occurs, send full traceback; avoid additional local fixes outside GitHub without review.
 
 Prioritization remains: current Paket > RO toko; later Sales Order > Paket > RO only when SO Manufacturing introduced. Preserve original store RO Qty and existing RO-only flow. Internal transfer fallback is a valid SOP exception; do not hard-stop the whole workflow because the system cannot automatically distribute some finished output.
+
+## FERI ACTUAL UAT PASS — MIXED PAKET + ORDINARY RO SAME SLOT (2026-11-24)
+
+Feri ran the actual Odoo shell rollback test `script/test_package_joint_mixed_stage_mo_rollback_ya.py` on `erp-yussyakmal-mrp-test`; output:
+`MIXED_ROLLBACK_TEST_ROLE_USERS_READY`,
+`MIXED_PAKET_RO_CONFIRMED_PASS`,
+`MIXED_ORDINARY_RO_CONFIRMED_PASS`,
+`MIXED_JOINT_PREVIEW_PASS`,
+`MIXED_PACKAGE_FIRST_STORE_PRORATA_PASS`,
+`MIXED_NATIVE_KITCHEN_MO_CONFIRM_PASS`,
+`ROLLBACK_EXPECTED_OK`,
+`MIXED_ROLLBACK_NO_RO_BATCH_MO_USERS_PERSISTED_PASS`, and
+`PACKAGE_JOINT_MIXED_STAGE_MO_ROLLBACK_PASS`.
+
+REAL source: Paket SKU **12114** Hampers EID SET D from store T_BAN, assembly BOM 1405, mixed with same-slot ordinary RO for component **11999** (PST, real kitchen BOM **1330**, output7, Published Max7). T_KD store originally ordered2 and T_RAI originally1; Paket protects1; 7 MO output: T_KD final4 (original2+BoM extra2), T_RAI final2 (original1+extra1), Paket1, leftover0 for SKU 11999. Other two package-only kitchen components have **10 pieces combined** unallocated which remain reserved for ordinary SOP **PCK->store internal transfer** (not phantom RO). **3 kitchen MOs Confirmed**. All RO, Pre Produksi batch, MOs and temporary role users **rolled back**, nothing remained in DB. This is decisive transactional evidence for Paket-first and Hamilton extra allocation in a mixed batch. Original ordinary-only path unchanged.
+
+**Pending physical scope:** kitchen MO Done with native raw moves, real FG transfer into PCK, one native Paket assembly MO per SKU, true component consumption and finished Paket move, append SKU to existing store DO, dispatch→transit→store receipt; do NOT claim any physical stock/DO UAT PASS yet. No new Odoo module code or upgrade/restart required as of this checkpoint.
+
+**Next new READ-ONLY stock audit**: `script/audit_package_12114_mo_materials_readonly_ya.py` uses real Published Planning 2026-11-24 S1 and original BoM output sizes for component SKUs 11999 (7), 12014 (7), 12019 (5), reads raw BoM line quantities, kitchen source location stock quants (physical, reserved, free), and reports shortages/tracking. It never creates MO, stock move, transfer, product, fake inventory or BoM; results are *advisory*, exact native reservation/lot checks still needed. Execute using Odoo shell only on `erp-yussyakmal-mrp-test`. If insufficient, follow existing actual CDC→kitchen stock SOP, not synthetic stock; choose a viable physical-stock test case later.
+
+Commands for Feri:
+`cd ~/odoofromzero && git pull && python3 -m py_compile script/audit_package_12114_mo_materials_readonly_ya.py`.
+Then `sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http < script/audit_package_12114_mo_materials_readonly_ya.py`.
+Expected `READ_ONLY_PAKET_12114_MATERIALS_OK` and material readiness summary; NO installation/restart needed. Next physical rollback script must depend on confirmed native materials read-out. Owner SOP is authoritative, only critical stock integrity checks block. Do not use source-only tests as evidence of physical MO/stock state.
