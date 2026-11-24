@@ -10,8 +10,8 @@ spec.loader.exec_module(module)
 plan = module.compute_package_first_demand(
     {"Y": 10, "Z": 10}, {"X": 5},
     {"X": {"Y": 1, "Z": 1, "CONS": 2, "BOX": 1}},
-    {"Y": "FINISHED_KITCHEN", "Z": "FINISHED_KITCHEN",
-     "CONS": "CONSIGNMENT", "BOX": "PACKAGING"},
+    {"Y": "MANUFACTURED_KITCHEN", "Z": "MANUFACTURED_KITCHEN",
+     "CONS": "PCK_STOCK_STANDARD_FLOW", "BOX": "PCK_STOCK_STANDARD_FLOW"},
 )
 assert plan["gross_kitchen_demand"] == {"Y": 15, "Z": 15}
 assert plan["package_kitchen_protected"] == {"Y": 5, "Z": 5}
@@ -24,15 +24,23 @@ assert module.allocate_kitchen_capacity_package_first(5, {1: 4, 2: 6}, 12) == {
     "direct_requested": 10, "direct_possible": 7, "direct_shortage": 3,
 }
 assert module.allocate_kitchen_capacity_package_first(5, {1: 10}, 3)["protected_shortage"] == 2
-assert module.compute_package_first_demand({"Y": 10}, {}, {}, {})[
+assert module.compute_package_first_demand({"Y": 10}, {}, {}, {"Y": "MANUFACTURED_KITCHEN"})[
     "gross_kitchen_demand"] == {"Y": 10}
 multi = module.compute_package_first_demand(
     {}, {"X": 3, "W": 2},
     {"X": {"Y": 2}, "W": {"Y": 1, "Z": 3}},
-    {"Y": "FINISHED_KITCHEN", "Z": "FINISHED_KITCHEN"},
+    {"Y": "MANUFACTURED_KITCHEN", "Z": "MANUFACTURED_KITCHEN"},
 )
 assert multi["gross_kitchen_demand"] == {"Y": 8, "Z": 6}
+mixed = module.compute_package_first_demand(
+    {"Y": 4}, {"P": 2}, {"P": {"Y": 3, "BUY": 2, "PRINT": 1}},
+    {"Y": "MANUFACTURED_KITCHEN",
+     "BUY": "PCK_STOCK_STANDARD_FLOW", "PRINT": "PCK_STOCK_STANDARD_FLOW"},
+)
+assert mixed["gross_kitchen_demand"] == {"Y": 10}
+assert mixed["package_packing_stock_requirements"] == {"BUY": 4, "PRINT": 2}
 for data in [
+    ({"BUY": 1}, {}, {}, {"BUY": "PCK_STOCK_STANDARD_FLOW"}),
     ({}, {"X": 1}, {}, {}),
     ({}, {"X": 1}, {"X": {"Y": 0}}, {"Y": "FINISHED_KITCHEN"}),
     ({}, {"X": 1}, {"X": {"Y": 1.5}}, {"Y": "FINISHED_KITCHEN"}),
