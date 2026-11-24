@@ -601,3 +601,22 @@ Feri ran Git pull and supplied actual results from repository source:
 New READ-ONLY Odoo test DB inspection staged: `script/check_ro_surplus_odoo_registry_readonly_ya.py`; checks module version 19.0.8.1.3, registered preview field, views actually stored in DB, and runtime 15/10=>20 surplus prorata (stores 6/9 => 8/12). This does not test full Packing→MO→FG→DO.
 
 **Deploy carefully per `doc/SKILL_ODOO19_ADDON_WORKFLOW.md`:** Feri must first take verified GUI backup of `erp-yussyakmal-mrp-test`. Then copy ONLY `addons/ya_store_ro/.` to `/opt/odoo19/custom-addons/ya_store_ro/`, change ownership to odoo19, run `-u ya_store_ro` ONLY with `-d erp-yussyakmal-mrp-test` and `--stop-after-init --no-http`. On zero exit, restart service during an appropriate window (service restart may affect other DBs) and run new Odoo registry read-only check. No deploy/install `ya_package_store_ro` yet. After that run controlled UI or rollback test of Confirmed RO→Packing Preview→Pre Produksi→MO release→FG transfer→DO allocations, then resume Paket integration. **Primary `erp-yussyakmal` must not be upgraded/touched for this test.**
+
+## OWNER GOVERNANCE OF ERP CUSTOMIZATION — 20-YEAR BUSINESS PROCESS IS PRIMARY (2026-11-24)
+
+Owner strongly emphasized that the operating business process has worked for approximately **20 years without Odoo**. Critical design principle: **Odoo must serve the established SOP and people, not replace every operational decision with a custom blocking rule.** Previous assistant's broad assumption that any unassigned kitchen production must block MO or Pre Produksi was too rigid and has been explicitly rejected.
+
+Pragmatic implementation boundary:
+- **Automate high-volume, repeatable work:** RO import, consolidation of many SKUs and warehouses, kitchen BoM batch round-up, priority buckets (NOW Paket > RO toko; FUTURE only when SO manufacturing is introduced: SO > Paket > RO toko), stable prorata, MO/DO, transfer quantities, traceability.
+- **Hard-block only genuine structural/integrity hazards:** invalid data/BoM, duplicate releases, forbidden negative inventory, wrong company/route, inconsistent financial/stock transactions or other clearly established critical SOP violations. Do not invent new blockers merely because an edge case cannot be automatically solved.
+- **Leave valid exceptions to people and standard Odoo transactions:** any finished kitchen MO output not automatically allocated through RO and package needs can be sent from Packing to a chosen store using normal internal transfer under established SOP. Preserve a visible quantity trail; do not auto-create fictitious RO or arbitrary destinations.
+- **Do not over-customize:** no need to build system-driven resolution of every tiny exception. Prefer native Inventory, clear handoff points and operational judgement. Preserve existing working flow and speed for operators who handle hundreds of SKUs across many warehouses.
+- Packing is a short-term consolidation/distribution point, not intended overnight finished-goods storage, but this is managed by SOP and internal transfers rather than an unconditional MO hard stop.
+
+## FERI EVIDENCE — YA STORE RO TEST DB UPGRADE AND RUNTIME SMOKE PASS (2026-11-24)
+
+Feri performed Git pull, staged `addons/ya_store_ro` into Odoo custom-addons, and upgraded `ya_store_ro` ONLY in `erp-yussyakmal-mrp-test`. Output `UPGRADE_EXIT_CODE=0`. Odoo emitted docutils formatting warnings/errors (`Unexpected indentation`, inline literal warnings) during upgrade, but completed successfully. Do NOT mistake formatting diagnostics for upgrade failure. If they recur or affect UI text, investigate nonblocking.
+
+Feri then ran `script/check_ro_surplus_odoo_registry_readonly_ya.py` using Odoo shell on `erp-yussyakmal-mrp-test`; confirmed: `MODULE_STATE: installed`, `MODULE_INSTALLED_VERSION: 19.0.8.1.3`, `ODOO_RUNTIME_ALLOCATOR_SURPLUS_PASS`, `ODOO_REGISTERED_SURPLUS_FIELD_PASS`, `ODOO_DB_VIEW_SURPLUS_PASS`, `READ_ONLY_RO_SURPLUS_REGISTRY_PASS`.
+
+Correct status: source tests + Odoo registry/views/runtime smoke **PASS** in test DB; no post-upgrade RO Preview→Pre Produksi→MO→FG to Packing→DO Store E2E acceptance yet. Do not ask for needless repetitive audit, reset of prior stable flow, or production upgrade. Do not install `ya_package_store_ro` until Paket integration is complete. Next development priority is joint Paket+ordinary RO demand snapshot with Paket first and BO M rounded surplus/transfer fallback, using existing stable workflow and only minimal essential extension.
