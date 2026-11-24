@@ -1,8 +1,8 @@
 """Source-only test: Paket-first kitchen capacity and rounded surplus to stores.
 
 This validates OWNER INTENDED surplus rule using historical prorata helper.
-The currently ACTIVE ordinary RO Packing preview still uses the different
-capacity-only helper; this test does NOT mean the active ordinary flow is fixed.
+The ordinary RO source now distributes BoM rounding surplus; however source
+unit tests do NOT prove that Odoo's test database/UI has been upgraded/UATed.
 Run python3 script/test_package_capacity_priority_pure_ya.py.
 """
 from pathlib import Path
@@ -108,8 +108,8 @@ assert has_store["store_allocations"][11] == {
 assert has_store["qty_surplus"] == 0
 
 # No-Paket baseline: compare against original historical surplus-prorata
-# helper when max capacity permits whole rounded demand, and current
-# active capacity-shortage helper when max is insufficient.
+# helper when max capacity permits whole rounded demand, and the
+# shared capacity-shortage helper when max is insufficient.
 for demands in ({11: 10}, {11: 4, 22: 6},
                 {11: 1, 22: 2, 33: 3}, {11: 0, 22: 7}):
     for batch in (1, 2, 5, 10):
@@ -154,5 +154,5 @@ for args in (
 print("PACKAGE_CAPACITY_PRIORITY_PURE_PASS")
 print("NO_PACKAGE_HISTORICAL_SURPLUS_RULE_TEST_PASS")
 print("PACKING_INTERNAL_TRANSFER_FALLBACK_TEST_PASS")
-print("NOTE: currently-active ordinary RO preview still does NOT distribute surplus.")
+print("NOTE: ordinary RO SOURCE now distributes surplus; test DB Odoo upgrade/UAT still pending.")
 print("SOURCE_ONLY: no RO, MO, stock, Odoo DB or allocations changed.")
