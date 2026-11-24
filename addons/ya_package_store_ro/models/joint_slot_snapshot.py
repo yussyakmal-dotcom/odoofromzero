@@ -28,6 +28,15 @@ class YaPackingBatchPackageLink(models.Model):
         "batch_id", "package_ro_id",
         string="RO Paket Confirmed (Snapshot)", readonly=True, copy=False,
     )
+    ya_package_ro_count = fields.Integer(
+        compute="_compute_ya_package_ro_count", string="RO Paket",
+    )
+
+    @api.depends("ya_package_ro_ids")
+    def _compute_ya_package_ro_count(self):
+        for batch in self:
+            batch.ya_package_ro_count = len(batch.ya_package_ro_ids)
+
     ya_package_demand_ids = fields.One2many(
         "ya.packing.package.demand", "batch_id",
         string="Paket Jadi untuk Toko", readonly=True,
