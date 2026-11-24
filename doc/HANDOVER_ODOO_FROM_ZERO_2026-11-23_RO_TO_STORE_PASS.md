@@ -413,3 +413,16 @@ Inside current flow, Paket assembly consumes any valid BoM component **already i
 Current `package_priority_rules.py` pure computation accepts only `FINISHED_KITCHEN`, `CONSIGNMENT`, `PACKAGING`; it must be generalized to distinguish `MANUFACTURED_KITCHEN` from `PCK_STOCK_STANDARD_FLOW` in a later update, after explicitly auditing sourcing metadata. It must not exclude purchased finished goods or other legitimate packing materials just because their category name is unusual. Avoid introducing automatic Purchasing/Accounting/BOP scope.
 
 **Hierarchy remains**: package component demand and assembly prioritized ahead of direct RO ordinary SKU store allocations; final store DO contains completed Paket and remaining ordinary SKU, no component double-shipping.
+
+## OWNER DECISION — PAKET CATEGORY STRICTLY CROSS-KITCHEN ASSEMBLY (2026-11-24)
+
+Owner has chosen a SIMPLIFIED ROUTING RULE based on master product category:
+- Finished SKU whose package is assembled entirely within ONE kitchen is **moved out of `All / Produk Jadi / Paket`** to the appropriate kitchen finished-product category. It follows the **existing ordinary manufacturing workflow**: kitchen MO for the packaged final SKU using its BoM, kitchen finished-goods transfer to Packing, then store DO. No Packing assembly MO for these SKUs.
+- Category **`All / Produk Jadi / Paket` is reserved for packages involving manufactured components from MORE THAN ONE kitchen**, requiring consolidation/assembly at Packing. Each kitchen makes its components; Packing consumes components and outputs the Package SKU; delivery to stores is from Packing.
+- Purchased goods, consignment, and packaging may be BoM components and must be stocked in Packing via a **separate standard Odoo acquisition/receiving flow outside this custom flow**. Do not create custom PO/replenishment.
+- The previously audited **208 package SKUs / 122 strict pilot candidates** are a **pre-cleanup snapshot**, not a dependable post-reclassification target. Re-audit targeted category membership and BoM/planning routing **after owner/team changes master categories**. Do NOT automatically recategorize or update production BoMs solely on count of kitchens; business confirms category mapping.
+- Category membership now selects Paket flow; this supersedes the prior proposed two-way additional assembly-routing setting, provided master maintenance enforces this strict category policy. Keep no-package ordinary flow untouched.
+- Cross-kitchen package need is prioritized before allocation of corresponding ordinary finished goods to stores; do not double-consume or mistakenly manufacture Paket in individual kitchen.
+- For a one-kitchen packaged final SKU, ensure its existing kitchen-specific BoM and Published Planning correctly identify the **final SKU itself** (not merely component SKUs) when preparing RO; otherwise its ordinary manufacturing path must be configured. Do not assume a category change alone makes it executable.
+
+This is an owner-approved BUSINESS RULE only. No production master, category, BoM, RO, MO, or code was modified by this note.
