@@ -16,6 +16,29 @@ rules = load("ya_package_priority", root / "addons/ya_store_ro/models/package_pr
 legacy = load("ya_ordinary_allocation", root / "addons/ya_store_ro/models/allocation_rules.py")
 plan = rules.plan_kitchen_capacity_with_package_priority
 
+# Owner-approved rule: aggregate demand 15, kitchen BoM output 10 =>
+# make TWO full BoM batches (20), NOT one partial 15-unit batch.
+# One Paket assembly BoM still outputs exactly 1 final Paket; this test
+# uses the KITCHEN COMPONENT'S own 10-unit manufacturing BoM.
+rounded = plan(5, {11: 10}, 10, 20)
+assert rounded["status"] == "ok", rounded
+assert rounded["qty_production"] == 20, rounded
+assert rounded["package_component_qty_protected"] == 5, rounded
+assert rounded["direct_qty_allocated"] == 10, rounded
+assert rounded["direct_qty_shortage"] == 0, rounded
+assert rounded["qty_surplus"] == 5, rounded
+assert rounded["store_allocations"][11] == {
+    "requested": 10, "allocated": 10, "shortage": 0,
+}, rounded
+
+# A Planning Max < the rounded gross demand is a capacity exception,
+# not permission to disregard the published Max or steal Paket priority.
+rounded_limited = plan(5, {11: 10}, 10, 10)
+assert rounded_limited["qty_production"] == 10, rounded_limited
+assert rounded_limited["package_component_qty_protected"] == 5
+assert rounded_limited["direct_qty_allocated"] == 5
+assert rounded_limited["direct_qty_shortage"] == 5
+
 # 10 direct Y + 5 Y from Paket, 12 unit capacity, one-unit manufacturing.
 a = plan(5, {11: 4, 22: 6}, 1, 12)
 assert a["status"] == "prorated_direct_only", a
