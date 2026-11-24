@@ -28,6 +28,14 @@ expected = [
     ").button_validate()",
     "env.cr.rollback()",
     "ROLLBACK_STOCK_OPNAME_AND_PICKINGS_VERIFIED_PASS",
+    '"TRANSFER_DONE:"',
+    '"PHYSICAL:"',
+    '"RESERVED:"',
+    '"FREE:"',
+    "POST_TRANSFER_DIAGNOSTIC_COUNT:",
+    "float_compare(",
+    "env.invalidate_all()",
+    "transfer_done_by_key",
     "PACKAGE_12114_10X_OPNAME_TRANSFER_ROLLBACK_PASS",
 ]
 for token in expected:
