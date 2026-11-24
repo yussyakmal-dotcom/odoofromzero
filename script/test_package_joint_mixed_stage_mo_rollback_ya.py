@@ -6,6 +6,8 @@ Uses real Published Planning, real BoMs, real store warehouses.
 NO fake BoM/Planning/stock. Makes RO and kitchen MOs inside rollback.
 This does NOT mark MOs Done, transfer to PCK, assemble Paket or deliver.
 """
+from odoo.exceptions import UserError
+
 assert env.cr.dbname == "erp-yussyakmal-mrp-test", "REFUSED: WRONG DB"
 print("DATABASE:", env.cr.dbname)
 print("MODE: MIXED_PAKET_ORDINARY_RO_ROLLBACK")
@@ -218,6 +220,41 @@ try:
         assert all(mo.state not in ("draft", "done", "cancel") for mo in mos)
         assert not batch.ya_package_assembly_mo_ids
         print("MIXED_NATIVE_KITCHEN_MO_CONFIRM_PASS")
+
+        # No kitchen MO is Done, and no physical FG has reached PCK yet.
+        # Verify actual Odoo guards instead of writing fake material stock.
+        assembly_before = env["mrp.production"].sudo().search_count([
+            ("ya_package_assembly_batch_id", "=", batch.id),
+        ])
+        do_before = env["stock.picking"].sudo().search_count([
+            ("ya_store_batch_id", "=", batch.id),
+        ])
+        try:
+            with env.cr.savepoint():
+                as_packing.action_ya_create_package_assembly_mos()
+                raise AssertionError(
+                    "Paket assembly MO created BEFORE kitchen MOs Done")
+        except UserError as err:
+            assert "Complete kitchen MOs before assembling Paket" in str(err), (
+                "Wrong Paket assembly prerequisite error: %s" % err)
+        assert env["mrp.production"].sudo().search_count([
+            ("ya_package_assembly_batch_id", "=", batch.id),
+        ]) == assembly_before == 0
+        print("PACKAGE_ASSEMBLY_REQUIRES_REAL_KITCHEN_DONE_PASS")
+
+        try:
+            with env.cr.savepoint():
+                as_packing.action_ya_generate_store_do()
+                raise AssertionError(
+                    "Paket DO created BEFORE finished Paket MO Done")
+        except UserError as err:
+            assert "Create Paket assembly MOs before generating DO" in str(err), (
+                "Wrong Paket DO prerequisite error: %s" % err)
+        assert env["stock.picking"].sudo().search_count([
+            ("ya_store_batch_id", "=", batch.id),
+        ]) == do_before == 0
+        print("PACKAGE_DO_REQUIRES_REAL_PAKET_DONE_PASS")
+        print("PACKAGE_NO_FICTITIOUS_ASSEMBLY_OR_DO_PASS")
         success = True
         raise ExpectedRollback()
 except ExpectedRollback:
