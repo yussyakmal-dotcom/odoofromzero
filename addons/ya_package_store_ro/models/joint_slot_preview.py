@@ -91,18 +91,34 @@ class YaPackageJointSlotPreview(models.TransientModel):
                 if line.qty_requested <= 0:
                     continue
                 product = line.product_id
-                direct_rows.append({
-                    "ro_id": ro.id,
-                    "product_id": product.id,
-                    "store_id": ro.store_warehouse_id.id,
-                    "qty": line.qty_requested,
-                })
                 candidates = routes.get(product.id, [])
                 if len(candidates) != 1 or candidates[0].planning_id != ro.planning_id:
                     raise UserError(_(
                         "SKU %(sku)s has no single eligible kitchen Planning "
                         "route for its Confirmed RO. Check published slot routes."
                     ) % {"sku": product.default_code or product.display_name})
+                if line.uom_id != candidates[0].uom_id:
+                    raise UserError(_(
+                        "RO/Planning UoM differs for SKU %s. Verify the "
+                        "existing Confirmed RO before joint consolidation."
+                    ) % (product.default_code or product.display_name))
+                # Historical RO stores Qty in the published Planning UoM,
+                # while joint kitchen MOs, Paket components and store DOs
+                # all use the product BASE UoM. Convert rather than silently
+                # treating one Uter, box, etc. as one individual item.
+                qty_base = line.uom_id._compute_quantity(
+                    line.qty_requested, product.uom_id, round=False)
+                if abs(qty_base - round(qty_base)) > 1e-9:
+                    raise UserError(_(
+                        "RO SKU %s converts to a fractional finished unit; "
+                        "review source UoM with Packing."
+                    ) % (product.default_code or product.display_name))
+                direct_rows.append({
+                    "ro_id": ro.id,
+                    "product_id": product.id,
+                    "store_id": ro.store_warehouse_id.id,
+                    "qty": int(round(qty_base)),
+                })
                 required_kitchen_products.add(product.id)
 
         Bom = self.env["mrp.bom"].sudo()
