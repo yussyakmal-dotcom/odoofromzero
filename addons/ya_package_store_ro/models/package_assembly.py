@@ -8,7 +8,6 @@ from collections import defaultdict
 
 from odoo import fields, models, _
 from odoo.exceptions import UserError
-from odoo.tools import float_compare
 
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
 
@@ -70,14 +69,9 @@ class YaPackingBatchPackageAssembly(models.Model):
                 "(found %s). Review warehouse configuration; no fake routing."
             ) % len(candidates))
         operation = candidates[0]
-        if (operation.default_location_src_id != warehouse.lot_stock_id or
-                operation.default_location_dest_id != warehouse.lot_stock_id):
-            # A single-step assembly must consume and produce inside PCK Stock.
-            # Never silently take materials from another kitchen or CDC.
-            raise UserError(_(
-                "PCK Manufacturing Operation Type must source and finish "
-                "at PCK/Stock; verify this warehouse route first."
-            ))
+        # Default locations are not assumed to be PCK/Stock: the MO below
+        # explicitly sets both locations to PCK/Stock and verifies the result.
+        # This respects existing warehouse configuration without a new route.
         return operation
 
     def action_ya_create_package_assembly_mos(self):
@@ -185,6 +179,12 @@ class YaPackingBatchPackageAssembly(models.Model):
             # BoM must describe actual components; no empty/fictitious output.
             if not mo.move_raw_ids:
                 raise UserError(_("Paket MO has no native Odoo component moves."))
+            if "workorder_ids" in mo._fields and mo.workorder_ids:
+                raise UserError(_(
+                    "Paket BoM generated Work Orders; current SOP uses "
+                    "standard Manufacturing Orders WITHOUT WOs. "
+                    "Review this Paket BoM's operation lines."
+                ))
         if set(self.ya_package_assembly_mo_ids.mapped("product_id").ids) != set(
                 self.ya_package_demand_ids.mapped("product_id").ids):
             raise UserError(_("Paket assembly MO output set does not match demand."))
