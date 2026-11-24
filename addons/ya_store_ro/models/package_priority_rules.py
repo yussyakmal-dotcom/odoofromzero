@@ -170,13 +170,14 @@ def plan_kitchen_capacity_with_package_priority(
         # an incomplete package (or claim a feasible aggregate plan).
         return {
             "status": "blocked_package_capacity" if protected_shortage else "blocked",
-            "qty_production": producible,
-            "package_component_qty_protected": min(protected, producible),
-            "package_component_shortage": protected_shortage,
+            "qty_production": 0,
+            "package_component_qty_protected": 0,
+            "package_component_shortage": protected,
             "direct_qty_requested": requested_direct,
             "direct_qty_allocated": 0,
             "direct_qty_shortage": requested_direct,
-            "qty_surplus": max(0, producible - min(protected, producible)),
+            "qty_surplus": 0,
+            "capacity_if_unblocked": producible,
             "store_allocations": {
                 store: {"requested": requested, "allocated": 0,
                         "shortage": requested}
