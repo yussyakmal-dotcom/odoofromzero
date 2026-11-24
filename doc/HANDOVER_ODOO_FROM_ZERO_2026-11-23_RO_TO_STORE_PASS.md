@@ -525,3 +525,27 @@ Example: manufactured component Y needed for Paket 5 + direct store RO total 10,
 **Source-only Paket helper corrected** in `addons/ya_store_ro/models/package_priority_rules.py`: `plan_kitchen_capacity_with_package_priority()` now prorates residual rounded surplus to original direct RO store demand after Paket priority, with a `surplus` field per-store and aggregate `qty_surplus_distributed`. Its `qty_surplus` now specifically means residual NOT assigned to any shop (e.g. no shop ordered SKU). Old no-Paket target tests are replaced by comparison to the historical surplus helper when demand fits, and current capacity-shortage helper when capacity does not fit. Updated `script/test_package_capacity_priority_pure_ya.py` is **PENDING Feri execution**. No Odoo add-on installed/upgraded, no established operational RO logic changed yet. DO NOT label this no-Paket comparison a regression PASS against current active runtime, which intentionally differs.
 
 Scope remains ODOO FROM ZERO, Paket, kitchen MO, Packing, store DO. Purchasing/accounting not in scope. Update joint immutable snapshot and validation before deploying surplus-prorata flow.
+
+## IMPLEMENTED IN GITHUB SOURCE — ORDINARY RO SURPLUS PRORATA FIX (2026-11-24)
+
+Feri verified Paket source-only arithmetic `PACKAGE_CAPACITY_PRIORITY_PURE_PASS` and `NO_PACKAGE_HISTORICAL_SURPLUS_RULE_TEST_PASS`. The current owner business rule supersedes prior 'no surplus distribution' behavior: EVERY rounding surplus created when rounding kitchen MO output up to complete kitchen BoM batches must be distributed by deterministic Hamilton prorata to STORES THAT ORDERED THE SKU, after protecting exact Paket component needs. Original RO Qty is immutable; final store allocation = original RO - shortage + surplus. Physical Packing flow must transfer full completed kitchen MO output and ship final allocation, no speculative stock.
+
+**Actual operational ordinary-RO SOURCE has now been changed in GitHub, but NOT UPGRADED/EXECUTED IN TEST ODOO YET:**
+- `addons/ya_store_ro/models/allocation_rules.py`: `allocate_capacity_prorata` now calls existing `allocate_surplus_prorata` when rounded MO fits Published Max, returning positive per-store `surplus`, original demand, zero shortage, and higher final `allocated`. If Max is insufficient, legacy integer capacity shortage prorata remains unchanged; if fewer than one BoM batch fits, remains `blocked`.
+- `addons/ya_store_ro/wizard/packing_preview.py`: removed prohibition of allocating surplus, checks `allocated = requested - shortage + surplus`, `MO = allocations + truly unallocated remainder`, shows `total_surplus_distributed`. Original RO remains unchanged, Qty audit/freeze unchanged.
+- `addons/ya_store_ro/models/packing_batch.py`: Produksi OK release validates the updated frozen snapshot invariants with positive store surplus rather than rejecting `allocation.qty_surplus != 0`; global MO Qty conservation unchanged.
+- `addons/ya_store_ro/views/packing_preview_views.xml` and `views/packing_batch_views.xml`: new column `Tambahan Surplus BoM`, `Jatah Final Toko`, grand total surplus, and corrected confirmation message. Historical Qty, capacity shortage acknowledgement, and all normal RO workflow permissions unchanged.
+- `addons/ya_store_ro/__manifest__.py` bumped to **19.0.8.1.3** for intentional behavior change.
+- `script/test_capacity_prorata_ya.py` now tests owner-approved surplus distribution, shortage, Hamilton ordering, conservation and invalid cases. `script/check_capacity_prorata_source_readonly_ya.py` updated old static guards to expect surplus, and old manifest checks updated in `check_packing_preproduction_source_readonly_ya.py` and `check_packing_generate_mo_source_readonly_ya.py`.
+- Existing `script/test_ro_packing_prorata_pure_ya.py` continues to test original surplus allocation arithmetic; `script/test_package_capacity_priority_pure_ya.py` should remain compatible.
+
+**PENDING FERI TESTS** (source-only, no Odoo DB writes):
+`python3 script/test_capacity_prorata_ya.py`
+`python3 script/test_ro_packing_prorata_pure_ya.py`
+`python3 script/test_package_capacity_priority_pure_ya.py`
+`python3 script/check_capacity_prorata_source_readonly_ya.py`
+`python3 script/check_packing_preproduction_source_readonly_ya.py`
+`python3 script/check_packing_generate_mo_source_readonly_ya.py`
+`python3 -m compileall -q addons/ya_store_ro`
+
+Do not claim active Odoo PASS after source tests; safe -u and UAT in `erp-yussyakmal-mrp-test` (NEVER production database) are required to verify Preview→Pre Produksi→Produksi OK→finished-goods transfer→DO store. New `ya_package_store_ro` addon remains uninstalled, Paket cross-kitchen integration still pending. Do not change accounting/procurement.
