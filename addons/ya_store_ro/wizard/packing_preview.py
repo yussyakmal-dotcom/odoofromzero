@@ -40,6 +40,7 @@ class YaPackingPreview(models.TransientModel):
     blocked_count = fields.Integer(readonly=True)
     prorated_count = fields.Integer(string='SKU Prorata Kapasitas', readonly=True)
     total_shortage = fields.Integer(string='Total Kekurangan Toko', readonly=True)
+    total_surplus_distributed = fields.Integer(string='Surplus BoM Dibagikan ke Toko', readonly=True)
     total_unallocated = fields.Integer(
         string='Selisih Batch Belum Dialokasikan', readonly=True,
     )
@@ -142,6 +143,7 @@ class YaPackingPreview(models.TransientModel):
 
         line_values, allocation_values, blocked, prorated = [], [], [], []
         total_shortage = 0
+        total_surplus_distributed = 0
         total_unallocated = 0
         total_requested = total_production = 0
         sort_key = lambda item: (
@@ -176,11 +178,19 @@ class YaPackingPreview(models.TransientModel):
             if unallocated < 0:
                 raise UserError(_('Store allocation exceeds planned MO Qty: %s.')
                                 % source.reference)
-            if any(a['surplus'] for a in allocations.values()):
-                raise UserError(_('Preview must never allocate BoM surplus to stores.'))
+            if any(a['surplus'] and a['shortage'] for a in allocations.values()):
+                raise UserError(_('Store cannot receive surplus while still short.'))
+            if any(a['allocated'] != a['requested'] - a['shortage'] + a['surplus']
+                   for a in allocations.values()):
+                raise UserError(_('Store Qty + BoM surplus conservation error: %s.')
+                                % source.reference)
+            if produced != allocated_total + unallocated:
+                raise UserError(_('Final store allocations do not equal MO Qty: %s.')
+                                % source.reference)
             total_requested += requested
             total_production += produced
             total_shortage += shortage
+            total_surplus_distributed += sum(a['surplus'] for a in allocations.values())
             total_unallocated += unallocated
             line_values.append((0, 0, {
                 'planning_id': plan_id,
@@ -224,18 +234,21 @@ class YaPackingPreview(models.TransientModel):
             'ro_count': len(orders), 'kitchen_count': len(included_kitchens),
             'sku_count': len(line_values), 'blocked_count': len(blocked),
             'prorated_count': len(prorated), 'total_shortage': total_shortage,
+            'total_surplus_distributed': total_surplus_distributed,
             'total_unallocated': total_unallocated,
             'total_requested': total_requested, 'total_production': total_production,
             'info': (
                 'Sumber: %s RO Confirmed / %s dapur / %s kombinasi dapur-SKU '
                 '(dasar %s MO). Qty RO %s; Rencana MO %s; '
                 'SKU Prorata Kapasitas %s; Kekurangan Toko %s; '
+                'Surplus BoM Dibagikan ke Toko %s; '
                 'Selisih Batch Belum Dialokasikan %s; '
                 'SKU Tak Bisa Dibuat 1 Batch %s. Qty RO ASLI tetap tercatat. '
                 'Draft RO excluded. No MO, stock moves, or reservations here. %s'
             ) % (len(orders), len(included_kitchens), len(line_values),
                  len(line_values), total_requested, total_production,
-                 len(prorated), total_shortage, total_unallocated, len(blocked),
+                 len(prorated), total_shortage, total_surplus_distributed,
+                 total_unallocated, len(blocked),
                  ('TIDAK CUKUP UNTUK SATU BATCH: ' + ', '.join(blocked[:20]))
                  if blocked else 'Kapasitas terpenuhi atau jatah dibagi prorata.'),
         })
