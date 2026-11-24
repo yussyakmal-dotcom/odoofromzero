@@ -68,6 +68,51 @@ class YaPackageStoreRO(models.Model):
                             line.product_id.display_name, CATEGORY)
                     )
 
+    def _check_paket_bom_one_output(self):
+        """Require ONE active normal BoM producing ONE package per selected SKU.
+
+        A zero-quantity RO row has no demand and is not a release candidate.
+        Recheck during later Pre Produksi/assembly integration too, since BoMs
+        can change after a store confirms its RO.
+        """
+        Bom = self.env["mrp.bom"].sudo()
+        for ro in self:
+            for line in ro.line_ids.filtered(lambda l: l.qty_requested > 0):
+                product = line.product_id
+                boms = Bom.search([
+                    ("active", "=", True),
+                    ("type", "=", "normal"),
+                    ("product_tmpl_id", "=", product.product_tmpl_id.id),
+                    "|",
+                    ("product_id", "=", False),
+                    ("product_id", "=", product.id),
+                ])
+                if len(boms) != 1:
+                    raise UserError(_(
+                        "Paket %(sku)s must have exactly one active normal BoM; found %(count)s."
+                    ) % {
+                        "sku": product.default_code or product.display_name,
+                        "count": len(boms),
+                    })
+                bom = boms[0]
+                if not bom.product_qty or bom.product_qty <= 0:
+                    raise UserError(_(
+                        "Paket %s: BoM output quantity must be exactly 1 Paket."
+                    ) % (product.default_code or product.display_name))
+                output_qty = bom.product_uom_id._compute_quantity(
+                    bom.product_qty, product.uom_id, round=False
+                )
+                if abs(output_qty - 1.0) > 1e-9:
+                    raise UserError(_(
+                        "Paket %(sku)s: BoM %(bom)s outputs %(qty)s %(uom)s; "
+                        "required output is exactly 1 Paket."
+                    ) % {
+                        "sku": product.default_code or product.display_name,
+                        "bom": bom.id,
+                        "qty": output_qty,
+                        "uom": product.uom_id.name,
+                    })
+
     def action_confirm(self):
         self.ensure_one()
         if not self.env.user.has_group("ya_package_store_ro.group_ya_package_ro_creator"):
@@ -88,6 +133,7 @@ class YaPackageStoreRO(models.Model):
         if not self.line_ids.filtered(lambda l: l.qty_requested > 0):
             raise UserError(_("At least one Paket must have a positive Qty."))
         self._check_paket_category()
+        self._check_paket_bom_one_output()
         self.with_context(ya_package_confirm=True).write({
             "state": "confirmed",
             "confirmed_at": fields.Datetime.now(),
