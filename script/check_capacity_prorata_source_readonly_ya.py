@@ -32,6 +32,7 @@ required = {
         "'total_surplus_distributed': total_surplus_distributed",
         "if any(a['allocated'] != a['requested'] - a['shortage'] + a['surplus']",
         "'qty_surplus': unallocated",
+        "if self.total_unallocated or any(line.qty_surplus for line in self.line_ids):",
         "unallocated = produced - allocated_total",
         "if self.prorated_count and not self.accept_shortage:",
     ],
@@ -42,6 +43,7 @@ required = {
         "allocation.qty_requested + allocation.qty_surplus",
         "line.qty_requested + sum(rows.mapped('qty_surplus'))",
         "sum(rows.mapped('qty_allocated')) + line.qty_surplus",
+        "if any(line.qty_surplus != 0 for line in batch.line_ids):",
     ],
     "views/packing_preview_views.xml": [
         "name=\"total_shortage\"",
