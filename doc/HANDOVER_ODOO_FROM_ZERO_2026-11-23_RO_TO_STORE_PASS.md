@@ -450,3 +450,17 @@ New source-only **not installed, not upgraded, not UAT verified** add-on committ
 - Strict owner routing rule: category Paket exclusively cross-kitchen; products packaged in one kitchen use existing ordinary kitchen MO flow. Only manufactured components add kitchen demand; all nonmanufactured physical components sourced into PCK via standard Odoo flow outside project scope.
 
 **Next verification:** on Feri repo after `git pull`, run source syntax checks `python3 -m compileall -q addons/ya_package_store_ro` and pure test. The new addon is not activated by git pull alone, and Odoo registry has NOT been changed. Review logic and integration in sandbox/test before `-u ya_package_store_ro`.
+
+## OWNER SOP CORRECTION — SEPARATE RO MAKER AND PACKING CONSOLIDATOR (2026-11-24)
+
+Owner explicitly says this separation ALREADY exists in this ODOO FROM ZERO workflow: RO creator/submitting section is different from the Packing consolidator. Confirmed RO does not imply Qty correction is forever impossible: only Packing can make an authorized, reasoned and audited correction BEFORE Pre Produksi; after Pre Produksi the frozen allocation snapshot cannot change.
+
+Existing ya_store_ro already has a.packing.qty.correction and ya.store.ro.qty.audit: Packing Admin revises Confirmed RO quantity with compulsory reason before Pre Produksi. Existing operational RO code MUST remain unchanged.
+
+New, uninstalled ya_package_store_ro addon source corrected to mirror SOP, but not deployed or UAT verified:
+- Dedicated role ya_package_store_ro.group_ya_package_ro_creator (YA Paket - Pembuat RO) handles Draft and Confirm; Packing group ya_store_ro.group_ya_packing_admin is a DIFFERENT functional role, with RO read access.
+- Confirmed Paket RO preserves original header/SKU identity. Qty correction only via Packing dialog ya.package.ro.qty.correction with compulsory reason and append-only ya.package.ro.qty.audit storing before/after, SKU, actor, date.
+- Corrections are blocked once ya.packing.batch exists for the same date and slot; date/slot advisory lock is reused. Package RO Qty correction does not yet join existing Packing consolidation.
+- Source only: no add-on install, Odoo registry modification, MO, picking, stock or accounting change. Do not enable package RO for users until full end-to-end integration and UAT.
+
+SOP is the primary process rule; rights and immutability controls implement the SOP and protect the audit trail, rather than replace the SOP. Keep ODOO FROM ZERO project scope only.
