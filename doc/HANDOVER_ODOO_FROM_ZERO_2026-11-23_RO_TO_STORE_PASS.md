@@ -486,3 +486,16 @@ Feri successfully ran `script/audit_package_bom_output_qty_readonly_ya.py` on `e
 **Additional staged, not installed** `addons/ya_package_store_ro/models/package_ro.py`: during `action_confirm()`, positive Paket order lines must have **exactly one active normal BoM with output qty exactly one in product base UoM**; reject missing/ambiguous BoM or other output. This is validation of a pre-existing OWNER business rule, not a new accounting/stock behavior. A zero-demand line does not require a BoM at confirmation. Later, again validate at Pre Produksi/assembly because a BoM can change after the RO is Confirmed. Stage is GitHub source only; no Odoo registry/database change and not yet UAT verified.
 
 Next: Feri can run `python3 -m compileall -q addons/ya_package_store_ro` to verify code syntax (no module install). Keep focus on integration of regular RO and Paket RO into one immutable date-slot Pre Produksi and priority Paket-first capacity. Audit of all package masters need not be repeated.
+
+## PACKAGE FIRST MO CAPACITY ENGINE — SOURCE-ONLY NEXT GATE (2026-11-24)
+
+Feri pulled and ran `python3 -m compileall -q addons/ya_package_store_ro` successfully (no errors). This is **syntax PASS only**, not module install, user test or end-to-end integration.
+
+Created a pure helper `plan_kitchen_capacity_with_package_priority(package_need, direct_by_store, bom_output, max_capacity)` in `addons/ya_store_ro/models/package_priority_rules.py`.
+- Input: per kitchen/SKU gross components needed by all confirmed package RO + direct ordinary RO per store; kitchen BoM batch output and Published Planning Max.
+- Plans kitchen MO at **whole original kitchen BoM batch multiples** up to published capacity.
+- **First protects all package component demand** before assigning any output units to direct store allocation; then uses deterministic integer Hamilton prorata for ordinary store shortages; BoM surplus stays unallocated.
+- If capacity cannot satisfy **the entire protected package component bucket**, return `blocked_package_capacity` with **qty_production=0** and zero executable allocations. Do NOT prorate/short incomplete Paket silently or run kitchen MOs that leave package assembly impossible. Later business policy may permit controlled partial Paket planning; NOT approved yet.
+- No-package case must remain behaviorally identical to `allocate_capacity_prorata` in existing RO flow. Existing stable ordinary RO code UNMODIFIED.
+- Created pure test `script/test_package_capacity_priority_pure_ya.py` for package=5, ordinary=10, capacity=12 (protected 5, ordinary 7); blocking capacity shortage; whole kitchen BoM batching; and 3x7x4 no-Paket regression comparisons against existing `allocation_rules.py`. **Feri has not run it yet**.
+- This is a **source-only demand/capacity calculator**, not integrated into Odoo Pre Produksi snapshots, Paket assembly MO, or final store DO. Do not imply feature deployed or begin real package RO operations. Next gate: Feri source-only test; then build owner-approved package source classification/slot route adapters, immutable joint Pre Produksi snapshot, and end-to-end module testing exclusively in `erp-yussyakmal-mrp-test`. No extra broad master-data audit unless a specific integration blocker appears.
