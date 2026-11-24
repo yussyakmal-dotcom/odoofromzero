@@ -105,7 +105,10 @@ def plan_joint_slot(direct_rows, package_rows, kitchen_specs, planner):
                 raise JointSlotError("Invalid component ratio for %s" % component)
             needed = qty * per_package
             if source == "KITCHEN":
-                if int(needed) != needed or int(per_package) != per_package:
+                rounded_ratio = round(per_package)
+                rounded_need = round(needed)
+                if (abs(per_package - rounded_ratio) > 1e-9 or
+                        abs(needed - rounded_need) > 1e-9):
                     raise JointSlotError(
                         "Fractional kitchen finished component %s in Paket %s" %
                         (component, package))
@@ -113,7 +116,7 @@ def plan_joint_slot(direct_rows, package_rows, kitchen_specs, planner):
                     raise JointSlotError(
                         "Paket component %s lacks unique published kitchen route" %
                         component)
-                needed = int(needed)
+                needed = int(rounded_need)
                 protected[component] += needed
                 component_trace[package][component] += needed
                 routed_kitchens.add(kitchen_specs[component]["planning_id"])
