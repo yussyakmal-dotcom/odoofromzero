@@ -10,7 +10,6 @@ No fake BoM/Planning/routing or inventory quants. Use known existing
 This test expects the slot to be FREE. Stop, DO NOT bypass, if the batch or
 a preexisting Paket RO already exists.
 """
-from collections import defaultdict
 
 assert env.cr.dbname == "erp-yussyakmal-mrp-test", "REFUSED: WRONG DB"
 print("DATABASE:", env.cr.dbname)
@@ -52,9 +51,43 @@ print("UAT_REAL_PACKAGE:", product.default_code, product.display_name)
 print("UAT_REAL_STORE:", store.code, store.name)
 print("UAT_REAL_SLOT:", date, slot)
 
-# Odoo shell uses superuser privileges ONLY inside rollback; this validates
-# native ORM mechanics, not the separate creator vs Packing role-permission
-# experience (which must be checked in GUI later).
+# The shell starts as odoo19/SUPERUSER, which bypasses ordinary ACLs but
+# DOES NOT make env.user a member of either custom group. We must not disable
+# the business role guards. Create two TEMPORARY users with actual group
+# membership INSIDE the savepoint, use their identities for the proper action
+# at each stage, and roll them back with every other test record. sudo() after
+# with_user() bypasses unrelated ACL configuration only: the custom
+# has_group() rules still inspect the actual role-bearing env.user.
+Users = env["res.users"].sudo()
+groups_field = next(
+    (name for name in ("group_ids", "groups_id") if name in Users._fields),
+    None,
+)
+assert groups_field, "Cannot locate the res.users membership field"
+creator_group = env.ref("ya_package_store_ro.group_ya_package_ro_creator")
+packing_group = env.ref("ya_store_ro.group_ya_packing_admin")
+role_test_logins = (
+    "__ya_pkg_rollback_creator__@example.invalid",
+    "__ya_pkg_rollback_packing__@example.invalid",
+)
+assert not Users.search([
+    ("login", "in", list(role_test_logins)),
+]), "Rollback test-user login already exists; stop to protect real users"
+
+def make_temporary_role_user(role, label, login):
+    vals = {
+        "name": label,
+        "login": login,
+        "company_id": pck.company_id.id,
+        "company_ids": [(6, 0, [pck.company_id.id])],
+        groups_field: [(6, 0, [role.id])],
+    }
+    return Users.with_context(
+        no_reset_password=True,
+        mail_create_nosubscribe=True,
+        tracking_disable=True,
+    ).create(vals)
+
 class ExpectedRollback(Exception):
     pass
 
@@ -64,7 +97,27 @@ created_ro_id = None
 created_mo_ids = []
 try:
     with env.cr.savepoint():
-        ro = PackageRO.create({
+        creator = make_temporary_role_user(
+            creator_group, "YA Rollback Paket RO Creator",
+            role_test_logins[0],
+        )
+        packing_admin = make_temporary_role_user(
+            packing_group, "YA Rollback Packing Admin",
+            role_test_logins[1],
+        )
+        assert creator.has_group(
+            "ya_package_store_ro.group_ya_package_ro_creator"
+        ), "Creator test user lacks the actual creator role"
+        assert packing_admin.has_group(
+            "ya_store_ro.group_ya_packing_admin"
+        ), "Packing test user lacks the actual Packing role"
+        print("ROLLBACK_TEST_ROLE_USERS_READY")
+
+        # WITH_USER supplies a real role-bearing identity. sudo preserves
+        # the existing mechanical smoke-test scope and does not change which
+        # user is checked by package_ro.py and joint_slot_preview.py.
+        role_ro_model = PackageRO.with_user(creator).sudo()
+        ro = role_ro_model.create({
             "delivery_date": date,
             "slot": slot,
             "store_warehouse_id": store.id,
@@ -78,7 +131,9 @@ try:
         assert ro.state == "confirmed"
         print("PACKAGE_RO_CONFIRM_PASS")
 
-        Wizard = env["ya.package.joint.slot.preview"].sudo()
+        Wizard = env["ya.package.joint.slot.preview"].with_user(
+            packing_admin
+        ).sudo()
         preview = Wizard.create({
             "delivery_date": date,
             "slot": slot,
@@ -121,7 +176,10 @@ try:
               sum(batch.line_ids.mapped("qty_surplus")))
 
         # Validate actual Odoo-created native MOs (no stock Done).
-        batch.line_ids.action_generate_selected_mo()
+        BatchAsPacking = Batch.with_user(packing_admin).sudo()
+        batch_as_packing = BatchAsPacking.browse(batch.id)
+        batch_as_packing.line_ids.action_generate_selected_mo()
+        batch.invalidate_recordset()
         assert batch.state == "production_ok"
         mos = batch.line_ids.mapped("mo_id")
         created_mo_ids = mos.ids
@@ -158,5 +216,9 @@ assert not PackageRO.search([("id", "=", created_ro_id)]), (
 assert not env["mrp.production"].sudo().search([
     ("id", "in", created_mo_ids)
 ]), "Unexpected persisted kitchen MO after rollback"
+assert not env["res.users"].sudo().search([
+    ("login", "in", list(role_test_logins)),
+]), "Unexpected persisted temporary role users after rollback"
+print("ROLLBACK_ROLE_USERS_NOT_PERSISTED_PASS")
 print("ROLLBACK_NO_RO_BATCH_MO_PERSISTED_PASS")
 print("PACKAGE_JOINT_STAGE_MO_ROLLBACK_PASS")
