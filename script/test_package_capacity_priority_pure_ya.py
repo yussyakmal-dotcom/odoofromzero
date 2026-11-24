@@ -1,107 +1,122 @@
-"""Source-only no-DB tests: kitchen MO capacity protects Paket before shops.
+"""Source-only test: Paket-first kitchen capacity and rounded surplus to stores.
 
+This validates OWNER INTENDED surplus rule using historical prorata helper.
+The currently ACTIVE ordinary RO Packing preview still uses the different
+capacity-only helper; this test does NOT mean the active ordinary flow is fixed.
 Run python3 script/test_package_capacity_priority_pure_ya.py.
 """
 from pathlib import Path
 import importlib.util
 
 root = Path(__file__).resolve().parents[1]
+
+
 def load(module_name, source):
     spec = importlib.util.spec_from_file_location(module_name, source)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
 
+
 rules = load("ya_package_priority", root / "addons/ya_store_ro/models/package_priority_rules.py")
-legacy = load("ya_ordinary_allocation", root / "addons/ya_store_ro/models/allocation_rules.py")
+ordinary = load("ya_ordinary_allocation", root / "addons/ya_store_ro/models/allocation_rules.py")
 plan = rules.plan_kitchen_capacity_with_package_priority
 
-# Owner-approved rule: aggregate demand 15, kitchen BoM output 10 =>
-# make TWO full BoM batches (20), NOT one partial 15-unit batch.
-# One Paket assembly BoM still outputs exactly 1 final Paket; this test
-# uses the KITCHEN COMPONENT'S own 10-unit manufacturing BoM.
-rounded = plan(5, {11: 10}, 10, 20)
+# User's exact rule: 15 gross demand; one kitchen BoM yields 10;
+# 2 BoM batches => 20. Protect Paket 5, fulfill stores' original 10,
+# share 5 rounding surplus in proportion to store RO 4:6 => +2 and +3.
+rounded = plan(5, {11: 4, 22: 6}, 10, 20)
 assert rounded["status"] == "ok", rounded
-assert rounded["qty_production"] == 20, rounded
-assert rounded["package_component_qty_protected"] == 5, rounded
-assert rounded["direct_qty_allocated"] == 10, rounded
-assert rounded["direct_qty_shortage"] == 0, rounded
-assert rounded["qty_surplus"] == 5, rounded
-assert rounded["store_allocations"][11] == {
-    "requested": 10, "allocated": 10, "shortage": 0,
+assert rounded["qty_production"] == 20
+assert rounded["package_component_qty_protected"] == 5
+assert rounded["direct_qty_requested"] == 10
+assert rounded["direct_qty_allocated"] == 15
+assert rounded["qty_surplus_distributed"] == 5
+assert rounded["qty_surplus"] == 0
+assert rounded["store_allocations"] == {
+    11: {"requested": 4, "allocated": 6, "shortage": 0, "surplus": 2},
+    22: {"requested": 6, "allocated": 9, "shortage": 0, "surplus": 3},
 }, rounded
 
-# A Planning Max < the rounded gross demand is a capacity exception,
-# not permission to disregard the published Max or steal Paket priority.
+# When whole-batch capacity can cover Paket but not direct stores,
+# protect Paket first, then prorate ONLY the remaining direct budget.
+limited = plan(5, {11: 4, 22: 6}, 1, 12)
+assert limited["status"] == "prorated_direct_only", limited
+assert limited["qty_production"] == 12
+assert limited["package_component_qty_protected"] == 5
+assert limited["direct_qty_allocated"] == 7
+assert limited["direct_qty_shortage"] == 3
+assert limited["qty_surplus_distributed"] == 0
+assert limited["store_allocations"] == {
+    11: {"requested": 4, "allocated": 3, "shortage": 1, "surplus": 0},
+    22: {"requested": 6, "allocated": 4, "shortage": 2, "surplus": 0},
+}
+
+# Planning Max 10 permits only one kitchen BoM of 10, not two.
 rounded_limited = plan(5, {11: 10}, 10, 10)
-assert rounded_limited["qty_production"] == 10, rounded_limited
+assert rounded_limited["qty_production"] == 10
 assert rounded_limited["package_component_qty_protected"] == 5
 assert rounded_limited["direct_qty_allocated"] == 5
 assert rounded_limited["direct_qty_shortage"] == 5
 
-# 10 direct Y + 5 Y from Paket, 12 unit capacity, one-unit manufacturing.
-a = plan(5, {11: 4, 22: 6}, 1, 12)
-assert a["status"] == "prorated_direct_only", a
-assert a["qty_production"] == 12
-assert a["package_component_qty_protected"] == 5
-assert a["package_component_shortage"] == 0
-assert a["direct_qty_allocated"] == 7
-assert a["direct_qty_shortage"] == 3
-assert a["qty_surplus"] == 0
-assert a["store_allocations"] == {
-    11: {"requested": 4, "allocated": 3, "shortage": 1},
-    22: {"requested": 6, "allocated": 4, "shortage": 2},
-}, a
+# All capacity protected by Paket, ordinary store gets zero.
+all_package = plan(5, {11: 8}, 1, 5)
+assert all_package["store_allocations"][11] == {
+    "requested": 8, "allocated": 0, "shortage": 8, "surplus": 0}
 
-# All kitchen capacity is consumed by Paket; ordinary RO becomes shortage.
-b = plan(5, {11: 8}, 1, 5)
-assert b["package_component_qty_protected"] == 5
-assert b["store_allocations"][11] == {
-    "requested": 8, "allocated": 0, "shortage": 8}
+# Cannot cover protected Paket: no executable MO.
+blocked = plan(6, {11: 10}, 1, 5)
+assert blocked["status"] == "blocked_package_capacity", blocked
+assert blocked["qty_production"] == 0
+assert blocked["package_component_shortage"] == 6
+assert blocked["capacity_if_unblocked"] == 5
 
-# Not even the entire package bucket fits: BLOCK and emit no executable MO.
-c = plan(6, {11: 10}, 1, 5)
-assert c["status"] == "blocked_package_capacity", c
-assert c["qty_production"] == 0 and c["package_component_qty_protected"] == 0
-assert c["package_component_shortage"] == 6
-assert c["capacity_if_unblocked"] == 5
+# Huge kitchen BoM rounding surplus: do not strand it when a shop
+# requested the SKU. The shop receives its order PLUS round-up surplus.
+large_batch = plan(2, {11: 1}, 5, 5)
+assert (large_batch["qty_production"], large_batch["package_component_qty_protected"],
+        large_batch["direct_qty_allocated"], large_batch["qty_surplus_distributed"],
+        large_batch["qty_surplus"]) == (5, 2, 3, 2, 0), large_batch
+assert large_batch["store_allocations"][11] == {
+    "requested": 1, "allocated": 3, "shortage": 0, "surplus": 2}
 
-# Rounded BoM output must not be allocated as extra store orders.
-d = plan(2, {11: 1}, 5, 5)
-assert (d["qty_production"], d["package_component_qty_protected"],
-        d["direct_qty_allocated"], d["qty_surplus"]) == (5, 2, 1, 2), d
-assert d["store_allocations"][11]["allocated"] == 1
+# No direct RO stores: cannot randomly assign excess to a new store.
+no_store = plan(5, {}, 10, 10)
+assert no_store["package_component_qty_protected"] == 5
+assert no_store["qty_surplus_distributed"] == 0
+assert no_store["qty_surplus"] == 5
 
-# Three kitchen BoM batches available; demand needs four: protect Paket.
-e = plan(9, {11: 6, 22: 6}, 5, 15)
-assert e["qty_production"] == 15 and e["package_component_qty_protected"] == 9
-assert e["direct_qty_allocated"] == 6
-assert e["store_allocations"][11]["allocated"] == 3
-assert e["store_allocations"][22]["allocated"] == 3
-
-# Without Paket, new algorithm must reproduce legacy store allocations and
-# production quantity for all ordinary no-Paket scenarios.
-for demands in ({11: 10}, {11: 4, 22: 6}, {11: 1, 22: 2, 33: 3}):
+# No-Paket baseline: compare against original historical surplus-prorata
+# helper when max capacity permits whole rounded demand, and current
+# active capacity-shortage helper when max is insufficient.
+for demands in ({11: 10}, {11: 4, 22: 6},
+                {11: 1, 22: 2, 33: 3}, {11: 0, 22: 7}):
     for batch in (1, 2, 5, 10):
         for cap in (0, 1, 3, 5, 10, 15, 25):
-            old_produced, old_alloc, old_status = legacy.allocate_capacity_prorata(
+            old_qty, old_rows, old_status = ordinary.allocate_capacity_prorata(
                 demands, batch, cap)
-            new = plan(0, demands, batch, cap)
-            assert new["qty_production"] == old_produced, (demands, batch, cap)
-            for store in demands:
-                assert new["store_allocations"][store]["allocated"] == (
-                    old_alloc[store]["allocated"]), (demands, batch, cap, new)
-                assert new["store_allocations"][store]["shortage"] == (
-                    old_alloc[store]["shortage"]), (demands, batch, cap, new)
-            assert new["qty_surplus"] == (
-                old_produced - sum(x["allocated"] for x in old_alloc.values())
-            ), (demands, batch, cap, new)
-            assert new["status"] == {
-                "ok": "ok", "prorated": "prorated_direct_only",
-                "blocked": "blocked",
-            }[old_status]
+            actual = plan(0, demands, batch, cap)
+            assert actual["qty_production"] == old_qty, (
+                demands, batch, cap, actual)
+            if old_status == "ok":
+                hist_qty, hist_rows = ordinary.allocate_surplus_prorata(demands, batch)
+                assert hist_qty == old_qty
+                for store in demands:
+                    assert actual["store_allocations"][store]["allocated"] == hist_rows[store]["allocated"]
+                    assert actual["store_allocations"][store]["surplus"] == hist_rows[store]["surplus"]
+                    assert actual["store_allocations"][store]["shortage"] == 0
+                assert actual["qty_surplus"] == 0
+            else:
+                for store in demands:
+                    assert actual["store_allocations"][store]["allocated"] == old_rows[store]["allocated"]
+                    assert actual["store_allocations"][store]["shortage"] == old_rows[store]["shortage"]
+                    assert actual["store_allocations"][store]["surplus"] == 0
+                assert actual["status"] == {
+                    "prorated": "prorated_direct_only",
+                    "blocked": "blocked",
+                }[old_status]
 
-# Reject malformed Qty, nonpositive batch and invalid store IDs.
+# Reject invalid source quantities and store IDs.
 for args in (
     (1.5, {11: 1}, 1, 10),
     (1, {0: 1}, 1, 10),
@@ -111,10 +126,11 @@ for args in (
 ):
     try:
         plan(*args)
-        raise AssertionError("Expected explicit Qty failure: %r" % (args,))
+        raise AssertionError("Expected rejection: %r" % (args,))
     except rules.PackageDemandError:
         pass
 
 print("PACKAGE_CAPACITY_PRIORITY_PURE_PASS")
-print("NO_PACKAGE_REGRESSION_PASS")
+print("NO_PACKAGE_HISTORICAL_SURPLUS_RULE_TEST_PASS")
+print("NOTE: currently-active ordinary RO preview still does NOT distribute surplus.")
 print("SOURCE_ONLY: no RO, MO, stock, Odoo DB or allocations changed.")
