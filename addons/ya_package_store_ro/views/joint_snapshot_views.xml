@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Extend existing YA batch form; do not replace tested ordinary views. -->
+  <record id="view_ya_joint_packing_batch_form" model="ir.ui.view">
+    <field name="name">ya.packing.batch.form.package.extension</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="inherit_id" ref="ya_store_ro.view_ya_packing_batch_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//form/sheet/group/group[1]" position="inside">
+        <field name="ya_has_package" invisible="1"/>
+        <field name="ya_package_ro_count" string="RO Paket" readonly="1"
+               invisible="not ya_has_package"/>
+      </xpath>
+      <xpath expr="//form/sheet/notebook" position="inside">
+        <page string="Paket Jadi (Snapshot)" invisible="not ya_has_package">
+          <field name="ya_package_demand_ids" readonly="1">
+            <list create="false" delete="false">
+              <field name="package_ro_id" string="RO Paket Sumber"/>
+              <field name="store_warehouse_id" string="Toko"/>
+              <field name="product_id" string="SKU Paket"/>
+              <field name="bom_id" string="BoM Perakitan"/>
+              <field name="qty_requested" string="Jumlah Paket"/>
+            </list>
+          </field>
+        </page>
+        <page string="Komponen Paket (Snapshot)" invisible="not ya_has_package">
+          <field name="ya_package_component_ids" readonly="1">
+            <list create="false" delete="false">
+              <field name="demand_id" string="Paket Sumber"/>
+              <field name="product_id" string="Komponen"/>
+              <field name="source_kind" string="Asal"/>
+              <field name="kitchen_line_id" string="MO Dapur Terkait"/>
+              <field name="qty_per_package" string="Per 1 Paket"/>
+              <field name="qty_required" string="Total Butuh"/>
+              <field name="uom_id" string="Satuan"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+      <xpath expr="//form/sheet/notebook/page[1]/field[@name='line_ids']/list/field[@name='qty_requested']"
+             position="after">
+        <field name="ya_package_component_qty"
+               string="Prioritas Paket" optional="show"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- The same original Pre Produksi list is used for mixed/ordinary slots. -->
+  <record id="view_ya_joint_packing_preproduction_list" model="ir.ui.view">
+    <field name="name">ya.packing.preproduction.line.list.package.extension</field>
+    <field name="model">ya.packing.batch.line</field>
+    <field name="inherit_id" ref="ya_store_ro.view_ya_packing_preproduction_line_list"/>
+    <field name="arch" type="xml">
+      <xpath expr="//list/field[@name='qty_requested']" position="after">
+        <field name="ya_package_component_qty"
+               string="Prioritas Paket" optional="show"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
