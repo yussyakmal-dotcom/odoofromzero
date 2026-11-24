@@ -48,7 +48,10 @@ def plan_joint_slot(direct_rows, package_rows, kitchen_specs, planner):
     pending_pck = defaultdict(float)
     packages = defaultdict(int)
     component_trace = defaultdict(lambda: defaultdict(int))
+    packing_trace = defaultdict(lambda: defaultdict(float))
     package_sources = defaultdict(set)
+    direct_provenance = []
+    package_provenance = []
     warnings = []
 
     for row in direct_rows:
@@ -59,6 +62,12 @@ def plan_joint_slot(direct_rows, package_rows, kitchen_specs, planner):
             raise JointSlotError("Direct SKU %s lacks unique published kitchen route" % product)
         if qty:
             direct[product][store] += qty
+            direct_provenance.append({
+                "ro_id": row.get("ro_id"),
+                "product_id": product,
+                "store_id": store,
+                "qty": qty,
+            })
 
     for row in package_rows:
         package = _key(row["product_id"], "package product")
@@ -71,6 +80,13 @@ def plan_joint_slot(direct_rows, package_rows, kitchen_specs, planner):
             raise JointSlotError("Paket %s requires a valid assembly BoM" % package)
         packages[(store, package)] += qty
         package_sources[package].add(row.get("ro_id") or 0)
+        package_provenance.append({
+            "ro_id": row.get("ro_id"),
+            "bom_id": row.get("bom_id"),
+            "product_id": package,
+            "store_id": store,
+            "qty": qty,
+        })
         routed_kitchens = set()
         seen = set()
         for item in components:
@@ -103,6 +119,7 @@ def plan_joint_slot(direct_rows, package_rows, kitchen_specs, planner):
                 routed_kitchens.add(kitchen_specs[component]["planning_id"])
             elif source == "PCK":
                 pending_pck[component] += needed
+                packing_trace[package][component] += needed
             else:
                 raise JointSlotError("Unknown component source %s" % source)
         if len(routed_kitchens) < 2:
@@ -150,8 +167,19 @@ def plan_joint_slot(direct_rows, package_rows, kitchen_specs, planner):
             {"store_id": store, "product_id": package, "qty": qty}
             for (store, package), qty in sorted(packages.items())
         ],
+        "ordinary_ro_source_lines": sorted(
+            direct_provenance,
+            key=lambda row: (row["product_id"], row["store_id"], row["ro_id"] or 0),
+        ),
+        "package_ro_source_lines": sorted(
+            package_provenance,
+            key=lambda row: (row["product_id"], row["store_id"], row["ro_id"] or 0),
+        ),
         "package_component_trace": {
             package: dict(parts) for package, parts in sorted(component_trace.items())
+        },
+        "pck_component_trace": {
+            package: dict(parts) for package, parts in sorted(packing_trace.items())
         },
         "package_ro_source_ids": {
             package: sorted(source_ids)
