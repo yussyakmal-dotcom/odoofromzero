@@ -436,3 +436,17 @@ Source-only pure helper `addons/ya_store_ro/models/package_priority_rules.py` up
 `script/test_package_demand_buckets_pure_ya.py` updated to test explicit routing, cross-source BoM and rejection of direct SKU wrongly supplied via Purchasing. Pending Feri output; do not claim PASS for modified code yet.
 
 Still not integrated: RO import/template eligibility for Paket, immutable Pre Produksi shortage/capacity snapshot, kitchen MO component demand, Paket MO in PCK, and DO final SKU. **No live Odoo models or UI behavior were modified by this step.** Do not fabricate inventory source kind from product category: read actual Routing/BoM and owner-provided supply method. Newly cleaned Paket master needs fresh narrowly scoped test pilot verification (historical 122 number is stale after cleanup).
+
+## NEW ISOLATED ADDON STAGED — RO PAKET PER TOKO (2026-11-24)
+
+Feri verified updated source-only demand calculator via `python3 script/test_package_demand_buckets_pure_ya.py`: `PACKAGE_DEMAND_BUCKETS_PURE_PASS`, no Odoo inventory/RO/MO/allocations touched.
+
+New source-only **not installed, not upgraded, not UAT verified** add-on committed at `addons/ya_package_store_ro/`:
+- `ya.package.store.ro`: independent Draft/Confirmed package request per **store, delivery_date, slot** with uniqueness, no fake kitchen Published Planning link; allowed product category `All / Produk Jadi / Paket` only.
+- `ya.package.store.ro.line`: product, integer nonnegative qty, product UoM, unique SKU per package RO; confirmed order/lines immutable; confirm blocks any existing `ya.packing.batch` for the date/slot with same advisory lock `lock_ro_slot` as regular kitchen RO.
+- Screens RO Paket Toko + ACLs staged for Manufacturing Manager edit, Packing Admin read-only. **No upload XLSX yet**. No MO/stock/GL effect. Existing add-on `ya_store_ro` was NOT modified.
+- Current `ya.packing.preview` does **not** consume `ya.package.store.ro` and neither MO generation nor DO can deliver packages. **DO NOT install/present this addon to real users yet** as a standalone confirmed Paket RO would falsely imply processing readiness.
+- Need develop atomic shared date-slot Pre Produksi snapshot for both regular confirmed RO and package confirmed RO; package Mo components protected before direct regular store prorata; true PCK native assembly MO (no WO), immutable package final SKU allocations and stock-delivery; no-package regression. Only after complete integration, controlled test DB module installation and UAT.
+- Strict owner routing rule: category Paket exclusively cross-kitchen; products packaged in one kitchen use existing ordinary kitchen MO flow. Only manufactured components add kitchen demand; all nonmanufactured physical components sourced into PCK via standard Odoo flow outside project scope.
+
+**Next verification:** on Feri repo after `git pull`, run source syntax checks `python3 -m compileall -q addons/ya_package_store_ro` and pure test. The new addon is not activated by git pull alone, and Odoo registry has NOT been changed. Review logic and integration in sandbox/test before `-u ya_package_store_ro`.
