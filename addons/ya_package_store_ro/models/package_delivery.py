@@ -70,13 +70,25 @@ class YaPackingBatchPackageDelivery(models.Model):
             actual = sum(move.product_uom._compute_quantity(
                 move.quantity, mo.product_id.uom_id, round=False
             ) for move in finished)
+            # Native MO Done is evidence of actual finished inventory, NOT
+            # proof that every unit requested by the stores was produced.
+            # Existing DO workflow allows the operator to ship a smaller Qty
+            # or enter Qty 0 with a reason. Do not block unrelated store SKUs.
+            if float_compare(
+                actual, 0.0,
+                precision_rounding=mo.product_id.uom_id.rounding,
+            ) < 0:
+                raise UserError(_(
+                    "Paket %s has invalid negative finished Qty."
+                ) % mo.product_id.display_name)
             if float_compare(
                 actual, float(demand_by_sku[mo.product_id.id]),
                 precision_rounding=mo.product_id.uom_id.rounding,
-            ) != 0:
-                raise UserError(_(
-                    "Paket %s actual finished Qty does not match frozen RO Paket."
-                ) % mo.product_id.display_name)
+            ) > 0:
+                # Surplus production is a real stock movement, but NOT an
+                # implicit increase to any store's confirmed Paket demand.
+                # Extra finished units can go by standard internal transfer.
+                pass
 
         # Base implementation continues to control existing ordinary RO DO
         # creation, PCK finished transfer, and native transit/store receipts.
