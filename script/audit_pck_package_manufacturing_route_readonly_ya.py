@@ -57,7 +57,7 @@ for pkg in pkgs:
     pt = bom.picking_type_id
     k = (pt.id, pt.name) if pt else ("none", "-")
     bom_pt[k] = bom_pt.get(k, 0) + 1
-    ops = getattr(bom, "operation_ids", env["mrp.routing.workcenter"])
+    ops = bom.operation_ids if "operation_ids" in Bom._fields else []
     if ops:
         has_ops += 1
         if len(operation_examples) < 15:
