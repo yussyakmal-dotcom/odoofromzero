@@ -115,3 +115,108 @@ def allocate_kitchen_capacity_package_first(package_need, direct_by_store,
         "direct_possible": min(remaining, direct_requested),
         "direct_shortage": max(0, direct_requested - remaining),
     }
+
+
+def plan_kitchen_capacity_with_package_priority(
+        package_need, direct_by_store, bom_output, max_capacity):
+    """One kitchen/SKU capacity plan without silently shorting a package.
+
+    Production is sized to full BoM batches, capped by published Planning Max.
+    All package-component demand is protected FIRST. If a full protected
+    bucket cannot be produced, BLOCK: do not issue partial package allocation.
+    Remaining units are allocated to direct RO stores by deterministic
+    Hamilton/largest remainder. Unallocated BoM batch surplus is separate
+    from store allocation, matching current RO preview behavior.
+
+    When package_need=0, this function is equivalent to the existing
+    allocate_capacity_prorata direct RO calculation for nonzero demand.
+    Caller must aggregate all Paket BoM demand BEFORE calling this method.
+    Output does NOT certify assembly availability of other components.
+    """
+    protected = _qty(package_need, "package_need")
+    batch = _qty(bom_output, "bom_output", allow_zero=False)
+    maximum = _qty(max_capacity, "max_capacity")
+    stores = {}
+    for store, requested in direct_by_store.items():
+        if isinstance(store, bool) or not isinstance(store, int) or store <= 0:
+            raise PackageDemandError("Store ID must be a positive integer")
+        stores[store] = _qty(requested, "direct_store[%s]" % store)
+    requested_direct = sum(stores.values())
+    total_requested = protected + requested_direct
+    if total_requested == 0:
+        return {
+            "status": "no_demand",
+            "qty_production": 0,
+            "package_component_qty_protected": 0,
+            "package_component_shortage": 0,
+            "direct_qty_requested": 0,
+            "direct_qty_allocated": 0,
+            "direct_qty_shortage": 0,
+            "qty_surplus": 0,
+            "store_allocations": {
+                store: {"requested": requested, "allocated": 0, "shortage": 0}
+                for store, requested in stores.items()
+            },
+        }
+
+    # Existing Odoo workflow never creates a fractional or partial BoM batch.
+    production_target = ((total_requested + batch - 1) // batch) * batch
+    producible = min(production_target, (maximum // batch) * batch)
+    protected_shortage = max(protected - producible, 0)
+
+    if producible == 0 or protected_shortage:
+        # Fail closed: no package-priority release is permitted. Do not let
+        # direct-store allocations consume component quantity intended for
+        # an incomplete package (or claim a feasible aggregate plan).
+        return {
+            "status": "blocked_package_capacity" if protected_shortage else "blocked",
+            "qty_production": producible,
+            "package_component_qty_protected": min(protected, producible),
+            "package_component_shortage": protected_shortage,
+            "direct_qty_requested": requested_direct,
+            "direct_qty_allocated": 0,
+            "direct_qty_shortage": requested_direct,
+            "qty_surplus": max(0, producible - min(protected, producible)),
+            "store_allocations": {
+                store: {"requested": requested, "allocated": 0,
+                        "shortage": requested}
+                for store, requested in stores.items()
+            },
+        }
+
+    direct_budget = min(requested_direct, producible - protected)
+    allocations = {}
+    distributed = 0
+    remainders = []
+    for store, requested in stores.items():
+        base, remainder = divmod(requested * direct_budget, requested_direct) \
+            if requested_direct else (0, 0)
+        allocations[store] = {
+            "requested": requested,
+            "allocated": base,
+            "shortage": requested - base,
+        }
+        distributed += base
+        remainders.append((remainder, store))
+    remainders.sort(key=lambda item: (-item[0], item[1]))
+    for _, store in remainders[:direct_budget - distributed]:
+        allocations[store]["allocated"] += 1
+        allocations[store]["shortage"] -= 1
+
+    surplus = producible - protected - direct_budget
+    assert surplus >= 0
+    assert sum(a["allocated"] for a in allocations.values()) == direct_budget
+    assert sum(a["shortage"] for a in allocations.values()) == (
+        requested_direct - direct_budget)
+    assert protected + direct_budget + surplus == producible
+    return {
+        "status": "prorated_direct_only" if direct_budget < requested_direct else "ok",
+        "qty_production": producible,
+        "package_component_qty_protected": protected,
+        "package_component_shortage": 0,
+        "direct_qty_requested": requested_direct,
+        "direct_qty_allocated": direct_budget,
+        "direct_qty_shortage": requested_direct - direct_budget,
+        "qty_surplus": surplus,
+        "store_allocations": allocations,
+    }
