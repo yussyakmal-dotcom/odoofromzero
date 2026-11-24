@@ -426,3 +426,13 @@ Owner has chosen a SIMPLIFIED ROUTING RULE based on master product category:
 - For a one-kitchen packaged final SKU, ensure its existing kitchen-specific BoM and Published Planning correctly identify the **final SKU itself** (not merely component SKUs) when preparing RO; otherwise its ordinary manufacturing path must be configured. Do not assume a category change alone makes it executable.
 
 This is an owner-approved BUSINESS RULE only. No production master, category, BoM, RO, MO, or code was modified by this note.
+
+## IMPLEMENTATION RESTART — SOURCE KIND INDEPENDENT OF PRODUCT CATEGORY (2026-11-24)
+
+Owner's strict category policy stands: `All / Produk Jadi / Paket` is the cross-kitchen assembled final SKU, while one-kitchen packaged products become normal kitchen finished SKU. Only final Paket SKU category decides package assembly flow; **component category does not determine its procurement/source**.
+
+Source-only pure helper `addons/ya_store_ro/models/package_priority_rules.py` updated to accept explicit source kinds `MANUFACTURED_KITCHEN` and `PCK_STOCK_STANDARD_FLOW`, with earlier `FINISHED_KITCHEN` / `CONSIGNMENT` / `PACKAGING` aliases for compatibility. Any BoM component classified as standard PCK stock may be a purchased finished item, printed pack, consignment, ordinary raw-category material, etc. **No procurement logic** added. Direct RO products must be explicitly kitchen-routed, guarding against treating purchased components or Paket finished SKUs as kitchen MO.
+
+`script/test_package_demand_buckets_pure_ya.py` updated to test explicit routing, cross-source BoM and rejection of direct SKU wrongly supplied via Purchasing. Pending Feri output; do not claim PASS for modified code yet.
+
+Still not integrated: RO import/template eligibility for Paket, immutable Pre Produksi shortage/capacity snapshot, kitchen MO component demand, Paket MO in PCK, and DO final SKU. **No live Odoo models or UI behavior were modified by this step.** Do not fabricate inventory source kind from product category: read actual Routing/BoM and owner-provided supply method. Newly cleaned Paket master needs fresh narrowly scoped test pilot verification (historical 122 number is stale after cleanup).
