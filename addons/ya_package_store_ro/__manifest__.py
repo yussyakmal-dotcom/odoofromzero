@@ -1,6 +1,6 @@
 {
     'name': 'YA Paket RO - Cross Kitchen Demand',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Inventory',
     'summary': 'Separate store requests for multi-kitchen package assemblies',
     'depends': ['ya_store_ro'],
@@ -10,6 +10,7 @@
         'views/package_ro_views.xml',
         'views/package_qty_correction_views.xml',
         'views/joint_slot_preview_views.xml',
+        'views/joint_snapshot_views.xml',
     ],
     'license': 'LGPL-3',
     'installable': True,
