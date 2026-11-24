@@ -81,14 +81,11 @@ class YaPackingBatchPackageDelivery(models.Model):
                 raise UserError(_(
                     "Paket %s has invalid negative finished Qty."
                 ) % mo.product_id.display_name)
-            if float_compare(
-                actual, float(demand_by_sku[mo.product_id.id]),
-                precision_rounding=mo.product_id.uom_id.rounding,
-            ) > 0:
-                # Surplus production is a real stock movement, but NOT an
-                # implicit increase to any store's confirmed Paket demand.
-                # Extra finished units can go by standard internal transfer.
-                pass
+            # If actual is below frozen store demand, native DO is still
+            # created with the requested Qty and operator selects actual
+            # shipped Qty (or zero + a reason), exactly like ordinary DO.
+            # If actual is higher, extra stock can be transferred separately;
+            # never silently inflate a store's confirmed Paket allocation.
 
         # Base implementation continues to control existing ordinary RO DO
         # creation, PCK finished transfer, and native transit/store receipts.
