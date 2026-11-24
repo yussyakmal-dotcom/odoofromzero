@@ -756,3 +756,31 @@ Feri ran test-only `script/test_package_joint_stage_mo_rollback_ya.py` via Odoo 
 **Only the test script** updated in GitHub commit `70c3c72f43f8f747d28c05306e6a62090646596a`. Keeps real model security UNCHANGED. Inside mandatory rollback savepoint it creates two role-specific TEMPORARY res.users accounts (reserved invalid example logins, no password/reset email), granting existing creator and Packing Admin groups. Test creates/confirms RO as creator, previews/stages Pre Produksi as Packing Admin, generates MOs as Packing Admin. Impersonation uses `with_user(...).sudo()` for mechanical ORM smoke with proper current `env.user.has_group`; not proof of all real-world UI ACLs. Every temporary user, RO, batch and MO is rolled back, with post-rollback assertion that role users no longer exist. No permanent permission grants; do not modify original addon role checks, production users, company master, or Plan/BoM.
 
 **Next Feri test: NO MODULE UPGRADE/RESTART.** Only `cd ~/odoofromzero && git pull && python3 -m py_compile script/test_package_joint_stage_mo_rollback_ya.py` then rerun the same Odoo shell stdin command on **`erp-yussyakmal-mrp-test`**. Since only the UAT script changed, no deployed addon modification is required. If it fails again, report COMPLETE traceback; do not claim package production successful until `PACKAGE_JOINT_STAGE_MO_ROLLBACK_PASS` and `ROLLBACK_NO_RO_BATCH_MO_PERSISTED_PASS`. The user-end flow ordinary RO remains unaffected.
+
+## FERI ACTUAL UAT PASS — PAKET-ONLY JOINT PRE PRODUKSI + KITCHEN MO ROLLBACK (2026-11-24)
+
+**First real Odoo transactional PASS:** Feri ran `script/test_package_joint_stage_mo_rollback_ya.py` on `erp-yussyakmal-mrp-test` after the test-user role fix. Final output:
+- `ROLLBACK_TEST_ROLE_USERS_READY`
+- `PACKAGE_RO_CONFIRM_PASS`
+- `JOINT_PREVIEW_WITHOUT_FAKE_RO_PASS`
+- `JOINT_PREPRODUCTION_FROZEN_PAKET_FIRST_PASS`
+- `PCK_INTERNAL_TRANSFER_FALLBACK_QTY: 16`
+- `JOINT_KITCHEN_MO_CONFIRM_PASS`; `KITCHEN_MO_COUNT: 3`
+- `ROLLBACK_EXPECTED_OK`, `ROLLBACK_ROLE_USERS_NOT_PERSISTED_PASS`, `ROLLBACK_NO_RO_BATCH_MO_PERSISTED_PASS`
+- `PACKAGE_JOINT_STAGE_MO_ROLLBACK_PASS`.
+
+This confirms that Paket add-on **was installed on the TEST database** (script asserted state installed, version 19.0.1.3.0), actual SKU **12114 Hampers EID SET D**, real BoM **1405**, actual T_BAN store, Published Planning **2026-11-24 S1**, Paket quantity 1, 3 native kitchen MOs/PST+ROTI and 16 leftover kitchen units preserved for a real standard Packing→store internal transfer, NOT artificially assigned. **All created test RO, batch, MOs and temporary users rolled back**; no persistent stock change. Do NOT falsely say module still uninstalled. No production database change. No actual MO Done, PCK physical FG transfer, native Paket assembly MO Done, combined DO or store receipt has been tested yet.
+
+**NEXT source-only stage prepared (not yet Feri-tested):** `script/test_package_joint_mixed_stage_mo_rollback_ya.py`. Same real free TEST slot and real Paket 12114, with two ordinary confirmed ROs in the **same date-slot** for component **SKU 11999** of the same kitchen PST: T_KD Qty2 and T_RAI Qty1 (real planning BoM batch output7, Published Max7). Paket source T_BAN requires protected component Qty1. Joint gross4 ⇒ kitchen MO7; store allocation 4 and2 (ordinary RO 2+2 surplus, and 1+1 surplus), package protected1; **zero unallocated 11999**. Other two Paket-only components output7 and5 reserve1 each, leave **10 units** for standard internal transfer. Three native kitchen MOs total. Creates three actual temporary role users (Paket creator, Manufacturing Manager, Packing Admin), two ordinary RO and one Paket RO, one immutable joint batch and native kitchen MOs entirely within explicit savepoint+rollback. Asserts no records/users survived. Does NOT touch normal operator/master data or stock, and is NOT physical goods E2E. No addon source changed since installed test version, thus **NO re-install/upgrade or shared service restart needed** for this new standalone test.
+
+Next Feri commands:
+`cd ~/odoofromzero && git pull && python3 -m py_compile script/test_package_joint_mixed_stage_mo_rollback_ya.py`, then Odoo shell TEST DB `< script/test_package_joint_mixed_stage_mo_rollback_ya.py`. Expected markers:
+`MIXED_ORDINARY_RO_CONFIRMED_PASS`,
+`MIXED_JOINT_PREVIEW_PASS`,
+`MIXED_PACKAGE_FIRST_STORE_PRORATA_PASS`,
+`MIXED_NATIVE_KITCHEN_MO_CONFIRM_PASS`,
+`MIXED_ROLLBACK_NO_RO_BATCH_MO_USERS_PERSISTED_PASS`,
+`PACKAGE_JOINT_MIXED_STAGE_MO_ROLLBACK_PASS`.
+If actual master/Planning changed, investigate rather than override it. If an error occurs, send full traceback; avoid additional local fixes outside GitHub without review.
+
+Prioritization remains: current Paket > RO toko; later Sales Order > Paket > RO only when SO Manufacturing introduced. Preserve original store RO Qty and existing RO-only flow. Internal transfer fallback is a valid SOP exception; do not hard-stop the whole workflow because the system cannot automatically distribute some finished output.
