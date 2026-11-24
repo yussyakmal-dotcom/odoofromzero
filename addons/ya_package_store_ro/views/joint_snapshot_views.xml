@@ -6,12 +6,36 @@
     <field name="model">ya.packing.batch</field>
     <field name="inherit_id" ref="ya_store_ro.view_ya_packing_batch_form"/>
     <field name="arch" type="xml">
+      <xpath expr="//form/header/button[@name='action_open_mos']" position="after">
+        <button name="action_ya_create_package_assembly_mos" type="object"
+                string="Siapkan MO Rakit Paket"
+                groups="ya_store_ro.group_ya_packing_admin"
+                class="btn-primary"
+                invisible="not ya_has_package or state != 'production_ok' or ya_package_assembly_mo_count != 0"
+                confirm="Buat MO perakitan standar per SKU Paket setelah semua MO dapur Done dan produk jadi masuk Packing? Tidak menyelesaikan MO atau memindahkan stok otomatis."/>
+        <button name="action_ya_open_package_assembly_mos" type="object"
+                string="Lihat MO Rakit Paket"
+                groups="ya_store_ro.group_ya_packing_admin"
+                invisible="not ya_has_package or ya_package_assembly_mo_count == 0"/>
+      </xpath>
       <xpath expr="//form/sheet/group/group[1]" position="inside">
         <field name="ya_has_package" invisible="1"/>
+        <field name="ya_package_assembly_mo_count" invisible="1"/>
         <field name="ya_package_ro_count" string="RO Paket" readonly="1"
                invisible="not ya_has_package"/>
       </xpath>
       <xpath expr="//form/sheet/notebook" position="inside">
+        <page string="MO Rakit Paket" invisible="not ya_has_package">
+          <field name="ya_package_assembly_mo_ids" readonly="1">
+            <list create="false" delete="false">
+              <field name="name"/>
+              <field name="product_id" string="Paket"/>
+              <field name="product_qty" string="Qty Paket"/>
+              <field name="bom_id"/>
+              <field name="state"/>
+            </list>
+          </field>
+        </page>
         <page string="Paket Jadi (Snapshot)" invisible="not ya_has_package">
           <field name="ya_package_demand_ids" readonly="1">
             <list create="false" delete="false">
