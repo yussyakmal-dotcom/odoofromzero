@@ -662,3 +662,32 @@ Next Feri source checks (no Odoo DB changes):
 `python3 -m compileall -q addons/ya_package_store_ro`
 
 **Business invariants unchanged:** 20 years SOP primary; current Paket > ordinary RO; future SO > Paket > RO; 1 Paket assembly BoM outputs exactly 1 Paket, kitchen BoMs may output batches (ceil round-up); positive BoM extra after protecting Paket distributed prorata to ordering stores; anything no RO recipient remains tracked for native PCK→store internal transfer, not a hard-stop; no negative stock, duplicate MO or overnight PCK.
+
+## PACKAGE PCK NATIVE ASSEMBLY + SAME STORE DO — NEW SOURCE STAGE (2026-11-24)
+
+Feri confirmed source-only PASS on prior stage:
+- `JOINT_SLOT_PURE_ALL_PASS`
+- `PACKAGE_JOINT_PREVIEW_SOURCE_OK`
+- `PACKAGE_JOINT_PREPRODUCTION_SOURCE_OK`
+- `PACKAGE_JOINT_MO_RELEASE_SOURCE_OK`
+- `SOURCE_ONLY_NO_DB_CHANGES`
+Old source remains UNINSTALLED in Odoo test; no Paket real transaction UAT has occurred.
+
+**Next GitHub SOURCE now staged, still NOT installed/UAT:** `ya_package_store_ro` **19.0.1.3.0**, with dependencies on existing `ya_store_ro`, `ya_finished_packing_transfer`, and `ya_packing_store_delivery`.
+- `models/package_assembly.py` extends native `mrp.production` with unique `(ya_package_assembly_batch_id, product_id)`, and existing `ya.packing.batch` with `action_ya_create_package_assembly_mos`. Creates ONE normal Odoo MO per Paket final SKU across all stores for same date/slot; only for joint Produksi OK batch; after ALL kitchen component MOs Done and FG transfer to PCK Done. Uses ONE **existing PCK Manufacturing operation type** (does not create fake warehouse/routes) and explicitly requires both source/destination stock locations be `PCK/Stock`. Reads confirmed, frozen Paket BO M with output **exactly 1 Paket**, verifies frozen source/BoM via `_ya_check_joint_sources`. Does NOT auto-mark MO Done, auto-write stock, create WOs or auto-buy consignment. Detects unexpected WO generation so SOP stays no-WO. Uses natural Odoo component consumption and finished production movement at completion. Reclick is idempotent / opens existing MOs.
+- `models/package_delivery.py` extends existing **`action_ya_generate_store_do`**, only when `batch.ya_has_package` is True. Ordinary-only dispatch uses `super()` unchanged. For joint batch, requires real Paket assembly MOs Done and verifies actual posted **move_finished_ids** quantities match frozen Paket RO. Calls original normal-store DO creation where original allocations exist; then appends Paket stock moves to the SAME store dispatch picking, creating native per-store picking only if a Paket-only store had none. Uses same PCK source, interwarehouse transit, and existing store reception engine. Does NOT validate dispatch or create fake ready stock; sets Done Qty only when untracked goods are physically available and unreserved, otherwise native operator can resolve as existing shortage SOP. Double-click opens existing DO without re-issuing.
+- `models/package_finish_rules.py` consolidates frozen store demand in one source for assembly per SKU and store DO split. `script/test_package_assembly_dispatch_pure_ya.py` checks shared SKU across stores, totals, determinism and bad Qty.
+- `views/joint_snapshot_views.xml` exposes Packing's **Siapkan MO Rakit Paket**, **Lihat MO Rakit Paket**, and MO list directly in the EXISTING `ya.packing.batch` UI; no extra production app for operators.
+- `script/check_package_assembly_do_source_readonly_ya.py` checks AST/XML/dependencies/native-route semantics, no WO and no auto-validation. `script/audit_pck_package_manufacturing_route_readonly_ya.py` reports REAL PCK warehouse manufacture operation types, src/dest routes, package BoM operation counts/read-only without mutation.
+
+**Source-only and read-only tests now PENDING FERI; do not claim installed, do not upgrade DB or put Paket into production**:
+`python3 script/test_package_joint_slot_pure_ya.py`
+`python3 script/test_package_assembly_dispatch_pure_ya.py`
+`python3 script/check_package_joint_preview_source_readonly_ya.py`
+`python3 script/check_package_joint_snapshot_source_readonly_ya.py`
+`python3 script/check_package_assembly_do_source_readonly_ya.py`
+`python3 -m compileall -q addons/ya_package_store_ro`
+Then ONLY Odoo shell read-only (test database): `script/audit_pck_package_manufacturing_route_readonly_ya.py`. Do not install while PCK manufacturing route remains unverified.
+Need follow-up: address any actual route/BoM operations finding; then write rollback E2E tests on `erp-yussyakmal-mrp-test` for joint Pre Produksi, kitchen MO, kitchen FG transfer, Paket MO consumption/produced Qty, combined DO/receipt and no-negative checks. GUI backups prior to any install/upgrade. No live database changes.
+
+**Owner governing design:** operating SOP worked 20 years. Native Inventory/Manufacturing operations plus people's judgement are appropriate; do not invent blocking automation for every edge case. Existing ordinary RO→stock toko flow MUST not regress. Current priority Paket > ordinary RO; future SO > Paket > RO (not active). No fake SO/Planning, no duplicate component counts, no RO Qty overwrite. BoM kitchen batching ceil; Paket final BoM output exactly one.
