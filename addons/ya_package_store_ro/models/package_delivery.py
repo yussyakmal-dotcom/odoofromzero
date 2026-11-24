@@ -55,12 +55,23 @@ class YaPackingBatchPackageDelivery(models.Model):
                     "Selesaikan MO Rakit Paket di Packing sebelum Generate DO. "
                     "Stok Paket jadi baru tersedia setelah MO Done."
                 ))
+            # Trust actual DONE finished stock moves, never just the MO demand
+            # or planned quantity. The same criterion is used by kitchen FG
+            # transfers; it works independently of optional qty_produced fields.
+            finished = mo.move_finished_ids.filtered(
+                lambda move: move.state == "done" and
+                move.product_id == mo.product_id and
+                move.location_dest_id == mo.location_dest_id
+            )
+            actual = sum(move.product_uom._compute_quantity(
+                move.quantity, mo.product_id.uom_id, round=False
+            ) for move in finished)
             if float_compare(
-                mo.qty_produced, float(demand_by_sku[mo.product_id.id]),
+                actual, float(demand_by_sku[mo.product_id.id]),
                 precision_rounding=mo.product_id.uom_id.rounding,
             ) != 0:
                 raise UserError(_(
-                    "Paket %s produced quantity does not match frozen RO Paket."
+                    "Paket %s actual finished Qty does not match frozen RO Paket."
                 ) % mo.product_id.display_name)
 
         # Base implementation continues to control existing ordinary RO DO
