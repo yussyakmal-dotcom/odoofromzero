@@ -105,6 +105,19 @@ if "button_validate()" in (
         addon / "models/package_delivery.py"
 ).read_text(encoding="utf8"):
     errors.append("New Paket DO method must not auto-validate/ship.")
+delivery_source = (addon / "models/package_delivery.py").read_text(encoding="utf8")
+if "actual, float(demand_by_sku[mo.product_id.id])" in delivery_source:
+    errors.append(
+        "Paket DO must not hard-block when actual MO Done is below RO demand; "
+        "the native dispatch can ship partial or zero with reason."
+    )
+preview_source = (addon / "models/joint_slot_preview.py").read_text(encoding="utf8")
+release_source = (addon / "models/joint_release.py").read_text(encoding="utf8")
+if "qty_base = line.uom_id._compute_quantity(" not in preview_source:
+    errors.append("Joint preview must convert source RO UoM into base output UoM.")
+if "qty_base = row.uom_id._compute_quantity(" not in release_source:
+    errors.append("Joint Produksi OK must compare RO source Qty in base UoM.")
+
 
 print("ERROR_COUNT:", len(errors))
 for error in errors:
