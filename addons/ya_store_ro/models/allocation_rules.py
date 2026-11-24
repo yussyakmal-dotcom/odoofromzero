@@ -1,9 +1,10 @@
 """Pure integer arithmetic for RO-only Packing consolidation.
 
-This phase does not include SO. Preview allocates available capacity to stores,
-never hypothetical BoM rounding surplus. Store RO values remain the demand
-baseline; any capacity shortage is represented separately. The historical
-surplus helper is retained but is NOT used by the current Packing Preview.
+This phase does not include SO. Kitchen manufacturing is rounded UP to whole
+BoM batches. If full demand fits Published Planning Max, the rounding surplus
+is distributed prorata to the shops that ordered the SKU. If capacity is short,
+the producible whole batches are allocated prorata as shortage against shops'
+original RO Qty. Original RO remains unchanged in either case.
 """
 
 
@@ -62,20 +63,22 @@ def allocate_surplus_prorata(requests, bom_output):
 
 
 def allocate_capacity_prorata(requests, bom_output, max_capacity):
-    """Preview capacities BEFORE production; do not distribute future BoM surplus.
+    """Preview capacity, then prorate BoM rounding surplus to ordering shops.
 
     Return (planned_mo_qty, per_store_allocations, capacity_status).
     All store lines satisfy: original RO = final allocation + shortage.
 
-    * If the BoM-rounded MO fits Planning Max, final store Qty remains the
-      original requested Qty. Any potential batch rounding is NOT allocated
-      to stores at preview; it remains a separate MO vs store-demand gap.
+    * If the BoM-rounded MO fits Planning Max, assign full original Qty
+      PLUS all BoM rounding surplus to ordering shops via stable Hamilton
+      prorata (largest remainder, tie-break ascending store ID).
     * If the BoM-rounded MO would exceed Max, limit the production target
       to whole batches fitting Max and REDUCE each store's allocation
       proportionally using integer Hamilton rounding. Record shortages.
     * If even one batch cannot fit, block instead of creating a zero-Qty MO.
 
-    RO documents remain unchanged. Never apportion hypothetical surplus.
+    RO documents remain unchanged. In all cases:
+       final store allocation = original RO - shortage + surplus
+       sum(store allocations) = planned MO Qty (when total RO demand > 0).
     """
     if not isinstance(requests, dict):
         raise ValueError('Requests must be a dictionary of store ID to Qty.')
@@ -91,12 +94,17 @@ def allocate_capacity_prorata(requests, bom_output, max_capacity):
 
     total = sum(requests.values())
     produced = round_production_up(total, bom_output)
-    unchanged = {
-        store_id: {'requested': qty, 'surplus': 0, 'shortage': 0, 'allocated': qty}
-        for store_id, qty in requests.items()
-    }
     if produced <= max_capacity:
-        return produced, unchanged, 'ok'
+        _, distributed = allocate_surplus_prorata(requests, bom_output)
+        return produced, {
+            store_id: {
+                'requested': row['requested'],
+                'surplus': row['surplus'],
+                'shortage': 0,
+                'allocated': row['allocated'],
+            }
+            for store_id, row in distributed.items()
+        }, 'ok'
 
     available = (max_capacity // bom_output) * bom_output
     if available <= 0:
@@ -116,7 +124,7 @@ def allocate_capacity_prorata(requests, bom_output, max_capacity):
         base = numerator // total
         result[store_id] = {
             'requested': requested,
-            'surplus': 0,  # No surplus distribution before production.
+            'surplus': 0,  # No surplus when capacity is insufficient.
             'shortage': requested - base,
             'allocated': base,
         }
