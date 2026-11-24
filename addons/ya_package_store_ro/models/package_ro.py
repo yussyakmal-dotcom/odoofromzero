@@ -99,7 +99,8 @@ class YaPackageStoreRO(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        if any(set(vals).intersection({"state", "confirmed_at", "confirmed_by"})
+        if any((vals.get("state", "draft") != "draft" or
+                "confirmed_at" in vals or "confirmed_by" in vals)
                for vals in vals_list):
             raise UserError(_("Create Paket RO in Draft; use Confirm button."))
         return super().create(vals_list)
