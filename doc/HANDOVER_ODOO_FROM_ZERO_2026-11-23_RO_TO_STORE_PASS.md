@@ -549,3 +549,21 @@ Feri verified Paket source-only arithmetic `PACKAGE_CAPACITY_PRIORITY_PURE_PASS`
 `python3 -m compileall -q addons/ya_store_ro`
 
 Do not claim active Odoo PASS after source tests; safe -u and UAT in `erp-yussyakmal-mrp-test` (NEVER production database) are required to verify Preview→Pre Produksi→Produksi OK→finished-goods transfer→DO store. New `ya_package_store_ro` addon remains uninstalled, Paket cross-kitchen integration still pending. Do not change accounting/procurement.
+
+## OWNER CORE INVARIANT — ZERO UNALLOCATED FINISHED OUTPUT AT PACKING (2026-11-24)
+
+Owner clarified why previously stated surplus=0: Packing is an immediate DISTRIBUTION POINT, NOT a storage location for finished production output. The true invariant is **ZERO UNALLOCATED finished units when arriving in Packing**. Never confuse this with the per-store BoM-rounding surplus column, which can and MUST be positive when original store RO demand exists. Example: kitchen component BoM output 10, Paket needs5, RO shops A4/B6: 2 batches produce20; reserve5 for Paket assembly; allocated A6 (4+2) and B9 (6+3); leftover at PCK=0. This explicitly supersedes earlier wrong wording that BoM surplus should stay unallocated.
+
+**Priority CURRENT:** Paket manufactured components first, then ordinary store RO, and any BoM rounded extra distributes prorata to *stores that ordered that SKU*. **Priority FUTURE ONLY when Sales Order to Manufacturing exists:** 1. Sales Order, 2. Paket, 3. RO Toko. DO NOT implement SO now; retain extension design with protected higher-priority demand buckets.
+
+Do not increase confirmed Paket Qty solely to absorb extra component production and do not send SKU to stores without an actual RO for the SKU. If rounded kitchen BoM creates surplus with NO direct store recipient, block release/flag it explicitly until a legitimate distribution path or production plan exists. Do not silently store output in Packing. A materials/packaging PCK stock replenished by standard Odoo flows is conceptually different from finished output waiting unallocated.
+
+**Source changes staged in GitHub only, NOT applied to Odoo runtime:**
+- Ordinary Packing Preview ya.store.ro wizard action_move_to_preproduction now refuses total_unallocated !=0 and any preview line qty_surplus !=0 (line-level field means *unallocated*, not store-extra), while preserving positive allocation.qty_surplus per store.
+- Existing ya.packing.batch.line action_generate_selected_mo now refuses any frozen batch line qty_surplus !=0; it still allows store allocation.qty_surplus >0. This hard stop is appropriate for old ordinary RO batches too; no creation of unfinished/undistributed production.
+- Source-only Paket capacity helper returns blocked_no_distribution_destination, with qty_production=0, and reports would_produce/unallocatable_qty if component BoM batch rounding leaves units without any RO store. Does NOT auto-generate unauthorized extra packages or random store shipments.
+- Added Paket pure test: no-store surplus block, exact Paket quantity no-store valid, and store original 1 gets all 4 extras. Existing test check_capacity_prorata_source_readonly_ya.py now expects the two no-unallocated guards.
+
+**Not yet covered operationally:** actual MO Done output vs immutable planned Qty and PCK inventory transfer, assembly of Paket in Packing, and final DO/receipt; these must be verified and guarded before end-to-end deployment. No claim that Packing runtime currently guarantees zero physical leftovers. Existing RO flow repository source previously modified for store prorata (ya_store_ro 19.0.8.1.3), but not upgraded/tested by Feri yet.
+
+Next Feri source-only tests: python3 script/test_capacity_prorata_ya.py ; python3 script/test_package_capacity_priority_pure_ya.py ; python3 script/check_capacity_prorata_source_readonly_ya.py ; python3 -m compileall -q addons/ya_store_ro. NEVER upgrade production database.
