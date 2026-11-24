@@ -238,14 +238,11 @@ class YaPackingBatchLine(models.Model):
                 'SKU demand changed after Pre Produksi. Pre Produksi is locked; contact the administrator.'
             ))
 
-        # Owner's no-storage policy: all finished kitchen MO output must
-        # be committed to store delivery. Store allocation surplus is allowed
-        # and expected; batch-line UNALLOCATED surplus is forbidden.
-        if any(line.qty_surplus != 0 for line in batch.line_ids):
-            raise UserError(_(
-                'Produksi OK diblokir: masih ada hasil produksi yang belum '
-                'dialokasikan ke toko. Packing bukan gudang penyimpanan.'
-            ))
+        # Batch-line qty_surplus is kitchen BoM output not assigned through
+        # RO-based store allocations; its quantity is preserved in the
+        # immutable snapshot and is distributed via separate native internal
+        # transfers to stores by Packing. Do not block Produksi OK merely
+        # because no store RO could absorb these rounded output units.
 
         # Each store shortage is explicit and backed by original RO Qty.
         for allocation in batch.allocation_ids:
