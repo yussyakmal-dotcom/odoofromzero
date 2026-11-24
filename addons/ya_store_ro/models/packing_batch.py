@@ -241,10 +241,11 @@ class YaPackingBatchLine(models.Model):
         # Each store shortage is explicit and backed by original RO Qty.
         for allocation in batch.allocation_ids:
             if (allocation.qty_allocated < 0 or allocation.qty_shortage < 0 or
-                    allocation.qty_surplus != 0 or
+                    allocation.qty_surplus < 0 or
+                    (allocation.qty_surplus and allocation.qty_shortage) or
                     allocation.qty_allocated + allocation.qty_shortage !=
-                    allocation.qty_requested):
-                raise UserError(_('Invalid store allocation/shortage for %s.')
+                    allocation.qty_requested + allocation.qty_surplus):
+                raise UserError(_('Invalid store allocation/shortage/surplus for %s.')
                                 % allocation.reference)
         for line in batch.line_ids:
             rows = batch.allocation_ids.filtered(lambda row: row.line_id == line)
@@ -253,7 +254,7 @@ class YaPackingBatchLine(models.Model):
                     sum(rows.mapped('qty_requested')) != line.qty_requested or
                     sum(rows.mapped('qty_shortage')) != line.qty_shortage or
                     line.qty_surplus < 0 or
-                    line.qty_requested !=
+                    line.qty_requested + sum(rows.mapped('qty_surplus')) !=
                     sum(rows.mapped('qty_allocated')) + line.qty_shortage):
                 raise UserError(_('Store prorata / shortage mismatch for %s.')
                                 % line.reference)
