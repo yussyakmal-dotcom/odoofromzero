@@ -338,6 +338,15 @@ class YaPackingPreview(models.TransientModel):
                 'Capacity prorata causes %s units of store shortage. '
                 'Acknowledge jatah toko/kekurangan before Pre Produksi.'
             ) % self.total_shortage)
+        # Owner: Packing is a distribution point, never a finished-goods
+        # overnight storage location. Prorata surplus to ordering stores, but
+        # do not stage ANY finished kitchen MO output without a recipient.
+        if self.total_unallocated or any(line.qty_surplus for line in self.line_ids):
+            raise UserError(_(
+                'Sisa hasil produksi belum dialokasikan: %s pcs. '
+                'Seluruh Qty MO wajib mempunyai tujuan pengiriman sebelum '
+                'masuk Pre Produksi. Periksa RO dan pembagian prorata.'
+            ) % self.total_unallocated)
         if not self.line_ids or any(line.qty_production <= 0 for line in self.line_ids):
             raise UserError(_('No positive consolidated SKU quantities to produce.'))
 
