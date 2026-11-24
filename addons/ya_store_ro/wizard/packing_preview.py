@@ -42,7 +42,7 @@ class YaPackingPreview(models.TransientModel):
     total_shortage = fields.Integer(string='Total Kekurangan Toko', readonly=True)
     total_surplus_distributed = fields.Integer(string='Surplus BoM Dibagikan ke Toko', readonly=True)
     total_unallocated = fields.Integer(
-        string='Selisih Batch Belum Dialokasikan', readonly=True,
+        string='Sisa untuk Internal Transfer ke Toko', readonly=True,
     )
     accept_shortage = fields.Boolean(string='Saya setuju pembagian jatah dan kekurangan toko')
     total_requested = fields.Integer(readonly=True)
@@ -242,7 +242,7 @@ class YaPackingPreview(models.TransientModel):
                 '(dasar %s MO). Qty RO %s; Rencana MO %s; '
                 'SKU Prorata Kapasitas %s; Kekurangan Toko %s; '
                 'Surplus BoM Dibagikan ke Toko %s; '
-                'Selisih Batch Belum Dialokasikan %s; '
+                'Sisa untuk Internal Transfer ke Toko %s; '
                 'SKU Tak Bisa Dibuat 1 Batch %s. Qty RO ASLI tetap tercatat. '
                 'Draft RO excluded. No MO, stock moves, or reservations here. %s'
             ) % (len(orders), len(included_kitchens), len(line_values),
