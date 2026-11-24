@@ -33,7 +33,7 @@ must_have = [
     "surplus_destination_store.lot_stock_id.id",
     '"UAT-ROLLBACK-EXPLICIT-SURPLUS-12114-TO-%s"',
     "pck.int_type_id",
-    '("picking_type_id"', # common stock picking fields
+    '"picking_type_id": operation.id', # native PCK internal picking type
     "surplus_picking.action_confirm()",
     "move.write({\"quantity\": move.product_uom_qty})",
     "NATIVE_PCK_SURPLUS_INTERNAL_TRANSFER_DONE_PASS",
