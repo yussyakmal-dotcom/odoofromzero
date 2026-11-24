@@ -6,3 +6,4 @@ access_ya_package_store_ro_line_packing,ya.package.store.ro.line packing,model_y
 access_ya_package_ro_audit_creator,ya.package.ro.qty.audit creator,model_ya_package_ro_qty_audit,ya_package_store_ro.group_ya_package_ro_creator,1,0,0,0
 access_ya_package_ro_audit_packing,ya.package.ro.qty.audit packing,model_ya_package_ro_qty_audit,ya_store_ro.group_ya_packing_admin,1,0,0,0
 access_ya_package_ro_correction_packing,ya.package.ro.qty.correction packing,model_ya_package_ro_qty_correction,ya_store_ro.group_ya_packing_admin,1,1,1,1
+access_ya_package_joint_preview_packing,ya.package.joint.slot.preview packing,model_ya_package_joint_slot_preview,ya_store_ro.group_ya_packing_admin,1,1,1,1
