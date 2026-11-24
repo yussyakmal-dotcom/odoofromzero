@@ -1097,3 +1097,20 @@ Target `OPNAME_2_SUL_TEST_COMMITTED_PASS`. After successful application, recheck
 - **`doc/INSTALL_OCA_STOCK_NO_NEGATIVE_19_TEST_ONLY_2026-11-24.md`**: exact safe Stage A OCA source-only pinned checkout (commit `e7f9ad50...` clone in unconfigured `/opt/odoo19/oca-addons/stock-logistics-workflow`, symlink only the addon to ALREADY CONFIGURED `/opt/odoo19/custom-addons/stock_no_negative`), Stage B read-only gate, Stage C one-off `odoo-bin -d erp-yussyakmal-mrp-test -i stock_no_negative --stop-after-init --no-http --workers=0` ONLY when test DB/filestore backup verified and safe impact assessment, Stage D minimal rollback guard verification. DO NOT blindly restart shared Odoo service; it may serve PROD `erp-yussyakmal`. No alterations to `/etc/odoo19.conf` required. Source staging and one-off TEST module installation are different phases; no installed module until proven by Feri.
 
 **Next to Feri:** `cd ~/odoofromzero && git pull`, perform Stage A source staging from the above runbook, Stage B read-only source+clean-stock preflight, then send outputs before install if there is any exception. Staged source is not an Odoo addon installation. If all staged PASS and backup/service impact reviewed, progress to deliberate TEST-only installation; never touch PROD modules or shared service restart blindly. This guard is a small final stock safety requirement; then shift to volume 500 SKUs ×10 kitchens, operator efficiency, and SO integration without redoing already native PASS flows.
+
+## 2026-11-25 03:37 WIB — FERI ACTUAL OCA STOCK_NO_NEGATIVE READ-ONLY INSTALL GATE PASS
+
+Feri executed `script/check_oca_stock_no_negative_install_ready_readonly_ya.py` on **`erp-yussyakmal-mrp-test`** after source-only OCA 19.0 staging. Exact actual terminal results:
+- `MODE:READ_ONLY_OCA_NEGATIVE_GUARD_INSTALL_GATE`;
+- `PREVIOUS_TEST_NEGATIVE_SKU_NOW_ZERO:10662 stock 0 Bungkus`, `11436 stock 0 Pcs`;
+- `PRESENT_NEGATIVE_INTERNAL_TRANSIT_QUANT_SAMPLE_COUNT:0` (gate asserts no negative stockable internal/transit quants in the scanned query);
+- 8 configured addons directories, with configured `/opt/odoo19/custom-addons`;
+- `OCA_MANIFEST_SOURCE:/opt/odoo19/custom-addons/stock_no_negative/__manifest__.py`, `OCA_MODULE_VERSION:19.0.1.0.1`, `OCA_LICENSE:AGPL-3`;
+- `OCA_REGISTRY_STATE:NOT_DISCOVERED_BEFORE_APPS_UPDATE`;
+- `OCA_STOCK_NO_NEGATIVE_TEST_INSTALL_READINESS_PASS`, `NO_DB_WRITES_NO_INSTALL_NO_RESTART`.
+
+**IMPORTANT: source staging is DONE, but OCA is NOT INSTALLED yet.** Do not ask Feri to clone/symlink again. Also do not rerun any of the 17 SUL inventory adjustment APPLY scripts: both were already permanently committed in TEST. The immediate next step is verifying a recent restorable TEST DB + filestore backup and low-impact execution strategy, and then (with operator's verified backup) ONE one-off Odoo install command targeting only `erp-yussyakmal-mrp-test`:
+`sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test -i stock_no_negative --stop-after-init --no-http --workers=0`.
+No shared systemctl restart or -u all; no PROD install/upgrade, no MO custom code. The Odoo CLI may load a TEST registry independently of already-running service; if production and test share a server, consider concurrent resource/lock load and don't blindly restart live service.
+
+After actual `stock_no_negative` install is confirmed in TEST, use `script/test_oca_stock_no_negative_guard_rollback_ya.py` (already committed) as ONE narrow smoke check: expect `OCA_STOCK_NO_NEGATIVE_GUARD_ROLLBACK_PASS` and full rollback with physical 0 SUL premix. If error, collect full output and fix safely without modifying native MO business rules. Avoid unnecessary retesting already completed multi-stage manufacturing.
