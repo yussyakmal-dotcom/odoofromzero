@@ -128,9 +128,9 @@ def plan_kitchen_capacity_with_package_priority(
     5. If all direct RO is met, prorate remaining batch-rounding surplus to
        stores proportional to their ORIGINAL requested quantities, with
        largest-remainder/Hamilton tie-break by ascending store ID.
-    6. If rounded kitchen output cannot be entirely allocated because no
-       store ordered the component SKU, block release: Packing has no
-       finished-goods storage, and no unintended Paket may be produced.
+    6. If rounded kitchen output cannot be assigned through RO prorata,
+       preserve it separately for standard Packing -> store internal transfer,
+       without fabricating a store destination or changing confirmed Paket.
 
     One Paket assembly BoM still outputs exactly ONE final Paket; the
     bom_output here describes the KITCHEN component's manufacturing BoM.
@@ -230,30 +230,9 @@ def plan_kitchen_capacity_with_package_priority(
         extra_allocated = extra
 
     unallocated = extra - extra_allocated
-    if unallocated:
-        # A kitchen BoM might make 10 units when Paket needs only 5, with
-        # no direct store ordering the component. Packing cannot keep the
-        # remaining finished units: return a BLOCKED preview, not a MO.
-        # It is forbidden to auto-increase finished Paket orders or send
-        # unwanted components to a random store.
-        return {
-            "status": "blocked_no_distribution_destination",
-            "qty_production": 0,
-            "would_produce": producible,
-            "unallocatable_qty": unallocated,
-            "package_component_qty_protected": 0,
-            "package_component_shortage": protected,
-            "direct_qty_requested": requested_direct,
-            "direct_qty_allocated": 0,
-            "direct_qty_shortage": requested_direct,
-            "qty_surplus_distributed": 0,
-            "qty_surplus": 0,
-            "store_allocations": {
-                store: {"requested": quantity, "allocated": 0,
-                        "shortage": quantity, "surplus": 0}
-                for store, quantity in stores.items()
-            },
-        }
+    # Units left after Paket priority and automatic RO store prorata are
+    # not blocked: Packing sends them to a selected store through a separate
+    # standard internal transfer. No fake RO demand or invented destination.
     assert all(
         row["allocated"] == row["requested"] - row["shortage"] + row["surplus"]
         for row in allocations.values()
@@ -270,5 +249,6 @@ def plan_kitchen_capacity_with_package_priority(
         "direct_qty_shortage": requested_direct - direct_budget,
         "qty_surplus_distributed": extra_allocated,
         "qty_surplus": unallocated,
+        "qty_pending_internal_transfer": unallocated,
         "store_allocations": allocations,
     }
