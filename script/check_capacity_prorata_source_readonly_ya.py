@@ -32,7 +32,6 @@ required = {
         "'total_surplus_distributed': total_surplus_distributed",
         "if any(a['allocated'] != a['requested'] - a['shortage'] + a['surplus']",
         "'qty_surplus': unallocated",
-        "if self.total_unallocated or any(line.qty_surplus for line in self.line_ids):",
         "unallocated = produced - allocated_total",
         "if self.prorated_count and not self.accept_shortage:",
     ],
@@ -43,7 +42,7 @@ required = {
         "allocation.qty_requested + allocation.qty_surplus",
         "line.qty_requested + sum(rows.mapped('qty_surplus'))",
         "sum(rows.mapped('qty_allocated')) + line.qty_surplus",
-        "if any(line.qty_surplus != 0 for line in batch.line_ids):",
+        "sum(batch.line_ids.mapped('qty_surplus'))",
     ],
     "views/packing_preview_views.xml": [
         "name=\"total_shortage\"",
@@ -88,4 +87,11 @@ for error in errors:
     print(error)
 if errors:
     raise SystemExit(1)
+# Preserve unallocated units explicitly for Packing-to-store internal transfers.
+preview = (root / "wizard/packing_preview.py").read_text(encoding="utf8")
+batch = (root / "models/packing_batch.py").read_text(encoding="utf8")
+if "if self.total_unallocated or any(line.qty_surplus" in preview:
+    raise SystemExit("Wrong hard block on ordinary kitchen production surplus")
+if "if any(line.qty_surplus != 0 for line in batch.line_ids):" in batch:
+    raise SystemExit("Wrong hard block on batch-line surplus")
 print("CAPACITY_SURPLUS_PRORATA_SOURCE_OK")
