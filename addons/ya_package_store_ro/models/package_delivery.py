@@ -143,7 +143,8 @@ class YaPackingBatchPackageDelivery(models.Model):
         for store_id, quantities in sorted(totals.items()):
             store = self.env["stock.warehouse"].browse(store_id)
             picking = existing.get(store_id)
-            if not picking:
+            newly_created = not bool(picking)
+            if newly_created:
                 picking = Picking.create({
                     "ya_store_batch_id": self.id,
                     "ya_store_warehouse_id": store.id,
@@ -172,9 +173,14 @@ class YaPackingBatchPackageDelivery(models.Model):
                     "company_id": Packing.company_id.id,
                 })
             new_moves = Move.create(move_values)
-            # Confirm newly added package stock moves when the ordinary
-            # picking is already confirmed; no dispatch/receipt yet.
-            new_moves._action_confirm()
+            # Match the native original DO workflow: a newly created
+            # package-only picking is confirmed at the picking level.
+            # When appending to an already confirmed ordinary RO picking,
+            # only confirm the freshly added Paket moves.
+            if newly_created:
+                picking.action_confirm()
+            else:
+                new_moves._action_confirm()
             for move in new_moves:
                 product = move.product_id
                 quantity = move.product_uom_qty
