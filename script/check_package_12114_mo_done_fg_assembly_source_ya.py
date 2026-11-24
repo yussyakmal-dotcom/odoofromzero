@@ -47,7 +47,7 @@ for token in [
         errors.append("MISSING: " + token)
 for token in [
     'print("NATIVE_CDC_KITCHEN_TRANSFER_ROLLBACK_PASS")',
-    "print("POST_TRANSFER_DIAGNOSTIC_COUNT:", len(shortages))",
+    'print("POST_TRANSFER_DIAGNOSTIC_COUNT:", len(shortages))',
     "AUTO_RESERVED_FOR_TEST_MO_COMBINATIONS:",
 ]:
     if token not in baseline:
