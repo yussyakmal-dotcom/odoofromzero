@@ -1,8 +1,9 @@
-"""Read-only joint slot preview for Packing: ordinary RO + cross-kitchen Paket.
+"""Joint Packing preview + snapshot staging for ordinary RO and Paket.
 
-No persistent packing.batch, MO, stock move, DO, reservation, or GL side
-effects. This is the staged integration/adaptor for the future ONE joint
-Pre Produksi snapshot. Operators can continue their native SOP exceptions.
+Calculate Preview is read-only for business documents. Stage creates ONE
+immutable real ya.packing.batch / Pre Produksi date-slot, with no MO/stock
+move, DO, reservations or GL effects. Source is UNINSTALLED pending complete
+Paket assembly/DO and end-to-end test, so the current ordinary workflow stays.
 """
 from collections import defaultdict
 import hashlib
