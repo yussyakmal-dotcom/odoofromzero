@@ -638,10 +638,59 @@ try:
         assert len(assemblies) == 1, (
             "One Paket SKU must produce exactly one PCK assembly MO")
         assembly = assemblies[0]
-        assert assembly.product_id == product and assembly.product_qty == 1
-        assert assembly.picking_type_id == pck.manu_type_id
-        assert assembly.location_src_id == pck.lot_stock_id
-        assert assembly.location_dest_id == pck.lot_stock_id
+        # Odoo 19 recomputes draft MO defaults from BoM. Before changing a
+        # functional addon, report which actual ORM value differs from the
+        # frozen Paket demand. Never mask a wrong SKU or silently alter Qty.
+        env.flush_all()
+        assembly.invalidate_recordset()
+        frozen_qty = sum(
+            d.qty_requested for d in batch_as_packing.ya_package_demand_ids
+            if d.product_id.id == product.id
+        )
+        mo_qty_base = assembly.product_uom_id._compute_quantity(
+            assembly.product_qty, assembly.product_id.uom_id, round=False)
+        frozen_product_ids = batch_as_packing.ya_package_demand_ids.mapped(
+            "product_id").ids
+        print("PCK_ASSEMBLY_ACTUAL:",
+              "MO_ID:", assembly.id,
+              "PRODUCT_ID:", assembly.product_id.id,
+              "SKU:", assembly.product_id.default_code,
+              "PRODUCT_QTY:", assembly.product_qty,
+              "MO_UOM:", assembly.product_uom_id.name,
+              "QTY_IN_BASE_UOM:", mo_qty_base,
+              "BOM_ID:", assembly.bom_id.id,
+              "TYPE_ID:", assembly.picking_type_id.id,
+              "SRC_LOCATION_ID:", assembly.location_src_id.id,
+              "DEST_LOCATION_ID:", assembly.location_dest_id.id,
+              "STATE:", assembly.state)
+        print("PCK_ASSEMBLY_EXPECTED:",
+              "PRODUCT_ID:", product.id,
+              "SKU:", product.default_code,
+              "FROZEN_PRODUCT_IDS:", frozen_product_ids,
+              "FROZEN_QTY:", frozen_qty,
+              "EXPECTED_BASE_UOM:", product.uom_id.name,
+              "BOM_ID:", demand.bom_id.id,
+              "TYPE_ID:", pck.manu_type_id.id,
+              "PCK_STOCK_LOCATION_ID:", pck.lot_stock_id.id)
+        assert assembly.product_id.id == product.id, (
+            "PCK assembly WRONG PRODUCT: actual %s expected %s" %
+            (assembly.product_id.id, product.id))
+        assert float_compare(
+            mo_qty_base, frozen_qty,
+            precision_rounding=product.uom_id.rounding) == 0, (
+            "PCK assembly WRONG QTY: actual %s expected %s "
+            "in product base UoM" % (mo_qty_base, frozen_qty))
+        assert assembly.bom_id.id == demand.bom_id.id, (
+            "PCK assembly wrong BoM: actual %s expected %s" %
+            (assembly.bom_id.id, demand.bom_id.id))
+        assert assembly.picking_type_id.id == pck.manu_type_id.id, (
+            "PCK assembly wrong Manufacturing operation type: "
+            "actual %s expected %s" %
+            (assembly.picking_type_id.id, pck.manu_type_id.id))
+        assert assembly.location_src_id.id == pck.lot_stock_id.id, (
+            "PCK assembly raw source is not PCK/Stock")
+        assert assembly.location_dest_id.id == pck.lot_stock_id.id, (
+            "PCK assembly finished destination is not PCK/Stock")
         assert assembly.state not in ("draft", "done", "cancel")
         assert not assembly.workorder_ids
         assembly_raw = defaultdict(float)
