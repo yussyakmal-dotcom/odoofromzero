@@ -36,6 +36,13 @@ for token in [
     "NATIVE_KITCHEN_TO_PCK_FG_TRANSFER_ROLLBACK_PASS",
     "NATIVE_FG_DOUBLE_CLICK_IDEMPOTENCE_PASS",
     "action_ya_create_package_assembly_mos()",
+    "package_product = product",
+    "assert package_product.id == demand.product_id.id",
+    "if d.product_id.id == package_product.id",
+    "assert assembly.product_id.id == package_product.id",
+    "precision_rounding=package_product.uom_id.rounding",
+    '"PCK_ASSEMBLY_ACTUAL:"',
+    '"PCK_ASSEMBLY_EXPECTED:"',
     "PCK_PACKAGE_ASSEMBLY_MO_CONFIRMED_ROLLBACK_PASS",
     "PCK_PACKAGE_ASSEMBLY_DOUBLE_CLICK_IDEMPOTENCE_PASS",
     "ROLLBACK_FINISHED_STOCK_VERIFIED_PASS",
@@ -61,6 +68,17 @@ for token in [
 ]:
     if token not in seed:
         errors.append("ORIGINAL_10X_SEED_CHANGED: " + token)
+# Never allow the kitchen raw loop variable 'product' to be used again
+# as the expected FINAL Paket SKU once PCK assembly is evaluated.
+assembly_section = text.split('print("PCK_ASSEMBLY_EXPECTED:"', 1)
+if len(assembly_section) != 2:
+    errors.append("MISSING: assembly expected product comparison block")
+else:
+    comparison = assembly_section[1].split('assert assembly.bom_id.id', 1)[0]
+    if "product.id" in comparison.replace("package_product.id", ""):
+        errors.append("SHADOWED_EXPECTED_PACKAGE_PRODUCT_ID")
+    if "product.uom_id" in comparison.replace("package_product.uom_id", ""):
+        errors.append("SHADOWED_EXPECTED_PACKAGE_UOM")
 for node in ast.walk(tree):
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
         if node.func.attr in (
