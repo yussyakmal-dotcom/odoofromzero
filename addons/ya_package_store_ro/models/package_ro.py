@@ -152,6 +152,10 @@ class YaPackageStoreRO(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        if "confirmed_at" in vals or "confirmed_by" in vals:
+            if not (self.env.context.get("ya_package_confirm")
+                    and vals.get("state") == "confirmed"):
+                raise UserError(_("Confirmation metadata is written by Confirm action only."))
         if any(rec.state == "confirmed" for rec in self):
             raise UserError(_("Confirmed Paket RO is immutable."))
         if "state" in vals and vals["state"] != "confirmed":
@@ -225,6 +229,8 @@ class YaPackageStoreROLine(models.Model):
     def create(self, vals_list):
         parents = self.env["ya.package.store.ro"].browse(
             [v["ro_id"] for v in vals_list if v.get("ro_id")])
+        if not self.env.user.has_group("ya_package_store_ro.group_ya_package_ro_creator"):
+            raise UserError(_("Only the Paket RO creator role may add Draft SKU lines."))
         if any(ro.state != "draft" for ro in parents):
             raise UserError(_("Confirmed Paket RO cannot be changed."))
         return super().create(vals_list)
@@ -261,9 +267,13 @@ class YaPackageStoreROLine(models.Model):
                     "reason": reason,
                 })
             return result
+        if not self.env.user.has_group("ya_package_store_ro.group_ya_package_ro_creator"):
+            raise UserError(_("Only the Paket RO creator role may edit Draft SKU lines."))
         return super().write(vals)
 
     def unlink(self):
+        if not self.env.user.has_group("ya_package_store_ro.group_ya_package_ro_creator"):
+            raise UserError(_("Only the Paket RO creator role may remove Draft SKU lines."))
         if any(line.ro_id.state != "draft" for line in self):
             raise UserError(_("Confirmed Paket RO lines cannot be deleted."))
         return super().unlink()
