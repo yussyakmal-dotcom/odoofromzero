@@ -923,3 +923,25 @@ On source PASS, test DB:
 Expected `PCK_NATIVE_ASSEMBLY_MO_DONE_PASS`, `PCK_NATIVE_ASSEMBLY_COMPONENT_CONSUMPTION_PASS`, `PCK_PAKET_STORE_DO_DEMAND_AND_IDEMPOTENCE_PASS`, `PCK_TO_TRANSIT_PAKET_DISPATCH_DONE_PASS`, `NATIVE_STORE_RECEIPT_T_BAN_DONE_PASS`, `ROLLBACK_PAKET_PCK_TRANSIT_STORE_VERIFIED_PASS`, and final `PACKAGE_12114_FULL_STORE_RECEIPT_ROLLBACK_PASS`.
 
 **Maintain big picture**: normal store RO-only flow already PASS and must not regress; mixed package priority+ordinary prorata stage1 UAT PASS; future Sales Order higher priority and combined single DO/store when introduced. Do not declare whole YA business workflow deployed or ready for LIVE; tests remain on dedicated test database. Packing has no overnight stock by SOP; stage next also needs explicit standard surplus internal transfer and physical mixed DO/receipt validation before full rollout.
+
+## 2026-11-24 — FERI COMPLETE REAL PAKET-ONLY DO→TRANSIT→STORE RECEIPT PASS
+
+**Real Feri Odoo-shell output:** `script/test_package_12114_package_done_store_receipt_rollback_ya.py` on **erp-yussyakmal-mrp-test** returned `PACKAGE_12114_FULL_STORE_RECEIPT_ROLLBACK_PASS`. It reverified all prior stages and proved:
+- 10 raw input SKUs corrected using **standard Odoo 10x CDC stock opname within rollback**, 2 real CDC→kitchen transfers and auto-reservation in 17 material×kitchen combinations.
+- 3 native kitchen MO Done and exact 22 raw line consumptions (11999 PST7, 12019 PST5, 12014 ROTI7), two native kitchen→PCK FG transfers Done.
+- 1 actual native PCK Paket assembly MO for final SKU12114 Qty1 BoM1405, exactly 3 raw components Done, one final Paket produced and stocked in PCK.
+- 1 native outgoing DO for T_BAN; double-click did not duplicate; physical Dispatch Done removed Paket from PCK and put it into Transit, generated 1 native receipt; receipt Done put exactly one Paket into T_BAN/Stock and cleared Transit. Store stock did NOT rise before receipt.
+- All rollback markers PASS, including `ROLLBACK_PAKET_PCK_TRANSIT_STORE_VERIFIED_PASS`, `ROLLBACK_FINISHED_STOCK_VERIFIED_PASS`, `ROLLBACK_STOCK_OPNAME_AND_PICKINGS_VERIFIED_PASS`, `ROLLBACK_NO_RO_BATCH_MO_PERSISTED_PASS`. There is no persisted test stock, user, MO or DO.
+- `PCK_KITCHEN_SURPLUS_REQUIRES_SEPARATE_TRANSFER:16.0` — **real residuals in PCK just before test rollback**, 6+6+4 of kitchen components (3 SKUs); NOT automatically placed into any RO/DO; no Packing overnight policy requires an actual separate native internal transfer, with store destination selected by authorized operator.
+- **THIS IS PAKET-ONLY CASE**, not evidence of physical Paket+ordinary mixed DO in the same store. Prior mixed Paket+ordinary *preproduction allocation and kitchen MO Confirmed* UAT was PASS, not full physical mixed DO/receipt. This plus separate surplus transfer remain outstanding before full YA workflow sign-off, along with SO integration, operational volume and roles.
+
+**Next newly staged rollback-only UAT (Feri has NOT run):**
+- `script/test_package_12114_surplus_internal_transfer_rollback_ya.py`: extends exact already-PASS full Paket receipt test, then explicitly selects **T_BAN as UAT surplus destination**, creates one separate **standard Odoo internal picking** from PCK/Stock to selected real T_BAN/Stock, with exactly the **actual residual 6+6+4 (16 pcs)** of component SKUs. Uses PCK's existing internal operation type, confirms and validates with native stock methods, verifies all 16 physical Qty leave PCK (no additional surplus from these MOs remains there) and add to chosen store. Does not create RO, SO, duplicate outgoing DO or assign surplus to Paket. The fact that destination is T_BAN is **a TEST choice only**, not any product business-routing default or automated store assignment. Reuses no fake BoM, never crosses out of TEST DB; explicit `env.cr.rollback()` and postrollback checks store component stock and picking removed. Does not change addons or original Nov27 CDC 10× seed.
+- `script/check_package_12114_surplus_internal_transfer_source_ya.py`: static no-database source preflight; checks original seed, real goods native standard internal move and no commit. No module installation/upgrade/restart.
+
+Feri commands:
+`cd ~/odoofromzero && git pull && python3 script/check_package_12114_surplus_internal_transfer_source_ya.py && python3 -m py_compile script/test_package_12114_surplus_internal_transfer_rollback_ya.py`
+then ONLY if source PASS and GUI test backup:
+`sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http < script/test_package_12114_surplus_internal_transfer_rollback_ya.py`.
+
+Target `NATIVE_PCK_SURPLUS_INTERNAL_TRANSFER_DONE_PASS`, `NATIVE_SURPLUS_QTY_16_AND_PCK_ZERO_LEFTOVERS_PASS`, `ROLLBACK_SURPLUS_PICKING_AND_STORE_STOCK_VERIFIED_PASS`, final `PACKAGE_12114_SURPLUS_INTERNAL_TRANSFER_ROLLBACK_PASS`. Never claim success until Feri actual Odoo runtime output.
