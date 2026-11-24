@@ -1,7 +1,7 @@
 """Pure package-first demand arithmetic (no ORM / no stock mutations).
 
 A package is ordered as a final SKU but never treated as an ordinary kitchen
-product. Only explicitly classified FINISHED_KITCHEN BoM components add demand
+product. Only explicitly routed MANUFACTURED_KITCHEN BoM components add demand
 to kitchen production. Purchased consignment and packaging components stay
 in a separate PCK stock-requirement bucket. Actual assembly/RO allocation
 is a later Odoo integration step; this module does NOT reserve stock.
@@ -33,14 +33,22 @@ def compute_package_first_demand(direct_by_sku, packages_by_sku,
     packages_by_sku: {package_sku_id: RO demand}, integer quantities.
     bom_by_package: {package_sku_id: {component_sku_id: integer qty/unit}}.
     source_kind_by_sku maps every used component to exactly one of:
-      FINISHED_KITCHEN, CONSIGNMENT, PACKAGING.
+      MANUFACTURED_KITCHEN, PCK_STOCK_STANDARD_FLOW.
+    Historical FINISHED_KITCHEN / CONSIGNMENT / PACKAGING aliases are accepted
+    for compatibility with earlier source-only tests; no category inference.
     This function intentionally refuses nested packages, missing BoMs, unknown
     source kinds and noninteger BoM ratios. Source/multi-level UOM conversion,
     routing and package tie-break rules are outside this pure function.
     """
-    valid = {"FINISHED_KITCHEN", "CONSIGNMENT", "PACKAGING"}
+    kitchen_kinds = {"MANUFACTURED_KITCHEN", "FINISHED_KITCHEN"}
+    standard_pck_kinds = {"PCK_STOCK_STANDARD_FLOW", "CONSIGNMENT", "PACKAGING"}
+    valid = kitchen_kinds | standard_pck_kinds
     direct = {p: _qty(q, "direct_qty[%s]" % p)
               for p, q in direct_by_sku.items()}
+    for p in direct:
+        if source_kind_by_sku.get(p) not in kitchen_kinds:
+            raise PackageDemandError(
+                "Direct product %s must be routed MANUFACTURED_KITCHEN" % p)
     packages = {p: _qty(q, "package_qty[%s]" % p)
                 for p, q in packages_by_sku.items()}
     kitchen_package = defaultdict(int)
@@ -63,14 +71,13 @@ def compute_package_first_demand(direct_by_sku, packages_by_sku,
                     (component, kind))
             required = qty * n
             component_detail[component] = required
-            if kind == "FINISHED_KITCHEN":
+            if kind in kitchen_kinds:
                 kitchen_package[component] += required
             else:
                 packing_non_kitchen[component] += required
         by_package[package] = component_detail
     gross_kitchen = dict(direct)
-    # direct_by_sku is expected to include only kitchen products; the caller
-    # must validate this before invoking pure computation.
+    # Direct RO SKUs are explicitly routed to kitchens, not inferred by category.
     for component, qty in kitchen_package.items():
         gross_kitchen[component] = gross_kitchen.get(component, 0) + qty
     return {
