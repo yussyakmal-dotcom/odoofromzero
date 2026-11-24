@@ -1063,3 +1063,23 @@ Feri command:
 `sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http < script/audit_existing_negative_quants_by_location_readonly_ya.py`
 
 After inspecting output, choose a configured custom addons path for OCA 19.0 `stock_no_negative` source (`OCA/stock-logistics-workflow`), backup TEST, and stage installation **ONLY in TEST** with explicit approval and a measured impact plan (existing negative quants and data reconciliation, exclusions defaults OFF, backup/restore, regression smoke test). Do not touch PROD or rewrite MO core. Avoid repeated deep happy-path manufacturing UAT.
+
+## 2026-11-24 EVENING — REMAINING 2 SUL NEGATIVES IDENTIFIED AS SAME TEST MO, OWNER EXPLAINS ORIGIN
+
+Feri ran latest `script/audit_existing_negative_quants_by_location_readonly_ya.py` (commit `74e6451767c19893100670222c6c995b484fa611`) on dedicated TEST. Actual `READ_ONLY_NEGATIVE_QUANTS_LOCATIONS_DETAIL_OK`, exactly 2 stockable negative internal quants remain in **SUL/Stock**:
+- **Quant 1020, SKU10662, `[10662] Premik Arem Sayur`, category `All / Premix`, -1 Bungkus, reserved 0**, native posted `SUL/MO/00001`, 2026-11-24 14:40:50, from SUL/Stock → Production, 1 Bungkus.
+- **Quant 1019, SKU11436, `[11436] Plastik Sheet Bening YussyAkmal2 22x30`, category `All / Packaging`, -10 Pcs, reserved 0**, native posted `SUL/MO/00001`, 2026-11-24 14:40:50, from SUL/Stock → Production, 10 Pcs.
+
+**User explicitly clarified both are from the same manual Confirm / Produce All TEST transaction** as the 15 earlier corrected SUL negative quants; no need to investigate these as unexplained warehouse problems. One is premix, the other a **packaging item** (not both premix). No other negatives in TEST per this audit.
+
+Odoo `addons_path` from Feri's real server: `/opt/odoo19/odoo/addons`, `/opt/odoo19/oca-addons/account-financial-tools`, `/opt/odoo19/oca-addons/account-financial-reporting`, `/opt/odoo19/oca-addons/account-reconcile`, `/opt/odoo19/oca-addons/account-invoicing`, `/opt/odoo19/oca-addons/reporting-engine`, `/opt/odoo19/oca-addons/server-ux`, `/opt/odoo19/custom-addons`. `OCA_STOCK_NO_NEGATIVE_FILESYSTEM_PATHS: []`, `OCA_STOCK_NO_NEGATIVE_REGISTRY_STATE:NOT_IN_REGISTRY`. No OCA negative stock guard installed; stock negative enforcement remains needed, without rewriting native Odoo MO.
+
+**Next new script GitHub `script/opname_2_sul_same_mo_produce_all_ya.py`** created commit `b4b57487236233bbf9d41353263af32e732de5f6`, reused already genuinely PASS original 15-SKU native adjustment pattern. Targets exactly root SUL/Stock SKU10662 old -1 Bungkus and SKU11436 old -10 Pcs, final target 0 each. Same dedicated TEST db guard; checks exact location/company/lot/package/owner/no reserved/master/UoM and old Qty, readonly preview by default (rollback), explicit env token `YA_SUL_2_OPNAME_APPLY=YES_TEST_ONLY_2_ZERO` for permanently committing only after backup. Compares all other existing negatives before/after to prevent unauthorized changes. No edits to MO, BoM, production planning, packages, other stock or PROD. **NOT YET RUN BY FERI.**
+
+Feri:
+`cd ~/odoofromzero && git pull && python3 -m py_compile script/opname_2_sul_same_mo_produce_all_ya.py`
+Preview:
+`sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http < script/opname_2_sul_same_mo_produce_all_ya.py`
+Target `PREVIEW_ONLY_2_SUL_OPNAME_OK`. If exact balances match and current TEST backup is confirmed, APPLY:
+`sudo -u odoo19 env YA_SUL_2_OPNAME_APPLY=YES_TEST_ONLY_2_ZERO /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http < script/opname_2_sul_same_mo_produce_all_ya.py`
+Target `OPNAME_2_SUL_TEST_COMMITTED_PASS`. After successful application, recheck OCA guard; stage OCA 19.0 from verified GitHub `OCA/stock-logistics-workflow/19.0/stock_no_negative` in existing `/opt/odoo19/custom-addons` (not an arbitrary new addons_path) and install **TEST ONLY** with backed-up DB and service-impact caution (running shared Odoo service restart must NOT be done absent prod safety plan). Do not claim OCA installed until Feri demonstrates. Don't rerun 15-SKU APPLY.
