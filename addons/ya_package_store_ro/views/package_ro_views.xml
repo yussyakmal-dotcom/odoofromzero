@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_package_store_ro_list" model="ir.ui.view">
+    <field name="name">ya.package.store.ro.list</field>
+    <field name="model">ya.package.store.ro</field>
+    <field name="arch" type="xml">
+      <list string="RO Paket Toko" delete="false">
+        <field name="name"/>
+        <field name="delivery_date"/>
+        <field name="slot"/>
+        <field name="store_warehouse_id"/>
+        <field name="line_count"/>
+        <field name="qty_total"/>
+        <field name="state"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_ya_package_store_ro_form" model="ir.ui.view">
+    <field name="name">ya.package.store.ro.form</field>
+    <field name="model">ya.package.store.ro</field>
+    <field name="arch" type="xml">
+      <form string="RO Paket Toko" delete="false">
+        <header>
+          <button name="action_confirm" type="object" string="Confirm Paket RO"
+                  class="btn-primary" groups="mrp.group_mrp_manager"
+                  invisible="state != 'draft'"/>
+          <field name="state" widget="statusbar" statusbar_visible="draft,confirmed"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="delivery_date" readonly="state == 'confirmed'"/>
+              <field name="slot" readonly="state == 'confirmed'"/>
+              <field name="store_warehouse_id" readonly="state == 'confirmed'"/>
+            </group>
+            <group>
+              <field name="qty_total" readonly="1"/>
+              <field name="confirmed_at" readonly="1"/>
+              <field name="confirmed_by" readonly="1"/>
+            </group>
+          </group>
+          <field name="line_ids" readonly="state == 'confirmed'">
+            <list editable="bottom">
+              <field name="product_id" domain="[('categ_id.complete_name','=','All / Produk Jadi / Paket')]"/>
+              <field name="qty_requested"/>
+              <field name="uom_id" readonly="1"/>
+            </list>
+          </field>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_package_store_ro" model="ir.actions.act_window">
+    <field name="name">RO Paket Toko</field>
+    <field name="res_model">ya.package.store.ro</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="view_ya_package_store_ro_list"/>
+  </record>
+  <menuitem id="menu_ya_package_store_ro" name="RO Paket Toko"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_package_store_ro"
+            sequence="21" groups="mrp.group_mrp_manager"/>
+</odoo>
