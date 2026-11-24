@@ -37,6 +37,7 @@ class YaPackageStoreRO(models.Model):
     line_count = fields.Integer(compute="_compute_qty_total")
     confirmed_at = fields.Datetime(readonly=True)
     confirmed_by = fields.Many2one("res.users", readonly=True)
+    correction_ids = fields.One2many("ya.package.ro.qty.audit", "ro_id", readonly=True, string="Riwayat Koreksi Packing")
 
     _unique_date_slot_store = models.Constraint(
         "UNIQUE(delivery_date, slot, store_warehouse_id)",
