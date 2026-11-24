@@ -294,3 +294,194 @@ class YaPackageJointSlotPreview(models.TransientModel):
             "views": [(False, "form")],
             "target": "current",
         }
+
+    def action_move_to_preproduction(self):
+        """Freeze ONE date-slot for both RO streams. No MO/stock operations."""
+        self.ensure_one()
+        if not self.env.user.has_group("ya_store_ro.group_ya_packing_admin"):
+            raise UserError(_("Only Packing Admin can stage Pre Produksi."))
+        if not self.source_digest:
+            raise UserError(_("Hitung Konsolidasi RO + Paket dahulu."))
+
+        # The exact mutex used by normal RO confirmations and qty corrections.
+        lock_ro_slot(self.env.cr, self.delivery_date, self.slot)
+        Batch = self.env["ya.packing.batch"]
+        if Batch.search_count([
+            ("delivery_date", "=", self.delivery_date),
+            ("slot", "=", self.slot),
+        ]):
+            raise UserError(_(
+                "Pre Produksi already exists for this delivery date and slot."
+            ))
+
+        result, ordinary, packages, package_rows, direct_rows, _notes = (
+            self._build_joint_plan()
+        )
+        if not packages:
+            raise UserError(_(
+                "Tidak ada RO Paket Confirmed. Gunakan alur RO biasa yang sudah berjalan."
+            ))
+        if self._plan_digest(result, ordinary, packages) != self.source_digest:
+            raise UserError(_(
+                "RO, BoM, atau Planning berubah setelah preview. "
+                "Hitung Konsolidasi ulang agar jatah final tetap jelas."
+            ))
+        if any(ro.packing_batch_id for ro in ordinary):
+            raise UserError(_("An ordinary RO has already entered Pre Produksi."))
+        blocked = [
+            item for item in result["kitchen_mo_plans"]
+            if item["status"].startswith("blocked") or
+               item["qty_production"] <= 0
+        ]
+        if blocked:
+            raise UserError(_(
+                "Periksa Planning Max/BoM SKU dapur sebelum membuat Pre Produksi: %s."
+            ) % ", ".join(str(x["product_id"]) for x in blocked))
+        if self.has_shortage and not self.accept_shortage:
+            raise UserError(_(
+                "Ada kekurangan jatah RO toko setelah prioritas Paket. "
+                "Periksa hasil prorata dan setujui pengurangan jatah."
+            ))
+
+        lines = []
+        Products = self.env["product.product"]
+        for item in result["kitchen_mo_plans"]:
+            product = Products.browse(item["product_id"])
+            plan = self.env["ya.production.planning"].browse(item["planning_id"])
+            bom = self.env["mrp.bom"].browse(item["bom_id"])
+            pt = bom.picking_type_id
+            if (plan.state != "published" or not pt or
+                    not pt.warehouse_id or not pt.default_location_src_id
+                    or not pt.default_location_dest_id or
+                    pt.company_id != self.env.company):
+                raise UserError(_("Missing or invalid kitchen MO route for %s.")
+                                % product.display_name)
+            expected = " ".join(("Dapur " +
+                (plan.workcenter_id.name or "")).casefold().split())
+            actual = " ".join((pt.warehouse_id.name or "").casefold().split())
+            if expected != actual or pt.default_location_dest_id != pt.warehouse_id.lot_stock_id:
+                raise UserError(_(
+                    "Dapur SKU %s does not match the MO finished-goods warehouse."
+                ) % product.display_name)
+            if ((bom.product_id and bom.product_id != product) or
+                    bom.product_tmpl_id != product.product_tmpl_id):
+                raise UserError(_("Kitchen BoM product mismatch: %s") %
+                                product.display_name)
+            if item["qty_production"] > item["max_capacity"]:
+                raise UserError(_("Kitchen MO exceeds Published Planning Max: %s")
+                                % product.display_name)
+            if item["qty_production"] % item["bom_output"]:
+                raise UserError(_("Kitchen MO not rounded to a whole BoM: %s")
+                                % product.display_name)
+            lines.append((0, 0, {
+                "planning_id": plan.id,
+                "kitchen_code": item["kitchen_code"],
+                "product_id": product.id,
+                "reference": product.default_code or str(product.id),
+                "bom_id": bom.id,
+                "qty_requested": item["direct_store_requested"],
+                "ya_package_component_qty": item["package_component_qty"],
+                "qty_production": item["qty_production"],
+                "qty_surplus": item["qty_pending_internal_transfer"],
+                "qty_shortage": sum(
+                    a["shortage"] for a in item["store_allocations"].values()
+                ),
+                "max_capacity": item["max_capacity"],
+                "uom_id": product.uom_id.id,
+            }))
+
+        # Same canonical date-slot as ordinary Packing, no parallel fake
+        # kitchen Planning or separate production batch.
+        batch = Batch.with_context(ya_create_production_batch=True).create({
+            "delivery_date": self.delivery_date,
+            "slot": self.slot,
+            "state": "pre_production",
+            "ya_has_package": True,
+            "ro_ids": [(6, 0, ordinary.ids)],
+            "ya_package_ro_ids": [(6, 0, packages.ids)],
+            "line_ids": lines,
+            "staged_by": self.env.user.id,
+            "staged_at": fields.Datetime.now(),
+        })
+        by_product = {line.product_id.id: line for line in batch.line_ids}
+        if len(by_product) != len(batch.line_ids):
+            raise UserError(_("Duplicate kitchen SKU in joint snapshot."))
+
+        # RO-based shop deliveries remain on the existing allocation model.
+        # Store extras may be positive. Unallocated round-up remains on
+        # batch.line.qty_surplus, for separate native internal transfer.
+        source_by_store = {}
+        for row in direct_rows:
+            key = (row["product_id"], row["store_id"])
+            if key in source_by_store:
+                raise UserError(_("Duplicate ordinary RO source for SKU/store."))
+            source_by_store[key] = row["ro_id"]
+        Allocation = self.env["ya.packing.batch.allocation"].with_context(
+            ya_create_production_batch=True)
+        for item in result["kitchen_mo_plans"]:
+            line = by_product[item["product_id"]]
+            for store, a in sorted(item["store_allocations"].items()):
+                source_ro = source_by_store.get((item["product_id"], store))
+                if not source_ro:
+                    raise UserError(_("Missing original RO for kitchen allocation."))
+                Allocation.create({
+                    "batch_id": batch.id, "line_id": line.id,
+                    "ro_id": source_ro,
+                    "kitchen_code": item["kitchen_code"],
+                    "reference": line.reference,
+                    "product_id": item["product_id"],
+                    "store_warehouse_id": store,
+                    "qty_requested": a["requested"],
+                    "qty_surplus": a["surplus"],
+                    "qty_shortage": a["shortage"],
+                    "qty_allocated": a["allocated"],
+                })
+
+        Demand = self.env["ya.packing.package.demand"].with_context(
+            ya_package_create_joint_snapshot=True)
+        Component = self.env["ya.packing.package.component"].with_context(
+            ya_package_create_joint_snapshot=True)
+        for request in package_rows:
+            pkg = self.env["product.product"].browse(request["product_id"])
+            demand = Demand.create({
+                "batch_id": batch.id, "package_ro_id": request["ro_id"],
+                "product_id": pkg.id,
+                "store_warehouse_id": request["store_id"],
+                "bom_id": request["bom_id"],
+                "qty_requested": request["qty"],
+            })
+            for comp in request["components"]:
+                product = Products.browse(comp["product_id"])
+                is_kitchen = comp["source_kind"] == "KITCHEN"
+                linked = by_product.get(product.id) if is_kitchen else None
+                if is_kitchen and not linked:
+                    raise UserError(_(
+                        "Missing kitchen MO line for Paket component %s."
+                    ) % product.display_name)
+                Component.create({
+                    "batch_id": batch.id,
+                    "demand_id": demand.id,
+                    "product_id": product.id,
+                    "source_kind": "kitchen" if is_kitchen else "pck",
+                    "kitchen_line_id": linked.id if linked else False,
+                    "uom_id": product.uom_id.id,
+                    "qty_per_package": comp["qty_per_package"],
+                    "qty_required": comp["qty_per_package"] * request["qty"],
+                })
+
+        if ordinary:
+            ordinary.sudo().with_context(
+                ya_stage_or_reset_packing=True).write({
+                    "packing_batch_id": batch.id,
+                })
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Pre Produksi - RO + Paket"),
+            "res_model": "ya.packing.batch.line",
+            "view_mode": "list",
+            "views": [(self.env.ref(
+                "ya_store_ro.view_ya_packing_preproduction_line_list").id,
+                "list")],
+            "domain": [("batch_id", "=", batch.id)],
+            "target": "current",
+        }
