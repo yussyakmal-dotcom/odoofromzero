@@ -36,6 +36,13 @@ expected = [
     "float_compare(",
     "env.invalidate_all()",
     "transfer_done_by_key",
+    "own_mo_reserved",
+    "line.location_id.id not in allowed_sources[kitchen.id]",
+    "line.product_uom_id._compute_quantity(",
+    "effective_for_mo = free + own_reserved",
+    "reservation_ownership_ok",
+    "NATIVE_CDC_KITCHEN_RESERVED_TO_TEST_MO_PASS",
+    "AUTO_RESERVED_FOR_TEST_MO_COMBINATIONS:",
     "PACKAGE_12114_10X_OPNAME_TRANSFER_ROLLBACK_PASS",
 ]
 for token in expected:
