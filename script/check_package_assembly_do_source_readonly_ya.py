@@ -48,6 +48,8 @@ file_tokens = {
         '"location_id": Packing.lot_stock_id.id',
         '"location_dest_id": Transit.id',
         "new_moves._action_confirm()",
+        "if newly_created:",
+        "picking.action_confirm()",
         "return self.action_ya_open_store_deliveries()",
     ],
     "models/__init__.py": [
