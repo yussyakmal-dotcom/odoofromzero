@@ -322,6 +322,7 @@ try:
         Picking = env["stock.picking"].sudo().with_company(cdc.company_id)
         StockMove = env["stock.move"].sudo().with_company(cdc.company_id)
         transfer_count = 0
+        transfer_pickings = []
         transferred = {}
         for wh_id in sorted(kitchens):
             kitchen = kitchens[wh_id]
@@ -367,14 +368,88 @@ try:
             ).button_validate()
             assert not isinstance(result, dict) and picking.state == "done", (
                 "Native CDC->kitchen picking did not fully validate")
+            assert all(move.state == "done" for move in moves), (
+                "Picking is done but one material move is not done")
+            transfer_pickings.append(picking)
             transfer_count += 1
 
         assert transfer_count == len(kitchens), (
             "Expected one native CDC internal picking per real kitchen")
-        for (wh_id, pid), need in requirements.items():
-            actual, reserved = stock(kitchens[wh_id], pid)
-            assert actual - reserved >= need, (
-                "Native transfer did not supply actual MO raw materials")
+        # Inspect exact posted stock moves BEFORE treating free-stock as
+        # evidence of a shortage. After goods arrive, native Odoo can auto-
+        # reserve them for an already-confirmed MO, reducing (physical -
+        # reserved) without reducing physical inventory.
+        env.flush_all()
+        env.invalidate_all()
+        transfer_done_by_key = defaultdict(float)
+        for picking in transfer_pickings:
+            assert picking.state == "done", (
+                "Validated CDC->kitchen picking did not remain Done")
+            for move in picking.move_ids:
+                if move.state != "done":
+                    raise AssertionError("CDC->kitchen move not Done")
+                qty_done = move.product_uom._compute_quantity(
+                    move.quantity, move.product_id.uom_id, round=False)
+                transfer_done_by_key[(
+                    picking.location_dest_id.id, move.product_id.id,
+                )] += qty_done
+        shortages = []
+        for (wh_id, pid), need in sorted(requirements.items()):
+            kitchen = kitchens[wh_id]
+            product = products[pid]
+            actual, reserved = stock(kitchen, pid)
+            free = actual - reserved
+            original, original_reserved = before[(wh_id, pid)]
+            transferred_qty = transferred.get((wh_id, pid), 0.0)
+            done_qty = transfer_done_by_key.get(
+                (kitchen.lot_stock_id.id, pid), 0.0)
+            precision = product.uom_id.rounding
+            receipt_ok = float_compare(
+                done_qty, transferred_qty,
+                precision_rounding=precision) == 0
+            physical_ok = float_compare(
+                actual, need, precision_rounding=precision) >= 0
+            free_ok = float_compare(
+                free, need, precision_rounding=precision) >= 0
+            if not (receipt_ok and physical_ok and free_ok):
+                raw_state = []
+                for mo in mos:
+                    if mo.picking_type_id.warehouse_id != kitchen:
+                        continue
+                    for move in mo.move_raw_ids.filtered(
+                            lambda m: m.product_id.id == pid):
+                        raw_state.append((
+                            move.id, move.state,
+                            round(move.product_uom_qty, 5),
+                            round(move.quantity, 5),
+                            len(move.move_line_ids),
+                        ))
+                print("STOCK_DIAGNOSTIC:", kitchen.code,
+                      product.default_code or product.id,
+                      "NEED:", round(need, 5),
+                      "ORIGINAL:", round(original, 5),
+                      "ORIGINAL_RESERVED:", round(original_reserved, 5),
+                      "TRANSFER_PLANNED:", round(transferred_qty, 5),
+                      "TRANSFER_DONE:", round(done_qty, 5),
+                      "PHYSICAL:", round(actual, 5),
+                      "RESERVED:", round(reserved, 5),
+                      "FREE:", round(free, 5),
+                      "UNIT:", product.uom_id.name,
+                      "RAW_MOVE_STATE:", raw_state,
+                      "RECEIPT_OK:", receipt_ok,
+                      "PHYSICAL_OK:", physical_ok,
+                      "FREE_OK:", free_ok)
+                shortages.append((kitchen.code, product.default_code or pid,
+                                  receipt_ok, physical_ok, free_ok))
+        if shortages:
+            print("POST_TRANSFER_DIAGNOSTIC_COUNT:", len(shortages))
+            print("POST_TRANSFER_DIAGNOSTIC_KEYS:", shortages)
+            # Do not declare a stock integrity problem solely from free stock:
+            # it may be reserved to the same MO. Report evidence and stop for
+            # deliberate decision rather than creating more inventory.
+            raise AssertionError(
+                "CDC transfer post-check needs review; see "
+                "STOCK_DIAGNOSTIC for actual received/physical/reserved/WO.")
         print("CDC_TO_KITCHEN_PICKING_COUNT:", transfer_count)
         print("PST_AND_ROTI_MATERIAL_READY_ROLLBACK_PASS")
         print("NATIVE_CDC_KITCHEN_TRANSFER_ROLLBACK_PASS")
