@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="group_ya_package_ro_creator" model="res.groups">
+    <field name="name">YA Paket - Pembuat RO</field>
+    <field name="implied_ids" eval="[(4, ref('stock.group_stock_user'))]"/>
+  </record>
+</odoo>
