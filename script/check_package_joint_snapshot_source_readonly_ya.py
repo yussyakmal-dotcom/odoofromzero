@@ -74,7 +74,7 @@ files = {
         "from . import joint_slot_preview",
     ],
     "__manifest__.py": [
-        "'version': '19.0.1.2.0'",
+        "'version': '19.0.1.3.0'",
         "'views/joint_snapshot_views.xml'",
     ],
 }
