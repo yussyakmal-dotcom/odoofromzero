@@ -6,7 +6,6 @@ same-date/slot Pre Produksi snapshot before any package assembly/DO.
 """
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
-from odoo.tools.float_utils import float_compare
 
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
 
@@ -88,7 +87,7 @@ class YaPackageStoreRO(models.Model):
         if not self.line_ids.filtered(lambda l: l.qty_requested > 0):
             raise UserError(_("At least one Paket must have a positive Qty."))
         self._check_paket_category()
-        self.write({
+        self.with_context(ya_package_confirm=True).write({
             "state": "confirmed",
             "confirmed_at": fields.Datetime.now(),
             "confirmed_by": self.env.user.id,
