@@ -5,8 +5,12 @@ effects. This is the staged integration/adaptor for the future ONE joint
 Pre Produksi snapshot. Operators can continue their native SOP exceptions.
 """
 from collections import defaultdict
+import hashlib
+import json
 
 from odoo import fields, models, _
+
+from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
 from odoo.exceptions import UserError
 
 from odoo.addons.ya_store_ro.models.package_priority_rules import (
@@ -36,8 +40,11 @@ class YaPackageJointSlotPreview(models.TransientModel):
     kitchen_mo_qty = fields.Integer(readonly=True)
     pending_internal_transfer = fields.Integer(readonly=True)
     note = fields.Text(readonly=True)
+    source_digest = fields.Char(readonly=True, copy=False)
+    has_shortage = fields.Boolean(readonly=True)
+    accept_shortage = fields.Boolean(string="Saya menyetujui pengurangan jatah RO toko")
 
-    def action_preview(self):
+    def _build_joint_plan(self):
         self.ensure_one()
         if not self.env.user.has_group("ya_store_ro.group_ya_packing_admin"):
             raise UserError(_("Only Packing Admin may consolidate RO."))
@@ -200,6 +207,24 @@ class YaPackageJointSlotPreview(models.TransientModel):
         except JointSlotError as exc:
             raise UserError(_("Joint RO/Paket preview cannot calculate: %s") % exc)
 
+        return result, ordinary, packages, package_rows, direct_rows, notes
+
+    def _plan_digest(self, result, ordinary, packages):
+        """Canonical immutable-source signature of Packing's displayed preview."""
+        data = {
+            "date": str(self.delivery_date), "slot": self.slot,
+            "ordinary_ids": sorted(ordinary.ids),
+            "package_ids": sorted(packages.ids),
+            "joint_plan": result,
+        }
+        payload = json.dumps(data, sort_keys=True, default=str).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def action_preview(self):
+        self.ensure_one()
+        result, ordinary, packages, package_rows, direct_rows, notes = (
+            self._build_joint_plan()
+        )
         lines = [
             "RO TERPADU - Tanggal %s / Slot %s" %
             (self.delivery_date, self.slot),
@@ -253,6 +278,12 @@ class YaPackageJointSlotPreview(models.TransientModel):
             "summary": "\n".join(lines),
             "note": "\n".join(warnings) if warnings else
             "Tidak ada catatan routing. Ini masih preview; bukan Produksi OK.",
+            "source_digest": self._plan_digest(result, ordinary, packages),
+            "has_shortage": any(
+                sum(x["shortage"] for x in item["store_allocations"].values())
+                for item in result["kitchen_mo_plans"]
+            ),
+            "accept_shortage": False,
         })
         return {
             "type": "ir.actions.act_window",
