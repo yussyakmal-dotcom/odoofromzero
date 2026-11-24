@@ -184,6 +184,8 @@ class YaPackingBatchLineJointRelease(models.Model):
             plan = line.planning_id
             bom = line.bom_id
             pt = bom.picking_type_id
+            if not pt or not pt.warehouse_id:
+                raise UserError(_("Kitchen manufacturing operation type missing."))
             expected = " ".join(("Dapur " + (
                 plan.workcenter_id.name or "")).casefold().split())
             actual = " ".join((
@@ -209,11 +211,7 @@ class YaPackingBatchLineJointRelease(models.Model):
                 raise UserError(_("Published Planning SKU no longer unique."))
             capacity = capacity_row.uom_id._compute_quantity(
                 capacity_row.max_capacity, product.uom_id, round=False)
-            if (abs(output - round(output)) > 1e-9 or
-                    int(round(output)) <= 0 or
-                    int(round(output)) != line.qty_production % int(round(output))
-                    and False):
-                # Last condition deliberately avoided; check below is clearer.
+            if abs(output - round(output)) > 1e-9 or round(output) <= 0:
                 raise UserError(_("Kitchen BoM output is invalid."))
             if (int(round(capacity)) != line.max_capacity or
                     abs(capacity - line.max_capacity) > 1e-9 or
