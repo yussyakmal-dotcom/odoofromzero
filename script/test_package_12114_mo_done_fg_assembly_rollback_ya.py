@@ -43,6 +43,9 @@ assert not PackageRO.search_count([
 product = Product.search([("default_code", "=", sku)], limit=2)
 assert len(product) == 1, "Unique real Paket SKU 12114 required"
 assert product.categ_id.complete_name == "All / Produk Jadi / Paket"
+# Stable reference to the FINAL Paket SKU, distinct from the repeatedly
+# reassigned 'product' variable used for kitchen raw-material processing.
+package_product = product
 pck = Warehouse.search([("code", "=", "PCK")])
 assert len(pck) == 1
 stores = Warehouse.search([("company_id", "=", pck.company_id.id)])
@@ -643,9 +646,13 @@ try:
         # frozen Paket demand. Never mask a wrong SKU or silently alter Qty.
         env.flush_all()
         assembly.invalidate_recordset()
+        assert package_product.id == demand.product_id.id, (
+            "Frozen Paket demand was not linked to the selected Paket SKU")
+        assert package_product.default_code == sku, (
+            "Selected Paket SKU changed during stock/production UAT")
         frozen_qty = sum(
             d.qty_requested for d in batch_as_packing.ya_package_demand_ids
-            if d.product_id.id == product.id
+            if d.product_id.id == package_product.id
         )
         mo_qty_base = assembly.product_uom_id._compute_quantity(
             assembly.product_qty, assembly.product_id.uom_id, round=False)
@@ -664,20 +671,20 @@ try:
               "DEST_LOCATION_ID:", assembly.location_dest_id.id,
               "STATE:", assembly.state)
         print("PCK_ASSEMBLY_EXPECTED:",
-              "PRODUCT_ID:", product.id,
-              "SKU:", product.default_code,
+              "PRODUCT_ID:", package_product.id,
+              "SKU:", package_product.default_code,
               "FROZEN_PRODUCT_IDS:", frozen_product_ids,
               "FROZEN_QTY:", frozen_qty,
-              "EXPECTED_BASE_UOM:", product.uom_id.name,
+              "EXPECTED_BASE_UOM:", package_product.uom_id.name,
               "BOM_ID:", demand.bom_id.id,
               "TYPE_ID:", pck.manu_type_id.id,
               "PCK_STOCK_LOCATION_ID:", pck.lot_stock_id.id)
-        assert assembly.product_id.id == product.id, (
+        assert assembly.product_id.id == package_product.id, (
             "PCK assembly WRONG PRODUCT: actual %s expected %s" %
-            (assembly.product_id.id, product.id))
+            (assembly.product_id.id, package_product.id))
         assert float_compare(
             mo_qty_base, frozen_qty,
-            precision_rounding=product.uom_id.rounding) == 0, (
+            precision_rounding=package_product.uom_id.rounding) == 0, (
             "PCK assembly WRONG QTY: actual %s expected %s "
             "in product base UoM" % (mo_qty_base, frozen_qty))
         assert assembly.bom_id.id == demand.bom_id.id, (
