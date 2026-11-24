@@ -474,3 +474,15 @@ Prior strict pilot audit found 122 old-category candidates whose BoM output conv
 Committed new test-DB read-only script `script/audit_package_bom_output_qty_readonly_ya.py` which enumerates every current Paket SKU and all active normal variant/template BoMs and converts `bom.product_qty` from `bom.product_uom_id` to product base UoM with `round=False`, reporting all output >1, <1, =1, missing/multiple BoMs and conversion errors. **Pending Feri execution, no numerical conclusion yet.** Run in `erp-yussyakmal-mrp-test` only. Audit does not modify BoM or anything else.
 
 If any output !=1, flag exact SKU and BoM ID and review BoM component ratios before proposing a change; do not automatically change `product_qty` without simultaneously preserving intended component quantities. Later enforce output exactly one at Paket eligibility/confirmation and assembly, but **do not touch ordinary kitchen BoM rules**.
+
+## OWNER 1-BOM=1-PAKET AUDIT — FERI RESULTS & CODE GUARD (2026-11-24)
+
+Feri successfully ran `script/audit_package_bom_output_qty_readonly_ya.py` on `erp-yussyakmal-mrp-test`:
+- Current `All / Produk Jadi / Paket` category id 75 has **207 SKUs** (previous 208 count was before master adjustment).
+- **194 SKUs** have exactly one active normal BoM; **all 194 output exactly 1 Paket** (properly converted to base product UoM, Pcs); **zero** BoMs output >1, <1, 0 or have UoM conversion error; no multiple-BoM SKU found.
+- **13 current Paket SKUs without an active normal BoM**: 12094, 12099, 12115, 12122, 12129, 12140, 12154, 12181, 12229, 12230, 12257, 12267, 12268. Do NOT generate Paket assembly MO from these until valid BoM is created; do NOT change master automatically.
+- Script ended `READ_ONLY_PACKAGE_BOM_OUTPUT_QTY_OK`. This demonstrates master conformity of all *existing* Paket BoMs, not end-to-end assembly readiness.
+
+**Additional staged, not installed** `addons/ya_package_store_ro/models/package_ro.py`: during `action_confirm()`, positive Paket order lines must have **exactly one active normal BoM with output qty exactly one in product base UoM**; reject missing/ambiguous BoM or other output. This is validation of a pre-existing OWNER business rule, not a new accounting/stock behavior. A zero-demand line does not require a BoM at confirmation. Later, again validate at Pre Produksi/assembly because a BoM can change after the RO is Confirmed. Stage is GitHub source only; no Odoo registry/database change and not yet UAT verified.
+
+Next: Feri can run `python3 -m compileall -q addons/ya_package_store_ro` to verify code syntax (no module install). Keep focus on integration of regular RO and Paket RO into one immutable date-slot Pre Produksi and priority Paket-first capacity. Audit of all package masters need not be repeated.
