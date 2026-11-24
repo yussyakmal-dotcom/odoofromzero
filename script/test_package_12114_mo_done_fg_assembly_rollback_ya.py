@@ -696,6 +696,18 @@ assert not env["mrp.production"].sudo().search([
 assert not env["stock.picking"].sudo().search([
     ("id", "in", fg_picking_ids)
 ]), "Unexpected persisted kitchen-to-PCK picking after rollback"
+for fg_pid, (wh_id, _, precision) in expected_fg.items():
+    kitchen = Warehouse.browse(wh_id)
+    original_kitchen_fg, original_pck_fg = before_fg[fg_pid]
+    assert float_compare(
+        stock(kitchen, fg_pid)[0], original_kitchen_fg,
+        precision_rounding=precision
+    ) == 0, "Kitchen finished SKU stock survived rollback"
+    assert float_compare(
+        stock(pck, fg_pid)[0], original_pck_fg,
+        precision_rounding=precision
+    ) == 0, "PCK finished SKU stock survived rollback"
+print("ROLLBACK_FINISHED_STOCK_VERIFIED_PASS")
 print("ROLLBACK_ROLE_USERS_NOT_PERSISTED_PASS")
 # The test must also restore every impacted CDC/kitchen material quant.
 # No opening balances, stock moves or user accounts may survive.
