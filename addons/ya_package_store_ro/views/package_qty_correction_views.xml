@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_package_ro_qty_correction_form" model="ir.ui.view">
+    <field name="name">ya.package.ro.qty.correction.form</field>
+    <field name="model">ya.package.ro.qty.correction</field>
+    <field name="arch" type="xml">
+      <form string="Koreksi Qty RO Paket">
+        <group>
+          <field name="ro_id" readonly="1"/>
+          <field name="line_id"/>
+          <field name="old_qty" readonly="1"/>
+          <field name="new_qty"/>
+          <field name="reason"/>
+        </group>
+        <footer>
+          <button name="action_apply" type="object" string="Simpan Koreksi Qty"
+                  class="btn-primary" groups="ya_store_ro.group_ya_packing_admin"/>
+          <button string="Batal" special="cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+</odoo>
