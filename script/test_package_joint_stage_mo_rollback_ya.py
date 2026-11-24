@@ -133,9 +133,11 @@ try:
             "Paket assembly must NOT occur before FG transfer to PCK"
         )
         for mo in mos:
-            assert not mo.workorder_ids, (
-                "Kitchen MO source unexpectedly created WO; check this real BoM"
-            )
+            if "workorder_ids" in mo._fields:
+                assert not mo.workorder_ids, (
+                    "Kitchen MO source unexpectedly created WO; "
+                    "inspect the real kitchen BoM operations"
+                )
         print("JOINT_KITCHEN_MO_CONFIRM_PASS")
         print("KITCHEN_MO_COUNT:", len(mos))
         success = True
