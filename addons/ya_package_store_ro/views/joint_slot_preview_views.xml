@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_package_joint_slot_preview_form" model="ir.ui.view">
+    <field name="name">ya.package.joint.slot.preview.form</field>
+    <field name="model">ya.package.joint.slot.preview</field>
+    <field name="arch" type="xml">
+      <form string="Packing - Preview RO + Paket" create="false" delete="false">
+        <header>
+          <button name="action_preview" type="object"
+                  string="Hitung Konsolidasi RO + Paket" class="btn-primary"
+                  groups="ya_store_ro.group_ya_packing_admin"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="delivery_date"/>
+              <field name="slot"/>
+            </group>
+            <group>
+              <field name="ordinary_ro_count" readonly="1" string="RO Biasa"/>
+              <field name="package_ro_count" readonly="1" string="RO Paket"/>
+              <field name="kitchen_sku_count" readonly="1" string="SKU MO Dapur"/>
+              <field name="kitchen_mo_qty" readonly="1" string="Qty MO Dapur"/>
+              <field name="pending_internal_transfer" readonly="1"
+                     string="Sisa untuk Internal Transfer"/>
+            </group>
+          </group>
+          <group>
+            <field name="summary" readonly="1" nolabel="1"
+                   placeholder="Pilih tanggal dan slot, lalu hitung konsolidasi."/>
+          </group>
+          <group>
+            <field name="note" readonly="1" string="Catatan SOP / Routing"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_ya_package_joint_slot_preview" model="ir.actions.act_window">
+    <field name="name">Preview RO + Paket</field>
+    <field name="res_model">ya.package.joint.slot.preview</field>
+    <field name="view_mode">form</field>
+    <field name="target">current</field>
+  </record>
+
+  <menuitem id="menu_ya_package_joint_slot_preview"
+            name="Packing - Preview RO + Paket"
+            parent="menu_ya_package_ro_root"
+            action="action_ya_package_joint_slot_preview"
+            sequence="30"
+            groups="ya_store_ro.group_ya_packing_admin"/>
+</odoo>
