@@ -869,3 +869,19 @@ Feri commands:
 Then ONLY if source checker exits 0:
 `sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http < script/test_package_12114_mo_done_fg_assembly_rollback_ya.py`.
 Expected final `PACKAGE_12114_MO_DONE_FG_ASSEMBLY_ROLLBACK_PASS`; intermediate markers `NATIVE_KITCHEN_MO_DONE_3_PASS`, `NATIVE_MO_RAW_CONSUMPTION_DELTAS_PASS`, `NATIVE_KITCHEN_TO_PCK_FG_TRANSFER_ROLLBACK_PASS`, `PCK_PACKAGE_ASSEMBLY_MO_CONFIRMED_ROLLBACK_PASS`, `ROLLBACK_FINISHED_STOCK_VERIFIED_PASS`. No persisted inventory or production changes if test succeeds; errors must be inspected, and current script has finally rollback.
+
+## FERI UAT REAL MO Done/FG PASS; PCK assembly failed combined test assertion (2026-11-24)
+
+Feri ran `script/test_package_12114_mo_done_fg_assembly_rollback_ya.py` in dedicated TEST `erp-yussyakmal-mrp-test`. Real output PASS through `NATIVE_KITCHEN_MO_DONE_3_PASS` for:
+- `11999` PST, FG finished Qty 7, 6 raw moves; `12019` PST FG Qty 5, 6 raw moves; `12014` ROTI FG Qty 7, 10 raw moves.
+- `NATIVE_MO_RAW_CONSUMPTION_DELTAS_PASS`, `NATIVE_MO_FINISHED_KITCHEN_STOCK_DELTAS_PASS` confirm proper native Odoo19 consumption, no negative raw stock, real FG.
+- `NATIVE_KITCHEN_TO_PCK_FG_PICKINGS:2`, `NATIVE_KITCHEN_TO_PCK_FG_TRANSFER_ROLLBACK_PASS`, `NATIVE_FG_DOUBLE_CLICK_IDEMPOTENCE_PASS` confirm real Done FG stock pickings from PST+ROTI into PCK.
+
+**Test then failed** at Python line 641 with generic `AssertionError`, specifically after `assembly_result = batch_as_packing.action_ya_create_package_assembly_mos()` and `len(assemblies)==1`; old line was combined `assert assembly.product_id == product and assembly.product_qty == 1`. This implies **one native PCK Paket assembly MO was created** but one/both combined test conditions failed. DO NOT declare PCK assembly MO PASS, even if correct stock prior. No confirmation of which field wrong in the old log. Error unwound savepoint and `finally env.cr.rollback()` so no intentional persistence; post-success rollback markers were not reached. Dedicated test DB only, no productive stock changes.
+
+**GitHub TEST SCRIPT ONLY diagnostic patch**: `script/test_package_12114_mo_done_fg_assembly_rollback_ya.py` now prints `PCK_ASSEMBLY_ACTUAL` and `PCK_ASSEMBLY_EXPECTED` with native product SKU/ID, MO Qty, UoM, converted base UoM Qty, BoM ID, operation type, source/dest PCK Stock IDs, state, frozen demand Qty. Then separate explicit assertions report if product, Qty, BoM, operation type or locations differ; never silently correct/override a wrong MO. The original addon `addons/ya_package_store_ro/models/package_assembly.py` and other modules remain UNCHANGED. Run source preflight and re-run the same rollback test on the same test slot only after `git pull`; if it fails, send exact `PCK_ASSEMBLY_ACTUAL`, `PCK_ASSEMBLY_EXPECTED` and traceback. Do not edit BoM, override Qty, add fake stock, upgrade/restart addon yet.
+
+Next Feri:
+`cd ~/odoofromzero && git pull && python3 script/check_package_12114_mo_done_fg_assembly_source_ya.py && python3 -m py_compile script/test_package_12114_mo_done_fg_assembly_rollback_ya.py`.
+Then `sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http < script/test_package_12114_mo_done_fg_assembly_rollback_ya.py`.
+All previously proved ordinary RO, Paket+RO, kitchen MO, CDC stock and FG-to-PCK remains valid. Pending actual Paket assembly MO Done, combined DO and store receipt UAT. Keep one immutable slot, no negative stock, no overnight Packing inventory.
