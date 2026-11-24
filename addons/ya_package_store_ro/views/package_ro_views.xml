@@ -74,8 +74,11 @@
     <field name="view_mode">list,form</field>
     <field name="view_id" ref="view_ya_package_store_ro_list"/>
   </record>
+  <menuitem id="menu_ya_package_ro_root" name="YA RO Paket"
+            sequence="75"
+            groups="ya_package_store_ro.group_ya_package_ro_creator,ya_store_ro.group_ya_packing_admin"/>
   <menuitem id="menu_ya_package_store_ro" name="RO Paket Toko"
-            parent="ya_production_planning.menu_ya_capacity_root"
+            parent="menu_ya_package_ro_root"
             action="action_ya_package_store_ro"
             sequence="21" groups="ya_package_store_ro.group_ya_package_ro_creator,ya_store_ro.group_ya_packing_admin"/>
 </odoo>
