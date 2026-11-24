@@ -7,6 +7,8 @@ flow. No fictitious Paket stock; native final delivery Qty can be zero.
 """
 from collections import defaultdict
 
+from .package_finish_rules import group_package_finish_demands
+
 from odoo import models, _
 from odoo.exceptions import UserError
 from odoo.tools import float_compare
@@ -41,11 +43,13 @@ class YaPackingBatchPackageDelivery(models.Model):
             # or duplicates native stock moves.
             return self.action_ya_open_store_deliveries()
 
-        demand_by_sku = defaultdict(int)
-        for demand in self.ya_package_demand_ids:
-            if demand.qty_requested <= 0:
-                raise UserError(_("Invalid frozen Paket delivery Qty."))
-            demand_by_sku[demand.product_id.id] += demand.qty_requested
+        frozen = group_package_finish_demands([
+            {"product_id": d.product_id.id,
+             "store_id": d.store_warehouse_id.id,
+             "qty": d.qty_requested}
+            for d in self.ya_package_demand_ids
+        ])
+        demand_by_sku = frozen["assembly_mo_qty"]
         mos = self.ya_package_assembly_mo_ids
         if not demand_by_sku or set(mos.mapped("product_id").ids) != set(demand_by_sku):
             raise UserError(_("Create Paket assembly MOs before generating DO."))
@@ -105,13 +109,12 @@ class YaPackingBatchPackageDelivery(models.Model):
             for picking in self.ya_store_delivery_ids
             if picking.ya_store_stage == "dispatch"
         }
-        totals = defaultdict(lambda: defaultdict(int))
-        for demand in self.ya_package_demand_ids:
-            store = demand.store_warehouse_id
+        totals = frozen["store_do_qty"]
+        for store_id in totals:
+            store = self.env["stock.warehouse"].browse(store_id)
             if (not store.lot_stock_id or store == Packing or
                     store.company_id != Packing.company_id):
                 raise UserError(_("Invalid Paket destination store: %s") % store.name)
-            totals[store.id][demand.product_id.id] += demand.qty_requested
 
         Picking = self.env["stock.picking"]
         Move = self.env["stock.move"]
