@@ -80,11 +80,28 @@ assert (large_batch["qty_production"], large_batch["package_component_qty_protec
 assert large_batch["store_allocations"][11] == {
     "requested": 1, "allocated": 3, "shortage": 0, "surplus": 2}
 
-# No direct RO stores: cannot randomly assign excess to a new store.
+# Owner: no finished-goods storage at Packing. Without a direct store
+# requesting this SKU, the extra 5 components created by BoM round-up have
+# no destination. BLOCK, never stage 10 output with 5 stranded in Packing.
 no_store = plan(5, {}, 10, 10)
-assert no_store["package_component_qty_protected"] == 5
+assert no_store["status"] == "blocked_no_distribution_destination", no_store
+assert no_store["qty_production"] == 0
+assert no_store["would_produce"] == 10
+assert no_store["unallocatable_qty"] == 5
 assert no_store["qty_surplus_distributed"] == 0
-assert no_store["qty_surplus"] == 5
+# If Paket needs exactly the kitchen BoM output, no store is needed.
+exact_package = plan(10, {}, 10, 10)
+assert exact_package["status"] == "ok", exact_package
+assert exact_package["qty_production"] == 10
+assert exact_package["package_component_qty_protected"] == 10
+assert exact_package["qty_surplus"] == 0
+# Remaining component units may be distributed to a real ordering store.
+has_store = plan(5, {11: 1}, 10, 10)
+assert has_store["status"] == "ok", has_store
+assert has_store["qty_production"] == 10
+assert has_store["store_allocations"][11] == {
+    "requested": 1, "allocated": 5, "shortage": 0, "surplus": 4}
+assert has_store["qty_surplus"] == 0
 
 # No-Paket baseline: compare against original historical surplus-prorata
 # helper when max capacity permits whole rounded demand, and current
@@ -132,5 +149,6 @@ for args in (
 
 print("PACKAGE_CAPACITY_PRIORITY_PURE_PASS")
 print("NO_PACKAGE_HISTORICAL_SURPLUS_RULE_TEST_PASS")
+print("ZERO_UNALLOCATED_PACKING_RULE_TEST_PASS")
 print("NOTE: currently-active ordinary RO preview still does NOT distribute surplus.")
 print("SOURCE_ONLY: no RO, MO, stock, Odoo DB or allocations changed.")
