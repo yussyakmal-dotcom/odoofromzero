@@ -42,6 +42,7 @@
             <field name="blocked_count" readonly="1"/>
             <field name="prorated_count" readonly="1"/>
             <field name="total_shortage" readonly="1"/>
+            <field name="total_surplus_distributed" readonly="1"/>
             <field name="total_unallocated" readonly="1"/>
           </group>
           <group>
@@ -62,7 +63,7 @@
                 <field name="qty_requested" string="Total RO"/>
                 <field name="bom_output" string="BoM Output"/>
                 <field name="qty_production" string="Rencana Qty MO"/>
-                <field name="qty_surplus" string="Selisih BoM Belum Dialokasikan"/>
+                <field name="qty_surplus" string="Sisa BoM Belum Dialokasikan"/>
                 <field name="qty_shortage" string="Kekurangan"/>
                 <field name="max_capacity" string="Planning Max"/>
                 <field name="capacity_status" string="Capacity" widget="badge"
@@ -86,7 +87,7 @@
               </list>
             </field>
           </page>
-          <page string="Prorata Pengurangan Qty per Toko">
+          <page string="Alokasi Prorata per Toko">
             <field name="allocation_ids" readonly="1" nolabel="1">
               <list create="false" delete="false">
                 <field name="kitchen_code" string="Dapur"/>
@@ -97,7 +98,8 @@
                 <field name="delivery_date_yyyymmdd" string="Tgl Kirim"/>
                 <field name="qty_requested" string="Qty RO Asli"/>
                 <field name="qty_shortage" string="Kekurangan" decoration-danger="qty_shortage &gt; 0"/>
-                <field name="qty_allocated" string="Jatah Setelah Prorata"/>
+                <field name="qty_surplus" string="Tambahan Surplus BoM"/>
+                <field name="qty_allocated" string="Jatah Final Toko"/>
               </list>
             </field>
           </page>
@@ -127,7 +129,7 @@
                   string="Pindahkan ke Pre Produksi"
                   class="btn-primary"
                   groups="ya_store_ro.group_ya_packing_admin"
-                  confirm="Pindahkan konsolidasi ke Pre Produksi dan KUNCI Qty? Jika kapasitas kurang, Qty RO asli tidak berubah, jatah toko dikurangi proporsional sesuai kapasitas, dan kekurangannya dicatat. Selisih pembulatan BoM TIDAK dibagikan ke toko. MO BELUM dibuat."
+                  confirm="Pindahkan konsolidasi ke Pre Produksi dan KUNCI Qty? Jika kapasitas kurang, Qty RO asli tidak berubah, jatah toko dikurangi proporsional sesuai kapasitas, dan kekurangannya dicatat. Surplus pembulatan BoM dibagikan otomatis prorata ke toko pemesan. MO BELUM dibuat."
                   invisible="state != 'preview' or blocked_count != 0"/>
           <button string="Close" special="cancel"/>
         </footer>
