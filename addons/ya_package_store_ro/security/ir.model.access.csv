@@ -1,5 +1,8 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_ya_package_store_ro_manager,ya.package.store.ro manager,model_ya_package_store_ro,mrp.group_mrp_manager,1,1,1,1
-access_ya_package_store_ro_line_manager,ya.package.store.ro.line manager,model_ya_package_store_ro_line,mrp.group_mrp_manager,1,1,1,1
+access_ya_package_store_ro_manager,ya.package.store.ro manager,model_ya_package_store_ro,ya_package_store_ro.group_ya_package_ro_creator,1,1,1,1
+access_ya_package_store_ro_line_manager,ya.package.store.ro.line manager,model_ya_package_store_ro_line,ya_package_store_ro.group_ya_package_ro_creator,1,1,1,1
 access_ya_package_store_ro_packing,ya.package.store.ro packing,model_ya_package_store_ro,ya_store_ro.group_ya_packing_admin,1,0,0,0
-access_ya_package_store_ro_line_packing,ya.package.store.ro.line packing,model_ya_package_store_ro_line,ya_store_ro.group_ya_packing_admin,1,0,0,0
+access_ya_package_store_ro_line_packing,ya.package.store.ro.line packing,model_ya_package_store_ro_line,ya_store_ro.group_ya_packing_admin,1,1,0,0
+access_ya_package_ro_audit_creator,ya.package.ro.qty.audit creator,model_ya_package_ro_qty_audit,ya_package_store_ro.group_ya_package_ro_creator,1,0,0,0
+access_ya_package_ro_audit_packing,ya.package.ro.qty.audit packing,model_ya_package_ro_qty_audit,ya_store_ro.group_ya_packing_admin,1,0,0,0
+access_ya_package_ro_correction_packing,ya.package.ro.qty.correction packing,model_ya_package_ro_qty_correction,ya_store_ro.group_ya_packing_admin,1,1,1,1
