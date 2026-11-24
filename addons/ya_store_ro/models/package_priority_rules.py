@@ -119,19 +119,25 @@ def allocate_kitchen_capacity_package_first(package_need, direct_by_store,
 
 def plan_kitchen_capacity_with_package_priority(
         package_need, direct_by_store, bom_output, max_capacity):
-    """One kitchen/SKU capacity plan without silently shorting a package.
+    """Plan kitchen MO, giving Paket first priority and prorating ALL surplus.
 
-    Production is sized to full BoM batches, capped by published Planning Max.
-    All package-component demand is protected FIRST. If a full protected
-    bucket cannot be produced, BLOCK: do not issue partial package allocation.
-    Remaining units are allocated to direct RO stores by deterministic
-    Hamilton/largest remainder. Unallocated BoM batch surplus is separate
-    from store allocation, matching current RO preview behavior.
+    1. Gross demand = component qty protected for Paket + direct store RO.
+    2. Round gross demand UP to whole kitchen BoM batch outputs.
+    3. Respect Published Planning Max (whole BoM batches).
+    4. Reserve full Paket requirement first, then direct RO demand to stores.
+    5. If all direct RO is met, prorate remaining batch-rounding surplus to
+       stores proportional to their ORIGINAL requested quantities, with
+       largest-remainder/Hamilton tie-break by ascending store ID.
 
-    When package_need=0, this function is equivalent to the existing
-    allocate_capacity_prorata direct RO calculation for nonzero demand.
-    Caller must aggregate all Paket BoM demand BEFORE calling this method.
-    Output does NOT certify assembly availability of other components.
+    One Paket assembly BoM still outputs exactly ONE final Paket; the
+    bom_output here describes the KITCHEN component's manufacturing BoM.
+    If Planning Max cannot cover the Paket bucket, fail closed, with no MO
+    released. This is a pure calculation: no stock, MO, or document writes.
+
+    Store identity: allocated = requested - shortage + surplus.
+    Global quantity conservation:
+       produced = protected_for_paket + sum(store allocated) + unallocated.
+    Do not assign surplus to a store that did not order that SKU.
     """
     protected = _qty(package_need, "package_need")
     batch = _qty(bom_output, "bom_output", allow_zero=False)
@@ -142,8 +148,9 @@ def plan_kitchen_capacity_with_package_priority(
             raise PackageDemandError("Store ID must be a positive integer")
         stores[store] = _qty(requested, "direct_store[%s]" % store)
     requested_direct = sum(stores.values())
-    total_requested = protected + requested_direct
-    if total_requested == 0:
+    requested_total = protected + requested_direct
+
+    if requested_total == 0:
         return {
             "status": "no_demand",
             "qty_production": 0,
@@ -152,36 +159,33 @@ def plan_kitchen_capacity_with_package_priority(
             "direct_qty_requested": 0,
             "direct_qty_allocated": 0,
             "direct_qty_shortage": 0,
-            "qty_surplus": 0,
+            "qty_surplus_distributed": 0,
+            "qty_surplus": 0,  # unallocated surplus
             "store_allocations": {
-                store: {"requested": requested, "allocated": 0, "shortage": 0}
-                for store, requested in stores.items()
+                store: {"requested": quantity, "allocated": 0,
+                        "shortage": 0, "surplus": 0}
+                for store, quantity in stores.items()
             },
         }
 
-    # Existing Odoo workflow never creates a fractional or partial BoM batch.
-    production_target = ((total_requested + batch - 1) // batch) * batch
-    producible = min(production_target, (maximum // batch) * batch)
-    protected_shortage = max(protected - producible, 0)
-
-    if producible == 0 or protected_shortage:
-        # Fail closed: no package-priority release is permitted. Do not let
-        # direct-store allocations consume component quantity intended for
-        # an incomplete package (or claim a feasible aggregate plan).
+    rounded_production = ((requested_total + batch - 1) // batch) * batch
+    producible = min(rounded_production, (maximum // batch) * batch)
+    if producible < protected or producible == 0:
         return {
-            "status": "blocked_package_capacity" if protected_shortage else "blocked",
+            "status": "blocked_package_capacity" if producible < protected else "blocked",
             "qty_production": 0,
+            "capacity_if_unblocked": producible,
             "package_component_qty_protected": 0,
             "package_component_shortage": protected,
             "direct_qty_requested": requested_direct,
             "direct_qty_allocated": 0,
             "direct_qty_shortage": requested_direct,
+            "qty_surplus_distributed": 0,
             "qty_surplus": 0,
-            "capacity_if_unblocked": producible,
             "store_allocations": {
-                store: {"requested": requested, "allocated": 0,
-                        "shortage": requested}
-                for store, requested in stores.items()
+                store: {"requested": quantity, "allocated": 0,
+                        "shortage": quantity, "surplus": 0}
+                for store, quantity in stores.items()
             },
         }
 
@@ -190,34 +194,54 @@ def plan_kitchen_capacity_with_package_priority(
     distributed = 0
     remainders = []
     for store, requested in stores.items():
-        base, remainder = divmod(requested * direct_budget, requested_direct) \
-            if requested_direct else (0, 0)
+        base, remainder = divmod(requested * direct_budget, requested_direct) if requested_direct else (0, 0)
         allocations[store] = {
             "requested": requested,
             "allocated": base,
             "shortage": requested - base,
+            "surplus": 0,
         }
         distributed += base
         remainders.append((remainder, store))
-    remainders.sort(key=lambda item: (-item[0], item[1]))
+    remainders.sort(key=lambda pair: (-pair[0], pair[1]))
     for _, store in remainders[:direct_budget - distributed]:
         allocations[store]["allocated"] += 1
         allocations[store]["shortage"] -= 1
 
-    surplus = producible - protected - direct_budget
-    assert surplus >= 0
-    assert sum(a["allocated"] for a in allocations.values()) == direct_budget
-    assert sum(a["shortage"] for a in allocations.values()) == (
-        requested_direct - direct_budget)
-    assert protected + direct_budget + surplus == producible
+    # Only after direct requests are covered: share the BoM rounding surplus.
+    extra = producible - protected - direct_budget
+    extra_allocated = 0
+    if extra > 0 and requested_direct > 0 and direct_budget == requested_direct:
+        extras = []
+        initial = 0
+        for store, requested in stores.items():
+            per_store, remainder = divmod(requested * extra, requested_direct)
+            allocations[store]["surplus"] += per_store
+            allocations[store]["allocated"] += per_store
+            initial += per_store
+            extras.append((remainder, store))
+        extras.sort(key=lambda pair: (-pair[0], pair[1]))
+        for _, store in extras[:extra - initial]:
+            allocations[store]["surplus"] += 1
+            allocations[store]["allocated"] += 1
+        extra_allocated = extra
+
+    unallocated = extra - extra_allocated
+    assert all(
+        row["allocated"] == row["requested"] - row["shortage"] + row["surplus"]
+        for row in allocations.values()
+    )
+    assert sum(row["surplus"] for row in allocations.values()) == extra_allocated
+    assert sum(row["allocated"] for row in allocations.values()) + protected + unallocated == producible
     return {
         "status": "prorated_direct_only" if direct_budget < requested_direct else "ok",
         "qty_production": producible,
         "package_component_qty_protected": protected,
         "package_component_shortage": 0,
         "direct_qty_requested": requested_direct,
-        "direct_qty_allocated": direct_budget,
+        "direct_qty_allocated": sum(row["allocated"] for row in allocations.values()),
         "direct_qty_shortage": requested_direct - direct_budget,
-        "qty_surplus": surplus,
+        "qty_surplus_distributed": extra_allocated,
+        "qty_surplus": unallocated,
         "store_allocations": allocations,
     }
