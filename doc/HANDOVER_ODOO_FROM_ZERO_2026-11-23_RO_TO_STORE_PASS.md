@@ -464,3 +464,13 @@ New, uninstalled ya_package_store_ro addon source corrected to mirror SOP, but n
 - Source only: no add-on install, Odoo registry modification, MO, picking, stock or accounting change. Do not enable package RO for users until full end-to-end integration and UAT.
 
 SOP is the primary process rule; rights and immutability controls implement the SOP and protect the audit trail, rather than replace the SOP. Keep ODOO FROM ZERO project scope only.
+
+## OWNER CHECKPOINT — PAKET BOM MUST OUTPUT EXACTLY ONE PACKAGE (2026-11-24)
+
+Owner requires **ONE BoM = finished output Qty 1 Paket** for all current `All / Produk Jadi / Paket` SKU BoMs. Higher BoM outputs risk batch rounding, competing capacity filters and package priority allocation consistency. This rule is specific to **cross-kitchen Paket** category, NOT ordinary kitchen finished-product BoMs, which retain their existing batches.
+
+Prior strict pilot audit found 122 old-category candidates whose BoM output converted to exactly one package, but **that does NOT prove every BoM in current category is output=1**. Category membership may have changed since audit.
+
+Committed new test-DB read-only script `script/audit_package_bom_output_qty_readonly_ya.py` which enumerates every current Paket SKU and all active normal variant/template BoMs and converts `bom.product_qty` from `bom.product_uom_id` to product base UoM with `round=False`, reporting all output >1, <1, =1, missing/multiple BoMs and conversion errors. **Pending Feri execution, no numerical conclusion yet.** Run in `erp-yussyakmal-mrp-test` only. Audit does not modify BoM or anything else.
+
+If any output !=1, flag exact SKU and BoM ID and review BoM component ratios before proposing a change; do not automatically change `product_qty` without simultaneously preserving intended component quantities. Later enforce output exactly one at Paket eligibility/confirmation and assembly, but **do not touch ordinary kitchen BoM rules**.
