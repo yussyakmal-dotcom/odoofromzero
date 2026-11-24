@@ -56,7 +56,13 @@ class YaPackingBatchLineJointRelease(models.Model):
                 key = (ro.id, row.product_id.id)
                 if key in original_direct:
                     raise UserError(_("Duplicate ordinary RO source SKU."))
-                original_direct[key] = row.qty_requested
+                qty_base = row.uom_id._compute_quantity(
+                    row.qty_requested, row.product_id.uom_id, round=False)
+                if abs(qty_base - round(qty_base)) > 1e-9:
+                    raise UserError(_(
+                        "RO SKU %s UoM no longer converts to whole units."
+                    ) % row.product_id.display_name)
+                original_direct[key] = int(round(qty_base))
         snapshot_direct = {}
         for allocation in batch.allocation_ids:
             key = (allocation.ro_id.id, allocation.product_id.id)
