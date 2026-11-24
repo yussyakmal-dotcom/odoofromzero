@@ -587,3 +587,17 @@ Suggested Feri source-only tests:
 `python3 script/test_package_capacity_priority_pure_ya.py`
 `python3 script/check_capacity_prorata_source_readonly_ya.py`
 `python3 -m compileall -q addons/ya_store_ro`
+
+## FERI PURE REGRESSIONS PASS — MOVE TO TEST DB REGISTRY/UAT (2026-11-24)
+
+Feri ran Git pull and supplied actual results from repository source:
+- `script/test_capacity_prorata_ya.py` -> `CAPACITY_SURPLUS_PRORATA_REGRESSION_PASS`; cases cover BoM rounding surplus prorata, planning capacity shortage, zero demand, malformed Qty.
+- `script/test_package_capacity_priority_pure_ya.py` -> `PACKAGE_CAPACITY_PRIORITY_PURE_PASS`, `NO_PACKAGE_HISTORICAL_SURPLUS_RULE_TEST_PASS`, `PACKING_INTERNAL_TRANSFER_FALLBACK_TEST_PASS`; Paket component protection + MO batch round-up + separate standard internal transfer residual.
+- `script/check_capacity_prorata_source_readonly_ya.py` -> `ERROR_COUNT: 0`, `CAPACITY_SURPLUS_PRORATA_SOURCE_OK`.
+- `python3 -m compileall -q addons/ya_store_ro` returned no syntax errors.
+- No Odoo transaction was run, no MO/RO/stock was modified and **no installed Odoo module upgrade/UAT PASS** yet.
+- Removed stale success-message text in `script/test_package_capacity_priority_pure_ya.py` that still claimed the ordinary RO source lacked surplus distribution. Source does prorate now; **loaded Odoo registry and UI are NOT yet verified**.
+
+New READ-ONLY Odoo test DB inspection staged: `script/check_ro_surplus_odoo_registry_readonly_ya.py`; checks module version 19.0.8.1.3, registered preview field, views actually stored in DB, and runtime 15/10=>20 surplus prorata (stores 6/9 => 8/12). This does not test full Packing→MO→FG→DO.
+
+**Deploy carefully per `doc/SKILL_ODOO19_ADDON_WORKFLOW.md`:** Feri must first take verified GUI backup of `erp-yussyakmal-mrp-test`. Then copy ONLY `addons/ya_store_ro/.` to `/opt/odoo19/custom-addons/ya_store_ro/`, change ownership to odoo19, run `-u ya_store_ro` ONLY with `-d erp-yussyakmal-mrp-test` and `--stop-after-init --no-http`. On zero exit, restart service during an appropriate window (service restart may affect other DBs) and run new Odoo registry read-only check. No deploy/install `ya_package_store_ro` yet. After that run controlled UI or rollback test of Confirmed RO→Packing Preview→Pre Produksi→MO release→FG transfer→DO allocations, then resume Paket integration. **Primary `erp-yussyakmal` must not be upgraded/touched for this test.**
