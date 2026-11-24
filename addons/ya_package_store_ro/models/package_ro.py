@@ -69,8 +69,8 @@ class YaPackageStoreRO(models.Model):
 
     def action_confirm(self):
         self.ensure_one()
-        if not self.env.user.has_group("mrp.group_mrp_manager"):
-            raise UserError(_("Manufacturing Manager access required."))
+        if not self.env.user.has_group("ya_package_store_ro.group_ya_package_ro_creator"):
+            raise UserError(_("Only Paket RO creators may confirm Paket RO."))
         if self.state != "draft":
             raise UserError(_("Only Draft Paket RO can be confirmed."))
         lock_ro_slot(self.env.cr, self.delivery_date, self.slot)
@@ -110,12 +110,33 @@ class YaPackageStoreRO(models.Model):
             raise UserError(_("Paket RO status cannot be changed manually."))
         if vals.get("state") == "confirmed" and not (
                 self.env.context.get("ya_package_confirm")
-                and self.env.user.has_group("mrp.group_mrp_manager")):
+                and self.env.user.has_group("ya_package_store_ro.group_ya_package_ro_creator")):
             raise UserError(_("Use Paket RO Confirm button."))
         protected = {"delivery_date", "slot", "store_warehouse_id"}
         if protected.intersection(vals) and any(rec.line_ids for rec in self):
             raise UserError(_("Cannot change date, slot or store after adding SKU lines."))
         return super().write(vals)
+
+    def action_open_packing_qty_correction(self):
+        self.ensure_one()
+        if not self.env.user.has_group("ya_store_ro.group_ya_packing_admin"):
+            raise UserError(_("Only Packing Admin may correct a Confirmed Paket RO."))
+        if self.state != "confirmed":
+            raise UserError(_("Choose a Confirmed Paket RO."))
+        if self.env["ya.packing.batch"].sudo().search_count([
+            ("delivery_date", "=", self.delivery_date),
+            ("slot", "=", self.slot),
+        ]):
+            raise UserError(_("Pre Produksi is already frozen; corrections are closed."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Koreksi Qty RO Paket"),
+            "res_model": "ya.package.ro.qty.correction",
+            "view_mode": "form",
+            "views": [(False, "form")],
+            "target": "new",
+            "context": {"default_ro_id": self.id},
+        }
 
     def unlink(self):
         if any(rec.state != "draft" for rec in self):
@@ -161,11 +182,70 @@ class YaPackageStoreROLine(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
-        if any(line.ro_id.state != "draft" for line in self):
-            raise UserError(_("Confirmed Paket RO lines cannot be edited."))
+        confirmed = self.filtered(lambda row: row.ro_id.state == "confirmed")
+        if confirmed:
+            reason = (self.env.context.get("ya_package_packing_qty_correction_reason") or "").strip()
+            if (not self.env.user.has_group("ya_store_ro.group_ya_packing_admin")
+                    or not reason):
+                raise UserError(_("Only Packing Admin may correct Confirmed Paket Qty with a reason."))
+            if len(self) != 1 or set(vals) != {"qty_requested"}:
+                raise UserError(_("Correct exactly one Paket Qty at a time."))
+            line = confirmed.ensure_one()
+            ro = line.ro_id
+            lock_ro_slot(self.env.cr, ro.delivery_date, ro.slot)
+            if self.env["ya.packing.batch"].sudo().search_count([
+                ("delivery_date", "=", ro.delivery_date),
+                ("slot", "=", ro.slot),
+            ]):
+                raise UserError(_("Pre Produksi is already frozen; corrections are closed."))
+            new_qty = vals["qty_requested"]
+            if isinstance(new_qty, bool) or not isinstance(new_qty, int) or new_qty < 0:
+                raise UserError(_("Paket Qty must be a nonnegative whole number."))
+            old_qty = line.qty_requested
+            result = super().write(vals)
+            if new_qty != old_qty:
+                self.env["ya.package.ro.qty.audit"].sudo().with_context(
+                    ya_package_packing_qty_correction_reason=reason,
+                ).create({
+                    "ro_id": ro.id, "ro_line_id": line.id,
+                    "product_id": line.product_id.id,
+                    "qty_before": old_qty, "qty_after": new_qty,
+                    "reason": reason,
+                })
+            return result
         return super().write(vals)
 
     def unlink(self):
         if any(line.ro_id.state != "draft" for line in self):
             raise UserError(_("Confirmed Paket RO lines cannot be deleted."))
         return super().unlink()
+
+
+class YaPackageROQtyAudit(models.Model):
+    _name = "ya.package.ro.qty.audit"
+    _description = "YA Paket RO Packing Qty Correction Audit"
+    _order = "changed_at desc, id desc"
+
+    ro_id = fields.Many2one("ya.package.store.ro", required=True, readonly=True, ondelete="restrict")
+    ro_line_id = fields.Many2one("ya.package.store.ro.line", required=True, readonly=True, ondelete="restrict")
+    product_id = fields.Many2one("product.product", required=True, readonly=True)
+    qty_before = fields.Integer(readonly=True)
+    qty_after = fields.Integer(readonly=True)
+    reason = fields.Text(required=True, readonly=True)
+    changed_by = fields.Many2one("res.users", default=lambda self: self.env.user, readonly=True)
+    changed_at = fields.Datetime(default=fields.Datetime.now, readonly=True)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if not self.env.su:
+            raise UserError(_("Paket audit is written by the correction service only."))
+        reason = (self.env.context.get("ya_package_packing_qty_correction_reason") or "").strip()
+        if not reason or any((vals.get("reason") or "").strip() != reason for vals in vals_list):
+            raise UserError(_("A matching correction reason is required."))
+        return super().create(vals_list)
+
+    def write(self, vals):
+        raise UserError(_("Paket RO correction audit cannot be changed."))
+
+    def unlink(self):
+        raise UserError(_("Paket RO correction audit cannot be deleted."))
