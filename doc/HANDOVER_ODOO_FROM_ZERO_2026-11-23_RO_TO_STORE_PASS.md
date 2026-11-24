@@ -567,3 +567,23 @@ Do not increase confirmed Paket Qty solely to absorb extra component production 
 **Not yet covered operationally:** actual MO Done output vs immutable planned Qty and PCK inventory transfer, assembly of Paket in Packing, and final DO/receipt; these must be verified and guarded before end-to-end deployment. No claim that Packing runtime currently guarantees zero physical leftovers. Existing RO flow repository source previously modified for store prorata (ya_store_ro 19.0.8.1.3), but not upgraded/tested by Feri yet.
 
 Next Feri source-only tests: python3 script/test_capacity_prorata_ya.py ; python3 script/test_package_capacity_priority_pure_ya.py ; python3 script/check_capacity_prorata_source_readonly_ya.py ; python3 -m compileall -q addons/ya_store_ro. NEVER upgrade production database.
+
+## OWNER OVERRIDE — INTERNAL TRANSFER IS THE FALLBACK FOR UNALLOCATABLE MO OUTPUT (2026-11-24)
+
+The owner corrected the preceding hard-stop rule. **A kitchen MO may produce finished goods that cannot be automatically allocated by system prorata to the stores' original RO. Packing sends those remaining finished goods to a store via STANDARD ODOO INTERNAL TRANSFER.** Do NOT block RO Pre Produksi, Produksi OK or a package component MO solely because of leftover BoM rounding output. Packing still is not meant for overnight storage: transfer must take place in the operational flow. No fake RO/store destination and no invented automatic distribution.
+
+Allocation semantics:
+- Highest priority NOW: Paket assembled cross-kitchen; next ordinary RO toko. Later planned, **not implemented**: Sales Order > Paket > RO toko.
+- Package-manufactured component demand is protected; ordinary RO stores then receive requested Qty and ALL automatically allocatable BoM-rounding extras by proportional Hamilton prorata. This is represented by positive per-store `allocation.qty_surplus` and goes on the normal RO-backed DO.
+- If any kitchen MO finished output is NOT automatically allocatable (for example Paket components need 5 and a kitchen BoM outputs 10 but no store ordered that component SKU), keep that residual on immutable batch-line `line.qty_surplus` / `total_unallocated`. The remaining physical goods are received at Packing with the full kitchen MO output and later dispatched separately to a legitimate store using **standard Odoo internal transfer**, not automatically through RO-backed DO. Actual destination is chosen operationally, not fabricated from absent RO. Record transfer and prevent stranded overnight Packing stock by SOP.
+- **Two prior guards are withdrawn:** in `addons/ya_store_ro/wizard/packing_preview.py` do NOT reject `total_unallocated > 0`; in `addons/ya_store_ro/models/packing_batch.py` do NOT reject positive `batch.line_ids.qty_surplus`. Existing conservation checks `sum(RO allocated) + sum(batch unallocated) = sum(MO production)` remain intact.
+- **Package pure calculator** `plan_kitchen_capacity_with_package_priority` no longer blocks status `blocked_no_distribution_destination`; it preserves `qty_production`, `package_component_qty_protected`, `qty_surplus` and reports `qty_pending_internal_transfer` (positive residual) so it can be routed through standard internal transfer. `script/test_package_capacity_priority_pure_ya.py` now checks 10-output/5-Paket/no-ordinary-RO => 5 pending internal transfer and no block; expected extra test marker `PACKING_INTERNAL_TRANSFER_FALLBACK_TEST_PASS`.
+- Static preflight `script/check_capacity_prorata_source_readonly_ya.py` updated to forbid the erroneous hard-stops, while retaining source conservation checks. UI labels in Packing preview and persisted batch now call the *batch-line* residual `Sisa untuk Internal Transfer`; store-line `qty_surplus` remains `Tambahan Surplus BoM`.
+
+**This newer owner instruction supersedes the earlier 'zero unallocated before Pre Produksi' block instruction.** No actual live Odoo module upgrade performed by source GitHub commits yet. There is NOT YET a new automated internal-transfer creation workflow for this exception: use the standard Odoo Internal Transfer process. Do not claim integration is complete without the test DB UAT. We must eventually verify kitchen actual MO Done Qty, Packing physical moves, DO allocated shipments and remaining standard internal transfer close out; no accounting/purchasing work in this scope.
+
+Suggested Feri source-only tests:
+`python3 script/test_capacity_prorata_ya.py`
+`python3 script/test_package_capacity_priority_pure_ya.py`
+`python3 script/check_capacity_prorata_source_readonly_ya.py`
+`python3 -m compileall -q addons/ya_store_ro`
