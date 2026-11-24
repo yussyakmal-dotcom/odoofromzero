@@ -177,17 +177,19 @@ class YaPackageJointSlotPreview(models.TransientModel):
             if output <= 0 or int(output) != output:
                 raise UserError(_("Invalid kitchen BoM output: %s") %
                                 item.product_id.display_name)
-            if item.uom_id != item.product_id.uom_id:
+            capacity = item.uom_id._compute_quantity(
+                item.max_capacity, item.product_id.uom_id, round=False)
+            if capacity < 0 or int(capacity) != capacity:
                 raise UserError(_(
-                    "Kitchen Planning output UoM for SKU %s differs from base "
-                    "product UoM. Review the conversion before using preview."
+                    "Kitchen Planning Max for SKU %s does not convert to "
+                    "a whole output quantity. Review its UoM."
                 ) % item.product_id.display_name)
             kitchen_specs[product_id] = {
                 "planning_id": item.planning_id.id,
                 "kitchen_code": item.planning_id.kitchen_code,
                 "bom_id": bom.id,
                 "bom_output": int(output),
-                "max_capacity": item.max_capacity,
+                "max_capacity": int(capacity),
             }
 
         try:
