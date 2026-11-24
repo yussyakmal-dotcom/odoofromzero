@@ -381,6 +381,7 @@ class YaPackageJointSlotPreview(models.TransientModel):
                 "bom_id": bom.id,
                 "qty_requested": item["direct_store_requested"],
                 "ya_package_component_qty": item["package_component_qty"],
+                "ya_kitchen_bom_output": item["bom_output"],
                 "qty_production": item["qty_production"],
                 "qty_surplus": item["qty_pending_internal_transfer"],
                 "qty_shortage": sum(
