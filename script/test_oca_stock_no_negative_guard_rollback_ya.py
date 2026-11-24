@@ -31,8 +31,25 @@ assert not prod.allow_negative_stock
 assert not prod.categ_id.allow_negative_stock
 assert not sul.lot_stock_id.allow_negative_stock
 source = sul.lot_stock_id
+# Odoo installations can use a different external ID for the virtual
+# Production location. Resolve it without creating or changing master data.
+Location = env["stock.location"].sudo()
 production = env.ref("stock.location_production", raise_if_not_found=False)
-assert production and production.usage == "production"
+if not production or production.usage != "production":
+    production = env.ref("stock.stock_location_production", raise_if_not_found=False)
+if not production or production.usage != "production":
+    candidates = Location.search([
+        ("usage", "=", "production"),
+        ("company_id", "in", [False, sul.company_id.id]),
+    ])
+    assert len(candidates) == 1, (
+        "REFUSED: cannot uniquely resolve virtual Production location; "
+        "candidates=" + repr([(x.id, x.complete_name) for x in candidates])
+    )
+    production = candidates
+assert production.usage == "production", (
+    "REFUSED: resolved destination is not a Production location")
+print("VIRTUAL_PRODUCTION_LOCATION:", production.id, production.complete_name)
 existing = Quant.search([
     ("product_id", "=", prod.id),
     ("location_id", "=", source.id),
