@@ -1,9 +1,9 @@
 {
     'name': 'YA Paket RO - Cross Kitchen Demand',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Inventory',
     'summary': 'Separate store requests for multi-kitchen package assemblies',
-    'depends': ['ya_store_ro'],
+    'depends': ['ya_store_ro', 'ya_finished_packing_transfer', 'ya_packing_store_delivery'],
     'data': [
         'security/package_ro_groups.xml',
         'security/ir.model.access.csv',
