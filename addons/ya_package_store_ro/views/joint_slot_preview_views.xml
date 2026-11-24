@@ -15,6 +15,8 @@
             <group>
               <field name="delivery_date"/>
               <field name="slot"/>
+              <field name="source_digest" invisible="1"/>
+              <field name="has_shortage" invisible="1"/>
             </group>
             <group>
               <field name="ordinary_ro_count" readonly="1" string="RO Biasa"/>
@@ -32,7 +34,19 @@
           <group>
             <field name="note" readonly="1" string="Catatan SOP / Routing"/>
           </group>
+          <group invisible="not has_shortage">
+            <field name="accept_shortage"
+                   string="Saya menyetujui pengurangan jatah RO toko yang ditampilkan."/>
+          </group>
         </sheet>
+        <footer>
+          <button name="action_move_to_preproduction" type="object"
+                  string="Pindahkan ke Pre Produksi (RO + Paket)"
+                  groups="ya_store_ro.group_ya_packing_admin"
+                  class="btn-primary" invisible="not source_digest"
+                  confirm="Kunci seluruh RO biasa dan RO Paket Confirmed untuk tanggal/slot ini? Snapshot dibuat tanpa MO, tanpa WO, dan tanpa transfer stok."/>
+          <button string="Close" special="cancel"/>
+        </footer>
       </form>
     </field>
   </record>
