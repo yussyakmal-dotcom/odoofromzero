@@ -6,6 +6,8 @@ and finished move. Standard store DO may be prepared only from produced stock.
 """
 from collections import defaultdict
 
+from .package_finish_rules import group_package_finish_demands
+
 from odoo import fields, models, _
 from odoo.exceptions import UserError
 
@@ -124,11 +126,15 @@ class YaPackingBatchPackageAssembly(models.Model):
 
         # All Paket MOs are grouped by final SKU. Individual store allocation
         # remains in immutable ya.packing.package.demand rows for subsequent DO.
-        quantities = defaultdict(int)
+        result = group_package_finish_demands([
+            {"product_id": d.product_id.id,
+             "store_id": d.store_warehouse_id.id,
+             "qty": d.qty_requested}
+            for d in self.ya_package_demand_ids
+        ])
+        quantities = result["assembly_mo_qty"]
         boms = {}
         for demand in self.ya_package_demand_ids:
-            if demand.qty_requested <= 0:
-                raise UserError(_("Frozen Paket Qty must be positive."))
             product = demand.product_id
             bom = demand.bom_id
             if (not bom.active or bom.type != "normal" or
@@ -144,7 +150,6 @@ class YaPackingBatchPackageAssembly(models.Model):
             if product.id in boms and boms[product.id] != bom.id:
                 raise UserError(_("Same Paket SKU has conflicting assembly BoMs."))
             boms[product.id] = bom.id
-            quantities[product.id] += demand.qty_requested
 
         if not quantities:
             raise UserError(_("No positive Paket demand was frozen."))
