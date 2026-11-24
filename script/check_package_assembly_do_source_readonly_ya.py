@@ -10,11 +10,17 @@ from xml.etree import ElementTree as ET
 root = Path(__file__).resolve().parents[1]
 addon = root / "addons/ya_package_store_ro"
 file_tokens = {
+    "models/package_finish_rules.py": [
+        "def group_package_finish_demands(rows):",
+        "assembly[product] += qty",
+        "by_store[store][product] += qty",
+    ],
     "models/package_assembly.py": [
         "_inherit = \"mrp.production\"",
         "ya_package_assembly_batch_id = fields.Many2one(",
         "UNIQUE(ya_package_assembly_batch_id, product_id)",
         "def action_ya_create_package_assembly_mos(self):",
+        "group_package_finish_demands([",
         "if self.ya_package_assembly_mo_ids:",
         '("code", "=", "mrp_operation")',
         '("warehouse_id", "=", warehouse.id)',
@@ -29,6 +35,7 @@ file_tokens = {
     "models/package_delivery.py": [
         "_inherit = \"ya.packing.batch\"",
         "def action_ya_generate_store_do(self):",
+        "group_package_finish_demands([",
         "if not self.ya_has_package:",
         "return super().action_ya_generate_store_do()",
         "mo.move_finished_ids.filtered(",
@@ -79,7 +86,8 @@ for rel, required in file_tokens.items():
         errors.append("PARSE ERROR: %s: %s" % (rel, exc))
     print("SOURCE:", rel)
 
-for rel in ("script/audit_pck_package_manufacturing_route_readonly_ya.py",):
+for rel in ("script/audit_pck_package_manufacturing_route_readonly_ya.py",
+            "script/test_package_assembly_dispatch_pure_ya.py"):
     if not (root / rel).is_file():
         errors.append("Missing read-only master route audit: " + rel)
 
