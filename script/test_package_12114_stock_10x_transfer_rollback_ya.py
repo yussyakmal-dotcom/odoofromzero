@@ -393,7 +393,43 @@ try:
                 transfer_done_by_key[(
                     picking.location_dest_id.id, move.product_id.id,
                 )] += qty_done
+        # Native Odoo immediately reserves received inventory for the
+        # confirmed kitchen MOs. FREE = physical - ALL reservations can be 0
+        # even when the entire demand is already reserved for THESE MOs.
+        # Credit only the quantities found on assigned move lines belonging
+        # to the current test MOs AND sourced from this real kitchen stock
+        # tree. Never credit another MO's reservations or invent stock.
+        allowed_sources = {
+            wh_id: set(env["stock.location"].sudo().search([
+                ("id", "child_of", kitchen.lot_stock_id.id),
+            ]).ids) for wh_id, kitchen in kitchens.items()
+        }
+        own_mo_reserved = defaultdict(float)
+        raw_state_by_key = defaultdict(list)
+        for mo in mos:
+            kitchen = mo.picking_type_id.warehouse_id
+            for move in mo.move_raw_ids:
+                key = (kitchen.id, move.product_id.id)
+                raw_state_by_key[key].append((
+                    move.id, move.state,
+                    round(move.product_uom_qty, 5),
+                    round(move.quantity, 5),
+                    len(move.move_line_ids),
+                ))
+                if move.state != "assigned":
+                    continue
+                for line in move.move_line_ids:
+                    if line.location_id.id not in allowed_sources[kitchen.id]:
+                        continue
+                    quantity = line.product_uom_id._compute_quantity(
+                        line.quantity, move.product_id.uom_id, round=False)
+                    if quantity < 0:
+                        raise AssertionError(
+                            "Unexpected negative test MO material reservation")
+                    own_mo_reserved[key] += quantity
+
         shortages = []
+        auto_reserved_count = 0
         for (wh_id, pid), need in sorted(requirements.items()):
             kitchen = kitchens[wh_id]
             product = products[pid]
@@ -404,26 +440,38 @@ try:
             done_qty = transfer_done_by_key.get(
                 (kitchen.lot_stock_id.id, pid), 0.0)
             precision = product.uom_id.rounding
+            own_reserved = own_mo_reserved[(wh_id, pid)]
+            # Free stock + reservations attributable to THIS trial's MOs.
+            effective_for_mo = free + own_reserved
             receipt_ok = float_compare(
                 done_qty, transferred_qty,
                 precision_rounding=precision) == 0
             physical_ok = float_compare(
                 actual, need, precision_rounding=precision) >= 0
-            free_ok = float_compare(
+            # Critical: do not treat another MO's reserved materials as
+            # available to this test MO, or accept negative/overreserved stock.
+            reservation_ownership_ok = (
+                float_compare(
+                    own_reserved, reserved,
+                    precision_rounding=precision) <= 0 and
+                float_compare(
+                    reserved, actual,
+                    precision_rounding=precision) <= 0 and
+                float_compare(
+                    free, 0, precision_rounding=precision) >= 0
+            )
+            free_only_ok = float_compare(
                 free, need, precision_rounding=precision) >= 0
-            if not (receipt_ok and physical_ok and free_ok):
-                raw_state = []
-                for mo in mos:
-                    if mo.picking_type_id.warehouse_id != kitchen:
-                        continue
-                    for move in mo.move_raw_ids.filtered(
-                            lambda m: m.product_id.id == pid):
-                        raw_state.append((
-                            move.id, move.state,
-                            round(move.product_uom_qty, 5),
-                            round(move.quantity, 5),
-                            len(move.move_line_ids),
-                        ))
+            ready_for_test_mos = (
+                reservation_ownership_ok and
+                float_compare(
+                    effective_for_mo, need,
+                    precision_rounding=precision) >= 0
+            )
+            if (not free_only_ok and ready_for_test_mos and
+                    own_reserved > 0):
+                auto_reserved_count += 1
+            if not (receipt_ok and physical_ok and ready_for_test_mos):
                 print("STOCK_DIAGNOSTIC:", kitchen.code,
                       product.default_code or product.id,
                       "NEED:", round(need, 5),
@@ -434,22 +482,27 @@ try:
                       "PHYSICAL:", round(actual, 5),
                       "RESERVED:", round(reserved, 5),
                       "FREE:", round(free, 5),
+                      "RESERVED_BY_TEST_MO:", round(own_reserved, 5),
+                      "EFFECTIVE_FOR_TEST_MO:", round(effective_for_mo, 5),
                       "UNIT:", product.uom_id.name,
-                      "RAW_MOVE_STATE:", raw_state,
+                      "RAW_MOVE_STATE:", raw_state_by_key[(wh_id, pid)],
                       "RECEIPT_OK:", receipt_ok,
                       "PHYSICAL_OK:", physical_ok,
-                      "FREE_OK:", free_ok)
-                shortages.append((kitchen.code, product.default_code or pid,
-                                  receipt_ok, physical_ok, free_ok))
+                      "FREE_ONLY_OK:", free_only_ok,
+                      "RESERVATION_OWNERSHIP_OK:",
+                      reservation_ownership_ok,
+                      "READY_FOR_TEST_MOS:", ready_for_test_mos)
+                shortages.append((
+                    kitchen.code, product.default_code or pid,
+                    receipt_ok, physical_ok, ready_for_test_mos))
+        print("POST_TRANSFER_DIAGNOSTIC_COUNT:", len(shortages))
+        print("AUTO_RESERVED_FOR_TEST_MO_COMBINATIONS:", auto_reserved_count)
         if shortages:
-            print("POST_TRANSFER_DIAGNOSTIC_COUNT:", len(shortages))
             print("POST_TRANSFER_DIAGNOSTIC_KEYS:", shortages)
-            # Do not declare a stock integrity problem solely from free stock:
-            # it may be reserved to the same MO. Report evidence and stop for
-            # deliberate decision rather than creating more inventory.
             raise AssertionError(
-                "CDC transfer post-check needs review; see "
-                "STOCK_DIAGNOSTIC for actual received/physical/reserved/WO.")
+                "CDC transfer post-check failed receipt, physical, or "
+                "test-MO-owned reservation check; see STOCK_DIAGNOSTIC.")
+        print("NATIVE_CDC_KITCHEN_RESERVED_TO_TEST_MO_PASS")
         print("CDC_TO_KITCHEN_PICKING_COUNT:", transfer_count)
         print("PST_AND_ROTI_MATERIAL_READY_ROLLBACK_PASS")
         print("NATIVE_CDC_KITCHEN_TRANSFER_ROLLBACK_PASS")
