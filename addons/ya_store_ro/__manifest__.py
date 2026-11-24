@@ -1,6 +1,6 @@
 {
     'name': 'YA Store RO - Published Planning Template',
-    'version': '19.0.8.1.2',
+    'version': '19.0.8.1.3',
     'category': 'Inventory',
     'summary': 'Generate store RO Excel templates from Published Production Planning',
     'depends': ['ya_production_planning', 'stock'],
