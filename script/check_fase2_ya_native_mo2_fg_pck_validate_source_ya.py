@@ -8,7 +8,7 @@ from pathlib import Path
 
 path = Path("script/test_fase2_ya_native_mo2_fg_pck_validate_rollback.py")
 source = path.read_text(encoding="utf-8")
-ast.parse(source, filename=str(path))
+tree = ast.parse(source, filename=str(path))
 for token in (
     'CLONE = "erp-yussyakmal-mrp-test-RO_SO"',
     'Version.installed_version == "19.0.1.1.3"',
@@ -50,8 +50,16 @@ assert 'env.cr.commit()' not in source, "COMMIT_FORBIDDEN_IN_ROLLBACK_QA"
 assert not any(token in source for token in (
     'skip_consumption=True', '"state": "done"', "'state': 'done'",
     'Quant.create(', 'qmodel.create(', 'Quant.write(', 'qmodel.write(',
-    'env.invalidate_all()', '.sudo().button_validate()',
+    '.sudo().button_validate()',
 )), "UNSAFE_SOURCE_SCOPE"
+assert not any(
+    isinstance(n, ast.Call) and
+    isinstance(n.func, ast.Attribute) and
+    n.func.attr in ("invalidate_all", "commit") and
+    isinstance(n.func.value, ast.Attribute) and
+    n.func.value.attr == "cr"
+    for n in ast.walk(tree)
+), "NO_POST_ROLLBACK_ENV_FLUSH_OR_EXPLICIT_SQL_COMMIT"
 print("FASE2_YA_NATIVE_MO2_FG_PCK_SOURCE_PREFLIGHT_PASS")
 print("SCOPE: CLONE_ONLY_NATIVE_CDC_AND_FG_VALIDATION_ONE_ROLLBACK_TRANSACTION")
 print("LEGACY_MO1_FG_AND_STORE_DO_UNTOUCHED_IN_SOURCE")
