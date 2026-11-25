@@ -135,6 +135,13 @@ for pid, (sku, kitchen_code, line_id) in component_expectation.items():
     bom = line._capacity_bom()
     wh = bom.picking_type_id.warehouse_id
     assert wh and wh.code == kitchen_code and wh.company_id == company
+    expected_name = " ".join(
+        ("Dapur " + (line.planning_id.workcenter_id.name or "")).casefold().split()
+    )
+    actual_name = " ".join((wh.name or "").casefold().split())
+    assert expected_name == actual_name, (
+        "STOP_WORKCENTER_WAREHOUSE_ROUTE_MISMATCH_%s" % sku
+    )
     assert bom.type == "normal" and bom.active
     output = bom.product_uom_id._compute_quantity(
         bom.product_qty, product.uom_id, round=False)
@@ -171,7 +178,7 @@ for pid, (sku, kitchen_code, line_id) in component_expectation.items():
             raw_id, CDC.lot_stock_id
         )
         in_cdc = cdc_free + 1e-7 >= qty_two_batches
-        cdc_stock_sufficient &= in_cdc
+        cdc_stock_sufficient &= in_cdc and raw.tracking == "none"
         raw_summaries.append({
             "sku": raw.default_code, "id": raw_id,
             "required_two_bom_batches_base": qty_two_batches,
@@ -202,13 +209,12 @@ for pid, (sku, kitchen_code, line_id) in component_expectation.items():
 
 print("PCK_PACKAGE_FINISHED_STOCK:", exact_stock(
     package.id, PCK.lot_stock_id))
-print("REAL_PAKET_12114_TWO_WAVE_PREFLIGHT_ELIGIBLE:", (
-    eligible and len(types) == 1 and
-    "operation_ids" in boms._fields and not boms.operation_ids
-))
-if eligible and len(types) == 1 and (
-    "operation_ids" not in boms._fields or not boms.operation_ids
-):
+ready = bool(
+    eligible and len(types) == 1 and package.tracking == "none"
+    and "operation_ids" in boms._fields and not boms.operation_ids
+)
+print("REAL_PAKET_12114_TWO_WAVE_PREFLIGHT_ELIGIBLE:", ready)
+if ready:
     print("REAL_PAKET_12114_TWO_WAVE_PREFLIGHT_PASS")
 else:
     print("REAL_PAKET_12114_TWO_WAVE_BLOCKED_REVIEW_DETAILS")
