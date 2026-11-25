@@ -140,3 +140,13 @@
 - Urutan kerja berikut: review desain simulasi sebelum PP1 ketika RO belum lengkap (jangan menjanjikan RO yang belum masuk), definisikan adapter/contract dan lock transition; kemudian perbaiki rumus bersama, settings/trigger dan native integration secara bertahap dengan test relevan. Jangan ulang PASS yang tidak terdampak; jangan klaim PASS untuk perilaku yang berubah.
 - Pending: detail simulasi sebelum PP1 dan penanganan RO belum lengkap; jam SO cutoff S2/S3; distribusi kekurangan antar toko; disposisi surplus; cancel/edit SO Confirmed; approval teknis kontrak AI; detail audit/cron dan edge cases PP1 belum release saat SO cutoff. Tidak mengarang keputusan yang belum disetujui.
 - Scope checkpoint ini DOCUMENTATION ONLY. Tidak ada perubahan kode, cron, instal/upgrade/restart, test, database mutation atau deploy. Hanya clone `erp-yussyakmal-mrp-test-RO_SO` untuk UAT kemudian setelah izin. Jangan sentuh produksi atau Fase 1.
+
+
+## 9. Owner approval — Rolling 7-Day Planning & Controlled Revision (2026-Nov-26)
+
+- SOP Production Planning: Published Planning tersedia untuk tujuh hari ke depan; Quotation boleh dibuat sebelum planning tersedia, Confirm SO Konsolidasi tidak boleh tanpa Published Planning valid. Monitoring horizon tujuh hari diperlukan.
+- Revisi melalui wizard pada form existing, tetap Published, bukan reopen Draft. Import XLSX tetap Skip Published.
+- Per SKU/date/slot: unused Max naik/turun dan SKU boleh dihapus; RO Confirmed saja Max naik/turun dengan validasi dan audit, tidak boleh hapus; SO Confirmed Max hanya naik dengan validasi dan audit, tidak boleh hapus; setelah Produksi OK/MO1 release tidak boleh revisi. RO asli tidak diubah. Periksa RO Paket sampai komponen, SO ledger, native MO dan snapshot.
+- Max nonnegative dan kelipatan BoM; user berwenang, alasan, old/new Max, actor, timestamp dan dampak RO; date-slot mutex yang sama, recheck sebelum write dan PP1 release. Tidak ubah routing/identitas komitmen. Tidak ada direct write bypass.
+- Sebelum PP1 simulasi memakai RO Confirmed yang diketahui + SO kumulatif, proyeksi MO1; sesudah PP1 proyeksi MO2 SO-only. RO belum lengkap bukan demand pasti.
+- Implementasi extension Fase 2, jangan menambah reverse dependency pada modul dasar. UAT hanya clone RO_SO. Detail teknis penambahan SKU, penghapusan yang direferensikan Draft RO, serta revisi saat snapshot PP1 sudah staged harus fail closed sampai jalur refresh aman tersedia. Tidak ada pengubahan snapshot historis.
