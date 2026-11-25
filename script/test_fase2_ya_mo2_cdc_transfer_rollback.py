@@ -22,7 +22,7 @@ Version = env["ir.module.module"].sudo().search([
     ("name", "=", "ya_sale_production_capacity")
 ], limit=1)
 assert Version and Version.state == "installed" and (
-    Version.installed_version in ("19.0.1.1.2", "19.0.1.1.3")
+    Version.installed_version == "19.0.1.1.3"
 ), "STOP_WRONG_YA_SALES_ADDON_VERSION"
 assert env.user.has_group("mrp.group_mrp_manager"), "STOP_MRP_MANAGER_REQUIRED"
 assert env.user.has_group("sales_team.group_sale_salesman"), "STOP_SALES_ROLE_REQUIRED"
@@ -460,20 +460,19 @@ try:
         assert len(line.ya_mo2_material_picking_ids) == 1
         assert not batch.mr_native_transfer_ids
         print("MO2_CDC_DOUBLE_CLICK_NO_DUPLICATE_PASS")
-        if Version.installed_version == "19.0.1.1.3":
-            # New FG bridge MUST refuse a native MO2 still in Confirmed.
-            # The CDC picking exists but is intentionally NOT validated.
-            try:
-                line.with_user(stock_actor).with_company(
-                    Sample.company_id
-                )._ya_create_mo2_fg_transfer()
-                raise AssertionError("UNFINISHED_MO2_FG_WRONGLY_ALLOWED")
-            except UserError as exc:
-                assert "DONE native MO2" in str(exc), (
-                    "UNEXPECTED_FG_REJECTION: %s" % exc
-                )
-            assert not line.ya_mo2_fg_picking_ids
-            print("MO2_FG_UNFINISHED_BLOCKED_PASS")
+        # Mandatory negative FG gate on v19.0.1.1.3. A Confirmed
+        # MO2 and unvalidated CDC demand must never create a PCK picking.
+        try:
+            line.with_user(stock_actor).with_company(
+                Sample.company_id
+            )._ya_create_mo2_fg_transfer()
+            raise AssertionError("UNFINISHED_MO2_FG_WRONGLY_ALLOWED")
+        except UserError as exc:
+            assert "DONE native MO2" in str(exc), (
+                "UNEXPECTED_FG_REJECTION: %s" % exc
+            )
+        assert not line.ya_mo2_fg_picking_ids
+        print("MO2_FG_UNFINISHED_BLOCKED_PASS")
 
     # The operational 27-Nov batch (or any other advanced batch) must
     # remain blocked even when the release clock is inside the allowed
