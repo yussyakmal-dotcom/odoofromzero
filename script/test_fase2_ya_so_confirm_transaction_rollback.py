@@ -1,254 +1,246 @@
-"""Full ORM rollback trial of clone-only YA SO Confirm + capacity ledger.
+"""Clone-only YA Confirm integration test with temporary Published Planning.
 
-Run only AFTER addon upgrade on clone. This creates test data in the current
-transaction and explicitly rolls it all back. No stock/MO/DO/invoice writes
-are intentional. Asserts native procurement was suppressed and capacity was
-booked, then confirms that exceeding Published Planning Max is rejected.
+The real future slot 2026-11-27 S1 may already have Packing DO/FG transfer.
+Do not bypass its guard or modify its operational Planning/MOs/DOs.
+Instead create one temporary kitchen Planning in an unused future slot,
+using one existing valid published kitchen SKU/BoM as the template.
+Confirm two temporary SOs and explicitly ROLLBACK everything.
+NO COMMIT; run ONLY on erp-yussyakmal-mrp-test-RO_SO.
 """
 from collections import Counter
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+
 from odoo import fields
 from odoo.exceptions import UserError
 
 CLONE = "erp-yussyakmal-mrp-test-RO_SO"
 assert env.cr.dbname == CLONE, "STOP_WRONG_DATABASE"
-print("DATABASE:", env.cr.dbname)
-print("MODE: TRANSACTION_ROLLBACK_TEST_YA_SO_CONFIRM")
-
-Sale = env["sale.order"]
-Plan = env["ya.production.planning"]
-Ledger = env["ya.sale.capacity.reservation"].sudo()
-Sample = Sale.sudo().search(
-    [("ya_is_capacity_so", "=", True)], limit=1
-)
-assert Sample and Sample.partner_id, "STOP_MISSING_YA_QUOTE_PARTNER_FOR_TEST"
 assert env["ir.module.module"].search(
     [("name", "=", "ya_sale_production_capacity")], limit=1
 ).installed_version == "19.0.1.1.0", "STOP_ADDON_NOT_UPGRADED"
+assert env.user.has_group("sales_team.group_sale_salesman"), "STOP_SALES_ACCESS_REQUIRED"
+assert env.user.has_group("mrp.group_mrp_manager"), "STOP_MRP_MANAGER_REQUIRED"
 
-chosen = None
+Sale = env["sale.order"]
+Planning = env["ya.production.planning"]
+PlanningLine = env["ya.production.planning.line"]
+Ledger = env["ya.sale.capacity.reservation"].sudo()
+Sample = Sale.sudo().search(
+    [("ya_is_capacity_so", "=", True), ("partner_id", "!=", False)],
+    limit=1,
+)
+assert Sample, "STOP_NO_SAMPLE_YA_PARTNER_FOR_TEST"
 today = fields.Date.context_today(Sale)
-now_wib = datetime.now(ZoneInfo("Asia/Jakarta"))
-all_published = Plan.sudo().search([
-    ("state", "=", "published"),
-])
-plannings = all_published.filtered(lambda p: p.delivery_date > today)
-by_schedule = {}
-for p in plannings:
-    key = (p.delivery_date, p.slot)
-    by_schedule.setdefault(key, []).append(p)
-reject_counts = Counter()
-reject_examples = {}
+print("DATABASE:", env.cr.dbname)
+print("MODE: TEMP_PLANNING_SO_CONFIRM_ROLLBACK_ONLY")
+print("NOW_WIB:", datetime.now(ZoneInfo("Asia/Jakarta")).isoformat())
+print("EXISTING_YA_QUOTE_SAMPLE_ID:", Sample.id)
 
+candidate_rejections = Counter()
+source = None
+source_bom = None
+capacity = None
 
-def skip(reason, product_id=None, date=None, slot=None):
-    reject_counts[reason] += 1
-    if reason not in reject_examples:
-        reject_examples[reason] = (str(date or ""), slot or "", product_id or 0)
-
-
-print("TODAY_ODOO:", today, "NOW_WIB:", now_wib.isoformat())
-print("PUBLISHED_ALL:", len(all_published),
-      "PUBLISHED_FUTURE:", len(plannings),
-      "FUTURE_DATE_SLOTS:", len(by_schedule),
-      "FUTURE_PLANNING_LINES:", sum(len(p.line_ids) for p in plannings))
-print("FUTURE_SCHEDULES:", [
-    (str(key[0]), key[1], len(items),
-     sum(len(p.line_ids) for p in items))
-    for key, items in sorted(by_schedule.items())[:12]
-])
-
-for (date, slot), schedules in sorted(by_schedule.items()):
-    dispatch = datetime.combine(
-        date, {"S1": time(5), "S2": time(9), "S3": time(11)}[slot],
-        tzinfo=ZoneInfo("Asia/Jakarta"),
-    )
-    if now_wib >= dispatch:
-        skip("SLOT_ALREADY_DEPARTED", date=date, slot=slot)
-        continue
-    if slot == "S1" and now_wib > datetime.combine(
-            date - timedelta(days=1), time(15),
-            tzinfo=ZoneInfo("Asia/Jakarta")):
-        skip("S1_CUTOFF_EXPIRED", date=date, slot=slot)
-        continue
-    # Existing Packing Batch is EXPECTED in the owner-approved scenario:
-    # SO can arrive after MO1 and must reuse its output before MO2.
-    # Only a physically advanced Packing/dispatch stage blocks new booking.
-    batch = env["ya.packing.batch"].sudo().search([
-        ("delivery_date", "=", date), ("slot", "=", slot),
-    ], limit=1)
-    if batch:
-        packing_do = len(batch.ya_store_delivery_ids)
-        package_mo = len(batch.ya_package_assembly_mo_ids)
-        fg_done = sum(t.state == "done" for t in batch.ya_fg_transfer_ids)
-        print("EXISTING_BATCH:", batch.id, "STATE:", batch.state,
-              "LINES:", len(batch.line_ids),
-              "MO1_LINKS:", len(batch.line_ids.mapped("mo_id")),
-              "STORE_DO:", packing_do, "PACKAGE_ASSEMBLY_MO:", package_mo,
-              "FG_TRANSFER_DONE:", fg_done)
-        if packing_do or package_mo or fg_done:
-            skip("PACKING_ALREADY_ADVANCED", date=date, slot=slot)
+# TEMPLATE SELECTION IS READ-ONLY. An actual published kitchen SKU/BoM,
+# preferably from the current available future schedule, is reused.
+published = Planning.sudo().search(
+    [("state", "=", "published")], order="delivery_date desc,slot,id"
+)
+routes = Counter(
+    (p.delivery_date, p.slot, line.product_id.id)
+    for p in published for line in p.line_ids
+)
+for plan in published:
+    for line in plan.line_ids:
+        product = line.product_id
+        if line.max_capacity <= 0 or routes[
+                (plan.delivery_date, plan.slot, product.id)] != 1:
+            candidate_rejections["MAX_ZERO_OR_DUPLICATE_ROUTE"] += 1
             continue
-    existing_ledger = Ledger.search_count([
-        ("delivery_date", "=", date), ("slot", "=", slot),
-    ])
-    if existing_ledger:
-        print("PRIOR_SO_CAPACITY_LEDGER_ROWS:", existing_ledger)
-    candidates = Counter(
-        line.product_id.id for p in schedules for line in p.line_ids
-    )
-    # Prefer SKUs with MO1 already released: tests RO->MO1->SO reuse.
-    mo1_products = set(batch.line_ids.filtered(
-        lambda row: bool(row.mo_id)).mapped("product_id").ids) if batch else set()
-    plan_lines = [line for p in schedules for line in p.line_ids]
-    plan_lines.sort(key=lambda line: (
-        0 if line.product_id.id in mo1_products else 1, line.id
-    ))
-    for line in plan_lines:
-            product = line.product_id
-            info = (product.id, date, slot)
-            if line.max_capacity <= 0:
-                skip("SKU_NONPOSITIVE_MAX", *info)
+        if product.categ_id.complete_name == "All / Produk Jadi / Paket":
+            candidate_rejections["PACKAGE_SKU_NOT_SUITABLE_FOR_DIRECT_TEST"] += 1
+            continue
+        try:
+            bom = line._capacity_bom()
+            pt = bom.picking_type_id
+            expected = " ".join(
+                ("Dapur " + (plan.workcenter_id.name or "")).casefold().split()
+            )
+            actual = " ".join((pt.warehouse_id.name or "").casefold().split()
+                              ) if pt and pt.warehouse_id else ""
+            if (not bom.active or bom.type != "normal"
+                    or bom.product_tmpl_id != product.product_tmpl_id
+                    or (bom.product_id and bom.product_id != product)
+                    or not pt or not pt.warehouse_id
+                    or not pt.default_location_src_id
+                    or not pt.default_location_dest_id
+                    or pt.default_location_dest_id != pt.warehouse_id.lot_stock_id
+                    or pt.company_id != Sample.company_id
+                    or actual != expected):
+                candidate_rejections["BOM_OR_KITCHEN_ROUTE_INVALID"] += 1
                 continue
-            if candidates[product.id] != 1:
-                skip("SKU_ROUTE_DUPLICATED", *info)
+            output = bom.product_uom_id._compute_quantity(
+                bom.product_qty, product.uom_id, round=False)
+            maximum = line.uom_id._compute_quantity(
+                line.max_capacity, product.uom_id, round=False)
+            if (output <= 0 or abs(output - round(output)) > 1e-9
+                    or maximum < output
+                    or abs(maximum - round(maximum)) > 1e-9
+                    or int(round(maximum)) % int(round(output))):
+                candidate_rejections["OUTPUT_OR_MAX_INCOMPATIBLE"] += 1
                 continue
-            if product.categ_id.complete_name == "All / Produk Jadi / Paket":
-                skip("SKU_IS_PAKET", *info)
+            # Publishing draft Max uses raw BoM output (current SOP).
+            from odoo.addons.ya_production_planning.models.capacity_rules import closest_batch_multiple
+            if closest_batch_multiple(line.max_capacity, bom.product_qty) != line.max_capacity:
+                candidate_rejections["DRAFT_PUBLISH_MAX_RULE"] += 1
                 continue
-            try:
-                bom = line._capacity_bom()
-                pt = bom.picking_type_id
-                expected_wh = " ".join(
-                    ("Dapur " + (line.planning_id.workcenter_id.name or "")
-                    ).casefold().split())
-                actual_wh = " ".join(
-                    (pt.warehouse_id.name or "").casefold().split()) if pt else ""
-                invalid_route = (
-                    ("BOM_INACTIVE" if not bom.active else None) or
-                    ("BOM_NOT_NORMAL" if bom.type != "normal" else None) or
-                    ("BOM_TEMPLATE_DIFFERS" if bom.product_tmpl_id != product.product_tmpl_id else None) or
-                    ("BOM_PRODUCT_DIFFERS" if bom.product_id and bom.product_id != product else None) or
-                    ("NO_MANUFACTURING_PICKING_TYPE" if not pt else None) or
-                    ("NO_MANUFACTURING_WAREHOUSE" if not pt.warehouse_id else None) or
-                    ("NO_MANUFACTURING_SOURCE" if not pt.default_location_src_id else None) or
-                    ("NO_MANUFACTURING_DEST" if not pt.default_location_dest_id else None) or
-                    ("DEST_NOT_KITCHEN_STOCK" if pt.default_location_dest_id != pt.warehouse_id.lot_stock_id else None) or
-                    ("KITCHEN_NAME_ROUTE_DIFFERS" if actual_wh != expected_wh else None) or
-                    ("SALE_COMPANY_DIFFERS_FROM_KITCHEN" if pt.company_id != Sample.company_id else None)
-                )
-                if invalid_route:
-                    skip(invalid_route, *info)
-                    if invalid_route == "KITCHEN_NAME_ROUTE_DIFFERS":
-                        print("ROUTE_NAME_EXAMPLE:", line.id,
-                              "WORKCENTER:", line.planning_id.workcenter_id.name,
-                              "WAREHOUSE:", pt.warehouse_id.name)
-                    continue
-                output = bom.product_uom_id._compute_quantity(
-                    bom.product_qty, product.uom_id, round=False)
-                maximum = line.uom_id._compute_quantity(
-                    line.max_capacity, product.uom_id, round=False)
-                if output <= 0 or abs(output - round(output)) > 1e-9:
-                    skip("BOM_OUTPUT_NOT_POSITIVE_WHOLE", *info)
-                    continue
-                if maximum < output:
-                    skip("PLANNING_MAX_LESS_THAN_ONE_BOM", *info)
-                    continue
-                if abs(maximum - round(maximum)) > 1e-9:
-                    skip("PLANNING_MAX_FRACTIONAL_BASE_UOM", *info)
-                    continue
-                if int(round(maximum)) % int(round(output)):
-                    skip("PLANNING_MAX_NOT_MULTIPLE_OF_BOM", *info)
-                    continue
-            except (UserError, ValueError) as exc:
-                skip("BOM_LOOKUP_ERROR", *info)
-                if reject_counts["BOM_LOOKUP_ERROR"] <= 2:
-                    print("BOM_LOOKUP_ERROR_SAMPLE:", line.id, str(exc)[:200])
-                continue
-            chosen = (date, slot, product, int(round(maximum)), line)
-            print("SELECTED_MO1_ALREADY_RELEASED:",
-                  product.id in mo1_products)
-            break
-    if chosen:
+        except (UserError, ValueError) as exc:
+            candidate_rejections["BOM_RESOLUTION_ERROR"] += 1
+            if candidate_rejections["BOM_RESOLUTION_ERROR"] <= 2:
+                print("BOM_TEMPLATE_ERROR:", line.id, str(exc)[:200])
+            continue
+        source = line
+        source_bom = bom
+        capacity = int(round(maximum))
+        break
+    if source:
         break
 
-print("SELECTION_REJECTION_COUNTS:", sorted(reject_counts.items()))
-print("SELECTION_REJECTION_EXAMPLES:", sorted(reject_examples.items()))
-assert chosen, (
-    "STOP_NO_VALID_FUTURE_PUBLISHED_SKU: see reason counts above; "
-    "no test SO created; no business data changed"
+print("TEMPLATE_SELECTION_REJECTIONS:", sorted(candidate_rejections.items()))
+assert source, (
+    "STOP_NO_VALID_PUBLISHED_KITCHEN_SKU_TEMPLATE; "
+    "nothing created, no business changes"
 )
-date, slot, product, max_qty, plan_line = chosen
-print("SELECTED_DATE_SLOT:", date, slot)
-print("PLANNING_LINE_ID:", plan_line.id, "PRODUCT_ID:", product.id,
-      "CAPACITY_BASE_UOM:", max_qty)
+print("TEMPLATE_SOURCE_PLANNING_LINE_ID:", source.id,
+      "PRODUCT_ID:", source.product_id.id,
+      "KITCHEN:", source.planning_id.kitchen_code,
+      "BOM_ID:", source_bom.id, "CAPACITY_BASE_UOM:", capacity)
 
+# An unused future date avoids the already-shipped 27 Nov batch.
+test_date = None
+test_slot = "S1"
+for days in range(14, 75):
+    date = today + timedelta(days=days)
+    domain = [("delivery_date", "=", date), ("slot", "=", test_slot)]
+    if (not Planning.sudo().search_count(domain)
+            and not env["ya.packing.batch"].sudo().search_count(domain)
+            and not Ledger.search_count(domain)
+            and not Sale.sudo().search_count([
+                ("ya_is_capacity_so", "=", True),
+                ("ya_delivery_date", "=", date),
+                ("ya_slot", "=", test_slot),
+            ])):
+        test_date = date
+        break
+assert test_date, "STOP_NO_UNUSED_FUTURE_DATE_SLOT; no writes"
 
-def make_test_quotation(qty):
-    # Reuse only partner/configuration from a *test clone* YA quotation.
-    # Never edit the existing owner's quotation.
-    order = Sale.with_context(
-        default_ya_is_capacity_so=True, tracking_disable=True,
-        mail_create_nosubscribe=True, mail_notify_force_send=False,
-    ).create({
-        "partner_id": Sample.partner_id.id,
-        "company_id": Sample.company_id.id,
-        "warehouse_id": Sample.warehouse_id.id,
-        "pricelist_id": Sample.pricelist_id.id,
-        "order_line": [(0, 0, {
-            "product_id": product.id,
-            "name": product.display_name,
-            "product_uom_qty": float(qty),
-            "product_uom_id": product.uom_id.id,
-            "price_unit": product.lst_price,
-        })],
-    })
-    assert order.ya_is_capacity_so and order.state in ("draft", "sent")
-    return order
-
-
+created_plan_id = None
 confirmed_test_id = None
 try:
-    test = make_test_quotation(1)
+    # Only synthetic records are created in this transaction, never copying
+    # production data or mutating pre-existing Published Planning/DO.
+    plan = Planning.sudo().create({
+        "delivery_date": test_date,
+        "slot": test_slot,
+        "kitchen_code": source.planning_id.kitchen_code,
+        "workcenter_id": source.planning_id.workcenter_id.id,
+        "state": "draft",
+        "upload_filename": "ROLLBACK-ONLY-NO-UPLOAD",
+    })
+    created_plan_id = plan.id
+    test_line = PlanningLine.sudo().create({
+        "planning_id": plan.id,
+        "product_id": source.product_id.id,
+        "reference": source.reference,
+        "max_capacity": source.max_capacity,
+        "uom_id": source.uom_id.id,
+        "bom_id": source_bom.id,
+        "source_sheet": "ROLLBACK_ONLY",
+        "source_row": 2,
+    })
+    plan.action_publish()
+    assert plan.state == "published"
+    print("TEMP_PLANNING_PUBLISHED:", plan.id, "LINE:", test_line.id,
+          "DATE:", test_date, "SLOT:", test_slot)
+
+    def make_quotation(qty):
+        # Inherit only configuration from an existing TEST clone quotation.
+        # Disable mail notification side effects; rollback still guaranteed.
+        return Sale.with_context(
+            default_ya_is_capacity_so=True,
+            tracking_disable=True,
+            mail_create_nosubscribe=True,
+            mail_notify_force_send=False,
+        ).create({
+            "partner_id": Sample.partner_id.id,
+            "company_id": Sample.company_id.id,
+            "warehouse_id": Sample.warehouse_id.id,
+            "pricelist_id": Sample.pricelist_id.id,
+            "order_line": [(0, 0, {
+                "product_id": source.product_id.id,
+                "name": source.product_id.display_name,
+                "product_uom_qty": float(qty),
+                "product_uom_id": source.product_id.uom_id.id,
+                "price_unit": source.product_id.lst_price,
+            })],
+        })
+
+    test = make_quotation(1)
     confirmed_test_id = test.id
-    print("TEST_QUOTE_CREATED:", test.id)
-    wizard = env["ya.sale.capacity.confirm.wizard"].with_context(
+    print("TEMP_QUOTATION_CREATED:", test.id)
+    action = env["ya.sale.capacity.confirm.wizard"].with_context(
         tracking_disable=True, mail_notify_force_send=False,
     ).create({
-        "order_id": test.id, "delivery_date": date, "slot": slot,
-    })
-    action = wizard.action_check_and_confirm()
-    assert action.get("res_id") == test.id, "CONFIRM_NAVIGATION_MISMATCH"
-    assert test.state in ("sale", "done"), "YA_SO_NOT_CONFIRMED"
-    assert test.ya_delivery_date == date and test.ya_slot == slot
+        "order_id": test.id,
+        "delivery_date": test_date,
+        "slot": test_slot,
+    }).action_check_and_confirm()
+
+    assert action.get("res_id") == test.id, "CONFIRM_ACTION_TARGET_WRONG"
+    assert test.state in ("sale", "done"), "SO_NOT_CONFIRMED"
+    assert test.ya_delivery_date == test_date
+    assert test.ya_slot == test_slot
     rows = Ledger.search([("order_id", "=", test.id)])
-    assert len(rows) == 1, "RESERVATION_MUST_BE_ONE_SKU_LINE"
-    assert rows.planning_line_id == plan_line
+    assert len(rows) == 1, "EXPECTED_ONE_RESERVATION_ROW"
+    assert rows.planning_line_id == test_line
     assert rows.qty_required == 1
-    assert not test.picking_ids, "PREMATURE_DO_CREATED"
+    assert not test.picking_ids, "PREMATURE_SALES_DELIVERY"
     Move = env["stock.move"].sudo()
     if "sale_line_id" in Move._fields:
         assert not Move.search_count([
-            ("sale_line_id", "in", test.order_line.ids),
-        ]), "PREMATURE_STOCK_MOVE_CREATED"
-    print("SO_CONFIRMED_WITH_ATOMIC_LEDGER_NO_DO_PASS")
+            ("sale_line_id", "in", test.order_line.ids)
+        ]), "PREMATURE_STOCK_MOVE"
+    print("YA_SO_ATOMIC_CONFIRM_LEDGER_NO_EARLY_DO_PASS")
 
-    overcap = make_test_quotation(max_qty)
+    overcap = make_quotation(capacity)
     try:
-        env["ya.sale.capacity.confirm.wizard"].create({
-            "order_id": overcap.id, "delivery_date": date, "slot": slot,
+        env["ya.sale.capacity.confirm.wizard"].with_context(
+            tracking_disable=True, mail_notify_force_send=False,
+        ).create({
+            "order_id": overcap.id,
+            "delivery_date": test_date,
+            "slot": test_slot,
         }).action_check_and_confirm()
-        raise AssertionError("OVERCAP_SO_WAS_ACCEPTED")
+        raise AssertionError("OVERCAP_SO_WAS_WRONGLY_ACCEPTED")
     except UserError as exc:
-        print("OVERCAP_REJECTED:", str(exc)[:240])
-    assert overcap.state in ("draft", "sent"), "OVERCAP_CHANGED_ORDER_STATE"
+        print("OVERCAP_REJECTED:", str(exc)[:250])
+    assert overcap.state in ("draft", "sent")
     assert not Ledger.search_count([("order_id", "=", overcap.id)])
     print("OVERCAP_NO_PARTIAL_BOOKING_PASS")
 finally:
     env.cr.rollback()
     print("EXPLICIT_ROLLBACK_EXECUTED")
 
-assert not env["sale.order"].sudo().browse(confirmed_test_id).exists()
+# Re-query to show the synthetic template and orders are no longer present.
+env.invalidate_all()
+assert not Planning.sudo().browse(created_plan_id).exists(), (
+    "TEMP_PLANNING_REMAINED_AFTER_ROLLBACK"
+)
+if confirmed_test_id:
+    assert not Sale.sudo().browse(confirmed_test_id).exists(), (
+        "TEMP_QUOTATION_REMAINED_AFTER_ROLLBACK"
+    )
 print("FASE2_YA_SO_CONFIRM_ROLLBACK_PASS")
-print("NO_BUSINESS_DATA_COMMITTED")
+print("NO_TEMP_PLANNING_OR_SO_OR_CAPACITY_LEDGER_COMMITTED")
+print("MO1_REUSE_MO2_PACKING_DISPATCH_NOT_TESTED_HERE")
