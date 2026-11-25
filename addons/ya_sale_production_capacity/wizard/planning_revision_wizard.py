@@ -7,7 +7,7 @@ class PlanningRevisionWizard(models.TransientModel):
     _description = "Controlled Published Planning Revision"
 
     planning_id = fields.Many2one("ya.production.planning", required=True, readonly=True)
-    line_id = fields.Many2one("ya.production.planning.line", required=True)
+    line_id = fields.Many2one("ya.production.planning.line", required=True, ondelete="cascade")
     old_max = fields.Integer(readonly=True)
     new_max = fields.Integer()
     delete_sku = fields.Boolean()
