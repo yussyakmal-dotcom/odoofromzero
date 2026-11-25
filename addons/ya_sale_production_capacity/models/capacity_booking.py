@@ -91,6 +91,15 @@ class SaleOrderYACapacityBooking(models.Model):
         ])
         if len(batch) > 1:
             raise UserError(_("More than one Packing batch exists for the slot."))
+        if batch and (
+                batch.ya_store_delivery_ids or
+                batch.ya_package_assembly_mo_ids or
+                any(t.state == "done" for t in batch.ya_fg_transfer_ids)):
+            raise UserError(_(
+                "Packing atau dispatch tanggal/slot ini sudah berjalan. "
+                "Tidak boleh menambah reservasi SO setelah alokasi fisik "
+                "atau pengiriman mulai diproses."
+            ))
 
         booking_rows = []
         demand_checks = []
