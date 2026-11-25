@@ -18,7 +18,7 @@ CLONE = "erp-yussyakmal-mrp-test-RO_SO"
 assert env.cr.dbname == CLONE, "STOP_WRONG_DATABASE"
 assert env["ir.module.module"].search(
     [("name", "=", "ya_sale_production_capacity")], limit=1
-).installed_version in ("19.0.1.1.0", "19.0.1.1.1"), "STOP_ADDON_NOT_UPGRADED"
+).installed_version in ("19.0.1.1.0", "19.0.1.1.1", "19.0.1.1.2"), "STOP_ADDON_NOT_UPGRADED"
 assert env.user.has_group("sales_team.group_sale_salesman"), "STOP_SALES_ACCESS_REQUIRED"
 assert env.user.has_group("mrp.group_mrp_manager"), "STOP_MRP_MANAGER_REQUIRED"
 
