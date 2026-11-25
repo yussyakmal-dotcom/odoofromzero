@@ -101,7 +101,7 @@ def preview_draft_so_production_impact(*, new_so_qty,
         - before["projected_extra_unallocated"]
     )
     assert delta_output >= 0
-    assert delta_extra == delta_output-draft - (
+    assert delta_extra == delta_output-draft + (
         after["total_shortage"] - before["total_shortage"])
     assert after["forecast_output"] <= maximum
     # A new SO cannot increase a SO-agnostic product's capacity beyond Max;
