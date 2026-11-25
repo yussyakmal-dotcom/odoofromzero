@@ -8,16 +8,17 @@
     <field name="inherit_id" ref="sale.view_order_form"/>
     <field name="mode">primary</field>
     <field name="arch" type="xml">
-      <!-- The YA entry has its own primary form. Put these fields right
-           below Payment Terms, inside the standard order-info column. -->
+      <!-- YA fields are visible/editable at Draft/Sent quotation but OPTIONAL.
+           Only the Confirm gate checks date, slot, Published Planning, capacity.
+           After confirmation, keep the YA schedule read-only. -->
       <xpath expr="//field[@name='payment_term_id']" position="after">
         <field name="ya_is_capacity_so" invisible="1"/>
         <field name="ya_delivery_date" string="YA Tanggal Kirim"
-               readonly="1" invisible="state in ('draft', 'sent')"/>
+               readonly="state not in ('draft', 'sent')"/>
         <field name="ya_delivery_date_label" string="Format YYYY-Mon-DD"
-               readonly="1" invisible="state in ('draft', 'sent') or not ya_delivery_date"/>
+               readonly="1" invisible="not ya_delivery_date"/>
         <field name="ya_slot" string="YA Slot Kirim"
-               readonly="1" invisible="state in ('draft', 'sent')"/>
+               readonly="state not in ('draft', 'sent')"/>
       </xpath>
     </field>
   </record>
