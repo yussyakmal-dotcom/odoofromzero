@@ -5,8 +5,10 @@ capacity ledger and confirms the native commercial SO without early delivery.
 Physical MO2/Packing allocation/real PCK delivery are separate next phases.
 """
 from collections import defaultdict
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
-from odoo import models, _
+from odoo import fields, models, _
 from odoo.exceptions import UserError
 
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
@@ -31,6 +33,28 @@ class SaleOrderYACapacityBooking(models.Model):
             raise UserError(_("Only RO_SO clone is authorized for YA SO development."))
         if not self.ya_is_capacity_so or self.state not in ("draft", "sent"):
             raise UserError(_("Choose one YA Draft/Sent quotation."))
+        if slot not in ("S1", "S2", "S3") or not delivery_date:
+            raise UserError(_("Tanggal dan Slot Kirim YA wajib sebelum Confirm."))
+        delivery = fields.Date.to_date(delivery_date)
+        now_wib = datetime.now(ZoneInfo("Asia/Jakarta"))
+        slot_clock = {"S1": time(5), "S2": time(9), "S3": time(11)}
+        dispatch_at = datetime.combine(
+            delivery, slot_clock[slot], tzinfo=ZoneInfo("Asia/Jakarta"))
+        if now_wib >= dispatch_at:
+            raise UserError(_("Waktu keberangkatan slot sudah berlalu. "
+                              "Pilih jadwal kirim yang masih berlaku."))
+        if slot == "S1":
+            # Agreed SOP: S1 final SO cutoff is 15:00 WIB on D-1.
+            s1_cutoff = datetime.combine(
+                delivery - timedelta(days=1), time(15),
+                tzinfo=ZoneInfo("Asia/Jakarta"))
+            if now_wib > s1_cutoff:
+                raise UserError(_(
+                    "Cut-off SO slot S1 adalah H-1 pukul 15.00 WIB. "
+                    "Pilih tanggal pengiriman berikutnya."
+                ))
+        # S2/S3 cutoffs remain a pending owner decision. Never invent them;
+        # dispatch time and Packing-stage locks still prevent stale booking.
 
         lock_ro_slot(self.env.cr, delivery_date, slot)
         # Protect against two workers simultaneously confirming the SAME SO.
