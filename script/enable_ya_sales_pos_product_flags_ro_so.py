@@ -66,7 +66,11 @@ if APPLY:
         total_changed += len(candidates)
         print("UPDATED:", full_name, "TEMPLATES_CHANGED:", len(candidates))
     print("UPDATED_TOTAL:", total_changed)
-    print("APPLY_SUCCESS_IN_SHELL_TRANSACTION")
+    # Odoo shell rolls back on exit unless the transaction is committed.
+    # Commit only after both target categories have passed every post-check.
+    env.cr.commit()
+    print("APPLY_COMMITTED_TO_DB")
+    print("VERIFY_WITH_FRESH_READ_ONLY_AUDIT")
 else:
     print("NO_WRITES_PERFORMED")
     print("DRY_RUN_PASS")
