@@ -89,3 +89,10 @@ Syarat: tepat nama DB clone tercetak dan audit PASS. Ini **bukan** mengulang pen
 - Source diperbarui hanya pada addon `ya_sale_production_capacity`: dedicated primary view memakai XPath `//field[@name='payment_term_id']` dengan `position='after'`, dua field wajib YA ditempatkan tepat di situ; tidak ada group tambahan di bawah notebook. `__manifest__` versi `19.0.1.0.2`. Static source preflight diperbarui.
 - **SOURCE ONLY, UI belum dibuktikan setelah perubahan.** Feri: `git pull`, `python3 script/check_fase2_ya_sale_stage1_source_ya.py`, deploy *hanya* addon YA SO, `-u ya_sale_production_capacity` *hanya* pada `erp-yussyakmal-mrp-test-RO_SO` setelah backup clone, lalu refresh form. Bila upgrade gagal pada XPath, hentikan dan inspeksi inherited view; jangan ubah Fase 1.
 - Custom SO Confirm tetap fail-closed; logika produksi/kapasitas tidak berubah karena revisi layout ini.
+
+## 10. Standar Tanggal Global untuk SEMUA Form YA — keputusan owner (25 Nov 2026)
+- **Wajib** format tampilan tanggal operator **`YYYY-Mon-DD`**; contoh `2026-Nov-27` (bulan singkatan Inggris 3 huruf). Berlaku ke seluruh form/list/wizard/report **baru maupun modifikasi**, bukan hanya Custom SO.
+- Implementasi reuse `addons/ya_store_ro/models/date_labels.py::format_ymondd` dan pola field computed display `addons/ya_store_ro/models/store_ro.py::delivery_date_yyyymmdd`. Jangan menciptakan standar baru di addon lain.
+- Data yang tersimpan tetap `fields.Date` Odoo dan jadwal Planning tetap cocok; jika input harus menggunakan date picker asli, tampilkan label computed standar tanpa menjadikannya input Char. Jangan mengklaim form yang sedang terpasang otomatis berubah hanya karena dokumentasi diperbarui.
+- Ketentuan ini telah ditambahkan di **bagian paling atas handover utama**, sehingga saat sesi baru semua perubahan UI mengikuti standardisasi tanggal sebelum menulis XML/Python.
+- Khusus Custom SO saat ini: `YA Tanggal Kirim` dan `YA Slot Kirim` posisinya di bawah Payment Terms dalam source, tetapi perubahan format visible-date khusus SO masih perlu implementasi dan pengujian server clone tersendiri.
