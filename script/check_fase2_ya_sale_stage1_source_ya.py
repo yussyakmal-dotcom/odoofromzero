@@ -43,7 +43,9 @@ required_xml = [
     "[('ya_is_capacity_so', '=', True)]",
     'required="ya_is_capacity_so"',
     '<field name="mode">primary</field>',
-    '<xpath expr="//sheet/notebook" position="before">',
+    '<xpath expr="//field[@name=\'payment_term_id\']" position="after">',
+    'string="YA Tanggal Kirim"',
+    'string="YA Slot Kirim"',
     'view_ya_capacity_sale_order_list',
     'action_ya_capacity_sale_orders_form_view',
 ]
