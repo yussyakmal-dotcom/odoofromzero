@@ -158,3 +158,12 @@ sudo -u odoo19 env YA_APPLY_PRODUCT_SALES_POS=YES /opt/odoo19/venv/bin/python3 /
 - **Source gate** `script/check_fase2_ya_sale_stage1_source_ya.py` diperluas untuk memeriksa wizard discount dan dokumen XML.
 - **Next:** `git pull`, preflight source + compile; backup GUI clone, deploy hanya `ya_sale_production_capacity`, `-u ya_sale_production_capacity` **di clone RO_SO**, restart service pada waktu aman. Setelah berhasil, uji 5 mode beserta total dan pajak, invalid amount, status Draft/Sent, native Sales wizard tidak berubah, Quotation tanpa tanggal/slot, dan apabila membuat invoice periksa parity sesuai scope. Jangan uji transaksi live.
 - Capacity reservation SO/Paket masih fail-closed, dan diskon global negatif/teknis jangan ikut hitungan kebutuhan MO/packing pada pengembangan berikutnya.
+
+## 18. Fix Access Error pada Confirm YA SO dan Discount wizard (25 Nov 2026)
+
+- Operator mengklik **Confirm** pada Custom YA Quotation dan menerima Access Error: `You are not allowed to access 'YA Sales Order Delivery Schedule Confirmation Gate' (ya.sale.capacity.confirm.wizard) records. No group currently allows this operation.`
+- Hasil inspeksi source: `ya_sale_production_capacity` versi 19.0.1.0.5 telah mendaftarkan kedua `models.TransientModel` dan views, tetapi **belum memiliki `security/ir.model.access.csv`**. Munculnya tombol tidak membuktikan izin akses wizard.
+- Perbaikan SOURCE ONLY di GitHub: versi **19.0.1.0.6** menambahkan `security/ir.model.access.csv` dengan CRUD untuk dua transient wizard `ya.sale.capacity.confirm.wizard` dan `ya.sale.quotation.discount.wizard`, khusus `sales_team.group_sale_salesman`. Manifest memuat CSV sebelum XML views; source preflight ikut mengecek identitas model, grup, dan izin.
+- **Belum ada bukti deploy/upgrade/GUI di clone sesudah perubahan ini.** Keberhasilan source tidak boleh diklaim sebagai runtime PASS.
+- Next: Feri `git pull`, `python3 script/check_fase2_ya_sale_stage1_source_ya.py`, `python3 -m compileall -q addons/ya_sale_production_capacity`; pastikan backup GUI clone; deploy folder ke custom-addons; `-u ya_sale_production_capacity` **HANYA** `erp-yussyakmal-mrp-test-RO_SO`; setelah exit code 0 restart pada waktu aman, audit ACL persisted, refresh browser; ulang Confirm UI untuk memastikan popup tanggal + slot kini dapat dibuka.
+- **Capacity confirmation tetap fail-closed** sampai engine reservasi atomik siap. Jangan mengubah native Sales atau alur RO/MO/Packing Fase 1 hanya untuk memperbaiki ACL.
