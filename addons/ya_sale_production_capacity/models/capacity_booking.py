@@ -176,6 +176,13 @@ class SaleOrderYACapacityBooking(models.Model):
         rows = booking.get("reservation_rows") or []
         if not rows or any(row["order_id"] != self.id for row in rows):
             raise UserError(_("Invalid or empty SO capacity booking proposal."))
+        # Reacquire/revalidate the same slot lock and quote row lock. A
+        # proposal generated earlier is never trusted after another booking.
+        fresh = self._ya_prepare_locked_booking(
+            rows[0]["delivery_date"], rows[0]["slot"])
+        if fresh["reservation_rows"] != rows:
+            raise UserError(_("YA SO demand or reserved capacity changed. "
+                              "Recalculate Confirm before booking."))
         return self.env["ya.sale.capacity.reservation"].sudo().with_context(
             ya_sale_confirm_slot_locked=True
         ).create(rows)
