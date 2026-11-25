@@ -11,6 +11,8 @@ files = [
     addon / "models/__init__.py",
     addon / "models/sale_order.py",
     addon / "views/ya_sale_order_views.xml",
+    addon / "wizard/__init__.py",
+    addon / "wizard/confirm_wizard.py",
 ]
 for path in files:
     assert path.is_file(), "MISSING: %s" % path
@@ -18,6 +20,7 @@ for path in files:
     if path.suffix == ".py":
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 ET.parse(addon / "views/ya_sale_order_views.xml")
+ET.parse(addon / "views/ya_sale_confirm_wizard_views.xml")
 
 source = (addon / "models/sale_order.py").read_text(encoding="utf-8")
 xml = (addon / "views/ya_sale_order_views.xml").read_text(encoding="utf-8")
@@ -30,9 +33,9 @@ required_source = [
     "from odoo.addons.ya_store_ro.models.date_labels import format_ymondd",
     "order.ya_delivery_date_label = format_ymondd(order.ya_delivery_date)",
     "ya_slot = fields.Selection(",
-    "('state', '=', 'published')",
-    "orders._ya_validate_published_schedule()",
-    "self._ya_validate_published_schedule()",
+    "default_ya_is_capacity_so",
+    "return super().create(vals_list)",
+    "return super().write(vals)",
     "def action_confirm(self):",
     "if any(self.mapped('ya_is_capacity_so')):",
     "return super().action_confirm()",
@@ -44,7 +47,7 @@ required_xml = [
     "ya_workflow_navigation.menu_ya_before_production",
     "default_ya_is_capacity_so",
     "[('ya_is_capacity_so', '=', True)]",
-    'required="ya_is_capacity_so"',
+    'invisible="state in (\'draft\', \'sent\')"',
     '<field name="mode">primary</field>',
     '<xpath expr="//field[@name=\'payment_term_id\']" position="after">',
     'string="YA Tanggal Kirim"',
@@ -65,6 +68,12 @@ assert not any(token in source for token in (
     "stock.quant'].create(", "stock.move'].create(",
 )), "UNSAFE_SOURCE_SCOPE"
 print("FASE2_YA_SALE_SOURCE_PREFLIGHT_PASS")
-print("SCOPE: new YA SO records require Published date+slot; confirm fail-closed")
+wizard = (addon / "wizard/confirm_wizard.py").read_text(encoding="utf-8")
+assert "('state', '=', 'published')" in wizard
+assert "raise UserError(" in wizard
+assert "order.action_confirm()" not in wizard
+assert "super().action_confirm()" not in wizard
+assert "views/ya_sale_confirm_wizard_views.xml" in manifest["data"]
+print("SCOPE: YA quotation Draft/Sent without schedule; wizard at confirm; fail-closed")
 print("STANDARD_SALES: native action_confirm delegate, no YA rules")
 print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN")
