@@ -6,6 +6,8 @@ are intentional. Asserts native procurement was suppressed and capacity was
 booked, then confirms that exceeding Published Planning Max is rejected.
 """
 from collections import Counter
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 from odoo import fields
 from odoo.exceptions import UserError
 
@@ -34,7 +36,18 @@ by_schedule = {}
 for p in plannings:
     key = (p.delivery_date, p.slot)
     by_schedule.setdefault(key, []).append(p)
+now_wib = datetime.now(ZoneInfo("Asia/Jakarta"))
 for (date, slot), schedules in sorted(by_schedule.items()):
+    dispatch = datetime.combine(
+        date, {"S1": time(5), "S2": time(9), "S3": time(11)}[slot],
+        tzinfo=ZoneInfo("Asia/Jakarta"),
+    )
+    if now_wib >= dispatch:
+        continue
+    if slot == "S1" and now_wib > datetime.combine(
+            date - timedelta(days=1), time(15),
+            tzinfo=ZoneInfo("Asia/Jakarta")):
+        continue
     if Ledger.search_count([("delivery_date", "=", date), ("slot", "=", slot)]):
         continue
     batch = env["ya.packing.batch"].sudo().search([
