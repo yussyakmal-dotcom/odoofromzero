@@ -40,9 +40,20 @@ class YaSaleCapacityConfirmWizard(models.TransientModel):
             raise ValidationError(_(
                 'Tidak ada Published Planning untuk %(date)s / %(slot)s.'
             ) % {'date': format_ymondd(self.delivery_date), 'slot': self.slot})
-        # Do not persist any schedule or confirm before atomic capacity check.
+        # Verify the actual products and Paket component BoMs against the
+        # published kitchen routes BEFORE the yet-unimplemented transaction.
+        # Discount lines from the normal Sales discount wizard are excluded.
+        # This is read-only: no booking, production, stock or SO confirmation.
+        preview = order._ya_prepare_capacity_confirm_readonly(
+            self.delivery_date, self.slot
+        )
         raise UserError(_(
-            'Jadwal ditemukan, tetapi Confirm Custom SO YA belum aktif. '
-            'Reservasi kapasitas produk biasa dan Paket belum diimplementasikan. '
-            'Penawaran tetap Draft/Sent; tidak ada kapasitas yang direservasi.'
-        ))
+            'SKU dan Published Planning sudah lolos pemeriksaan awal: '
+            '%(count)s SKU dapur; %(pkg)s Paket; %(pck)s komponen dari PCK. '
+            'Confirm belum aktif: reservasi atomik dan integrasi prioritas '
+            'SO ke MO/Packing belum selesai. Penawaran tetap Draft/Sent.'
+        ) % {
+            'count': len(preview['capacity']),
+            'pkg': len(preview['package_qty']),
+            'pck': len(preview['pck_stock_requirements']),
+        })
