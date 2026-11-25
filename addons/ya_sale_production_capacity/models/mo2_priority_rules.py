@@ -30,17 +30,23 @@ def _round_up(quantity, batch):
 
 def calculate_mo2_release(total_confirmed_so, mo1_output, existing_mo2_output,
                           published_max, kitchen_bom_output, *,
+                          ro_package_components=0, ro_direct_finished=0,
                           so_cutoff_closed, packing_physical_started):
     """Compute incremental MO2, never reissue MO1.
 
-    so_cutoff_closed MUST mean no more accepted SO for this slot and the
-    owner-approved final MO2 lock moment has been reached. It cannot be
-    inferred merely from the wall-clock time in this pure helper.
+    ro_package_components + ro_direct_finished MUST come from real
+    confirmed RO demand (converted to base UoM), not from the already
+    prorated/frozen store allocations in Packing. SO is protected first;
+    any RO shortfall is handled at final Packing by real stock priority.
+    so_cutoff_closed MUST mean the owner-approved final MO2 lock moment
+    has been reached. It cannot be inferred from wall-clock here.
     existing_mo2_output MUST reflect all already-created MO2 for this SKU.
     This function allows a preview before final lock (ready=False); release
     requires ready=True and no physically started Packing.
     """
     so = _whole(total_confirmed_so, "Confirmed SO qty")
+    ro_pkg = _whole(ro_package_components, "RO Paket kitchen component Qty")
+    ro_direct = _whole(ro_direct_finished, "ordinary store RO Qty")
     mo1 = _whole(mo1_output, "MO1 qty")
     mo2 = _whole(existing_mo2_output, "Existing MO2 qty")
     maximum = _whole(published_max, "Published Max")
@@ -55,7 +61,13 @@ def calculate_mo2_release(total_confirmed_so, mo1_output, existing_mo2_output,
     target_so = _round_up(so, batch)
     if target_so > maximum:
         raise Mo2PriorityError("Confirmed SO demand exceeds Published Max")
-    additional = max(0, target_so - mo1 - mo2)
+    # MO2 should also preserve remaining RO demand whenever free kitchen
+    # capacity exists, not intentionally abandon shops after confirming SO.
+    # When gross demand exceeds Max, SO takes first priority and Packing
+    # later distributes actual output to RO Paket then ordinary RO.
+    gross = so + ro_pkg + ro_direct
+    target_output = min(maximum, _round_up(gross, batch))
+    additional = max(0, target_output - mo1 - mo2)
     if mo1 + mo2 + additional > maximum:
         raise Mo2PriorityError("MO2 would exceed Published Max")
     if additional and mo2:
@@ -71,6 +83,10 @@ def calculate_mo2_release(total_confirmed_so, mo1_output, existing_mo2_output,
         "published_max": maximum,
         "bom_output": batch,
         "rounded_so_protection": target_so,
+        "ro_package_kitchen_qty": ro_pkg,
+        "ro_direct_kitchen_qty": ro_direct,
+        "gross_demand_before_roundup": gross,
+        "total_output_target_with_ro": target_output,
         "mo2_incremental_qty": additional,
         "release_ready": so_cutoff_closed and not packing_physical_started,
         "release_allowed_now": bool(
