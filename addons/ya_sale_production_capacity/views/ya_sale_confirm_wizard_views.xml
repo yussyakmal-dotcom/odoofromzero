@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_sale_capacity_confirm_wizard_form" model="ir.ui.view">
+    <field name="name">ya.sale.capacity.confirm.wizard.form</field>
+    <field name="model">ya.sale.capacity.confirm.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Konfirmasi Custom Sales Order — Jadwal Kirim">
+        <group>
+          <field name="order_id" readonly="1"/>
+          <field name="delivery_date" required="1"/>
+          <field name="delivery_date_label" readonly="1"/>
+          <field name="slot" required="1"/>
+        </group>
+        <footer>
+          <button name="action_check_and_confirm" type="object"
+                  string="Periksa Jadwal dan Kapasitas" class="btn-primary"/>
+          <button string="Batal" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+</odoo>
