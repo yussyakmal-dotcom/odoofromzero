@@ -13,6 +13,8 @@ files = [
     addon / "models/sale_order.py",
     addon / "models/confirm_capacity_math.py",
     addon / "models/confirm_readiness.py",
+    addon / "models/capacity_reservation.py",
+    addon / "models/capacity_booking.py",
     addon / "views/ya_sale_order_views.xml",
     addon / "wizard/__init__.py",
     addon / "wizard/confirm_wizard.py",
@@ -80,7 +82,7 @@ for field_name in ("ya_delivery_date", "ya_slot"):
     node = form_fields[0]
     assert node.attrib.get("readonly") == "state not in ('draft', 'sent')", "QUOTATION_NOT_EDITABLE: %s" % field_name
     assert node.attrib.get("required") not in ("1", "True", "true"), "QUOTATION_SCHEDULE_MUST_BE_OPTIONAL"
-assert manifest["version"] == "19.0.1.0.8", "UNEXPECTED_ADDON_VERSION"
+assert manifest["version"] == "19.0.1.0.9", "UNEXPECTED_ADDON_VERSION"
 assert "ya_workflow_navigation" in manifest["depends"]
 assert "sale_stock" in manifest["depends"]
 assert "security/ir.model.access.csv" in manifest["data"]
@@ -90,12 +92,17 @@ with (addon / "security/ir.model.access.csv").open(newline="", encoding="utf-8")
 expected_wizard_models = {
     "model_ya_sale_capacity_confirm_wizard",
     "model_ya_sale_quotation_discount_wizard",
+    "model_ya_sale_capacity_reservation",
 }
-assert len(acl_rows) == 2, "ACL_EXPECTED_EXACTLY_TWO_YA_WIZARDS"
+assert len(acl_rows) == 3, "ACL_EXPECTED_TWO_WIZARDS_PLUS_ONE_RESERVATION"
 assert {row["model_id:id"] for row in acl_rows} == expected_wizard_models, "ACL_WIZARD_MODELS_MISMATCH"
 for row in acl_rows:
-    assert row["group_id:id"] == "sales_team.group_sale_salesman", "ACL_WRONG_GROUP"
-    assert all(row["perm_" + p] == "1" for p in ("read", "write", "create", "unlink")), "ACL_MISSING_WIZARD_RIGHTS"
+    if row["model_id:id"] == "model_ya_sale_capacity_reservation":
+        assert row["group_id:id"] == "ya_store_ro.group_ya_packing_admin", "ACL_RESERVATION_GROUP"
+        assert [row["perm_" + p] for p in ("read", "write", "create", "unlink")] == ["1", "0", "0", "0"], "ACL_RESERVATION_MUST_BE_READ_ONLY"
+    else:
+        assert row["group_id:id"] == "sales_team.group_sale_salesman", "ACL_WRONG_GROUP"
+        assert all(row["perm_" + p] == "1" for p in ("read", "write", "create", "unlink")), "ACL_MISSING_WIZARD_RIGHTS"
 assert manifest["installable"] is True
 assert not any(token in source for token in (
     "env.cr.commit()", "env.cr.execute(", "mrp.production'].create(",
@@ -137,4 +144,21 @@ print("SCOPE: YA date/slot visible OPTIONAL and editable in Draft/Sent; validati
 print("YA_DISCOUNT: one-line Rp/%; all-lines %; global Rp/%; native Sales unaffected")
 print("STANDARD_SALES: native action_confirm delegate, no YA rules")
 print("CONFIRM_READINESS: published SKU route, native global discount exclusions, Paket components; read-only")
+booking = (addon / "models/capacity_booking.py").read_text(encoding="utf-8")
+ledger = (addon / "models/capacity_reservation.py").read_text(encoding="utf-8")
+assert "from . import capacity_booking" in (addon / "models/__init__.py").read_text(encoding="utf-8")
+assert "from . import capacity_reservation" in (addon / "models/__init__.py").read_text(encoding="utf-8")
+for token in ("lock_ro_slot(self.env.cr, delivery_date, slot)",
+              "FOR UPDATE", "confirmed_orders", "check_so_capacity(",
+              "mo1_qty", "incremental_mo2_output_needed",
+              "def _ya_write_locked_capacity_reservations(",
+              "_ya_prepare_locked_booking("):
+    assert token in booking, "RESERVATION_ATOMIC_SOURCE_MISSING: %s" % token
+for token in ("_name = \"ya.sale.capacity.reservation\"",
+              "UNIQUE(order_id, planning_line_id)",
+              "CHECK(qty_required > 0)", "def unlink(self):",
+              "ya_sale_confirm_slot_locked"):
+    assert token in ledger, "RESERVATION_LEDGER_GUARD_MISSING: %s" % token
+assert "_ya_write_locked_capacity_reservations" not in wizard, "DO_NOT_ACTIVATE_RESERVATION_PREMATURELY"
+print("CAPACITY_LEDGER: guarded schema and transaction recheck SOURCE_ONLY; not activated")
 print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN")
