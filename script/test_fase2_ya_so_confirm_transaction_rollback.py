@@ -66,6 +66,21 @@ for (date, slot), schedules in sorted(by_schedule.items()):
                 continue
             try:
                 bom = line._capacity_bom()
+                pt = bom.picking_type_id
+                expected_wh = " ".join(
+                    ("Dapur " + (line.planning_id.workcenter_id.name or "")
+                    ).casefold().split())
+                actual_wh = " ".join(
+                    (pt.warehouse_id.name or "").casefold().split()) if pt else ""
+                if (not bom.active or bom.type != "normal" or
+                        bom.product_tmpl_id != product.product_tmpl_id or
+                        (bom.product_id and bom.product_id != product) or
+                        not pt or not pt.warehouse_id or not pt.default_location_src_id or
+                        not pt.default_location_dest_id or
+                        pt.default_location_dest_id != pt.warehouse_id.lot_stock_id or
+                        actual_wh != expected_wh or
+                        pt.company_id != Sample.company_id):
+                    continue
                 output = bom.product_uom_id._compute_quantity(
                     bom.product_qty, product.uom_id, round=False)
                 maximum = line.uom_id._compute_quantity(
