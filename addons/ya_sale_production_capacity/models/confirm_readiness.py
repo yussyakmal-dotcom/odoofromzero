@@ -136,7 +136,17 @@ class SaleOrderYACapacityPreview(models.Model):
                 if previous and previous != kind:
                     raise UserError(_("Konflik sumber komponen Paket %s.") % component_id)
                 component_source[component_id] = kind
-                if kind == "PCK":
+                if kind == "KITCHEN":
+                    # Odoo UoM conversion returns float (e.g. 2.0) even for
+                    # integer finished-goods units. Validate then normalize
+                    # before the strict pure-demand engine.
+                    if abs(ratio - round(ratio)) > 1e-9:
+                        raise UserError(_(
+                            "Komponen Paket SKU %(sku)s menghasilkan Qty "
+                            "produk jadi dapur pecahan: %(qty)s"
+                        ) % {"sku": component_id, "qty": ratio})
+                    package_boms[pkg_id][component_id] = int(round(ratio))
+                else:
                     c = self.env["product.product"].browse(component_id)
                     if (c.categ_id.complete_name or "").startswith("All / Produk Jadi"):
                         pck_manual_finished.add(component_id)
