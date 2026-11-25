@@ -22,7 +22,7 @@ expand = load("existing_sale_package_expansion", "confirm_capacity_math.py")
 
 
 def preview(new, prior=0, pkg=0, ro=0, mo1=0, mo2=0, batch=200,
-            maximum=200):
+            maximum=200, frozen_snapshot=None):
     return mod.preview_draft_so_production_impact(
         new_so_qty=new,
         confirmed_so_qty=prior,
@@ -31,6 +31,7 @@ def preview(new, prior=0, pkg=0, ro=0, mo1=0, mo2=0, batch=200,
         mo1_output=mo1, existing_mo2_output=mo2,
         bom_output=batch,
         published_max=maximum,
+        frozen_ro_store_snapshot_rows=frozen_snapshot,
     )
 
 
@@ -107,6 +108,73 @@ assert r22["new_theoretical_surplus_created_by_draft"] == 194
 assert sum(x["new_theoretical_surplus_created_by_draft"]
            for x in (r11,r22)) == 285
 print("DRAFT_SO_PAKET_COMPONENT_AND_DIRECT_DEDUP_PER_KITCHEN_SKU_PASS")
+
+# Owner crucial distinction: 195 displayed as frozen Packing allocation,
+# while the ORIGINAL confirmed RO from the store is only 190.
+# SO must see BOTH amounts and must NEVER count 195 as original demand.
+snapshot = [{
+    "ro_id": 111, "store_id": 9, "qty_requested": 190,
+    "qty_allocated": 195, "qty_surplus": 5, "qty_shortage": 0,
+}]
+h = preview(5, ro=190, mo1=200, frozen_snapshot=snapshot)
+assert h["ro_store_original_order_qty"] == 190
+assert h["ro_store_frozen_allocated_qty_for_display_only"] == 195
+assert h["ro_store_frozen_surplus_for_display_only"] == 5
+assert h["ro_store_frozen_snapshot_diagnostics"][
+    "over_original_per_store_qty"] == 5
+assert h["after_draft"]["legitimate_demand"] == 195  # RO190 + SO5
+assert h["additional_mo2_due_to_this_draft_vs_baseline"] == 0
+assert h["expected_total_surplus_after_draft"] == 5
+assert h["potential_frozen_allocation_plus_so_claim_after"] == 200
+assert h["potential_double_claim_above_forecast_production"] == 0
+assert h["must_reconcile_frozen_snapshot_before_final_do"]
+print("RO_ORIGINAL_190_NOT_MISTAKEN_FOR_FROZEN_ALLOCATED_195_PASS")
+print("SO5_USES_MO1_CAPACITY_WITHOUT_MAKING_RO_ORDER_195_PASS")
+
+# New SO10 still fits true RO190 + SO10 in 200 production. But if
+# obsolete frozen store 195 is naively used, it would claim205.
+i = preview(10, ro=190, mo1=200, frozen_snapshot=snapshot)
+assert i["after_draft"]["legitimate_demand"] == 200
+assert i["expected_total_surplus_after_draft"] == 0
+assert i["potential_frozen_allocation_plus_so_claim_after"] == 205
+assert i["potential_double_claim_above_forecast_production"] == 5
+assert i["must_reconcile_frozen_snapshot_before_final_do"]
+print("SO10_WITH_FROZEN_RO195_EXPOSES_DOUBLE_CLAIM_5_PASS")
+
+# Sum alone can hide 20 surplus at one store behind 15 shortage at another.
+net_masking = [
+    {"ro_id": 111, "store_id": 9, "qty_requested": 100,
+     "qty_allocated": 120, "qty_surplus": 20, "qty_shortage": 0},
+    {"ro_id": 222, "store_id": 10, "qty_requested": 90,
+     "qty_allocated": 75, "qty_surplus": 0, "qty_shortage": 15},
+]
+j = preview(5, ro=190, mo1=200, frozen_snapshot=net_masking)
+assert j["ro_store_frozen_allocated_qty_for_display_only"] == 195
+assert j["ro_store_frozen_snapshot_diagnostics"][
+    "over_original_per_store_qty"] == 20
+assert j["ro_store_frozen_snapshot_diagnostics"][
+    "frozen_surplus_qty"] == 20
+assert j["ro_store_frozen_snapshot_diagnostics"][
+    "frozen_shortage_qty"] == 15
+print("PER_STORE_SURPLUS_NOT_HIDDEN_BY_OTHER_STORE_SHORTAGE_PASS")
+
+for invalid_snapshot in (
+    [dict(snapshot[0], qty_allocated=194)],
+    snapshot + [dict(snapshot[0])],
+):
+    try:
+        preview(5, ro=190, mo1=200, frozen_snapshot=invalid_snapshot)
+    except mod.SaleImpactError:
+        pass
+    else:
+        raise AssertionError("INVALID_RO_FROZEN_SNAPSHOT_ACCEPTED")
+try:
+    preview(5, ro=195, mo1=200, frozen_snapshot=snapshot)
+except mod.SaleImpactError as exc:
+    assert "STOP_ORIGINAL_RO_MISMATCH" in str(exc)
+else:
+    raise AssertionError("FROZEN_ALLOCATION_MISUSED_AS_ORIGINAL_RO_ORDER")
+print("FROZEN_RO_IDENTITY_AND_ORIGINAL_SOURCE_GUARDS_PASS")
 
 # Capacity rules remain hard stops; warning/approval alone cannot waive Max.
 for invalid in (
