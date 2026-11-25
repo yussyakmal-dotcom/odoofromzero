@@ -20,9 +20,12 @@ def blocked(fn, *args, **kwargs):
     raise AssertionError("EXPECTED_REJECTION_NOT_RAISED: %s" % fn.__name__)
 
 
-def plan(so, mo1, mo2, max_qty, bom, closed=True, started=False):
+def plan(so, mo1, mo2, max_qty, bom, closed=True, started=False,
+         ro_pkg=0, ro=0):
     return m.calculate_mo2_release(
         so, mo1, mo2, max_qty, bom,
+        ro_package_components=ro_pkg,
+        ro_direct_finished=ro,
         so_cutoff_closed=closed,
         packing_physical_started=started,
     )
@@ -39,6 +42,19 @@ assert x["uncommitted_capacity_after_mos"] == 24
 x = plan(49, 48, 0, 96, 24, closed=False)
 assert x["mo2_incremental_qty"] == 24
 assert not x["release_allowed_now"]
+# MO2 also preserves RO demand when published kitchen capacity remains.
+# MO1 48 was originally planned for RO, SO 48 arrives: target becomes 96,
+# so MO2 48 keeps stores supplied instead of silently taking their allocation.
+x = plan(48, 48, 0, 96, 24, ro=48)
+assert x["mo2_incremental_qty"] == 48
+assert x["total_output_target_with_ro"] == 96
+# If SO + Paket RO + ordinary RO exceed Max, cap output at Published Max.
+# Packing will protect SO, then RO Paket, then ordinary RO actual stock.
+x = plan(49, 48, 0, 72, 24, ro_pkg=12, ro=20)
+assert x["total_output_target_with_ro"] == 72
+assert x["mo2_incremental_qty"] == 24
+assert x["ro_package_kitchen_qty"] == 12
+
 # Existing MO2 already covers SO: don't make another MO.
 assert plan(49, 48, 24, 96, 24)["mo2_incremental_qty"] == 0
 # Releasing a second MO2 for new demand is forbidden.
@@ -73,6 +89,6 @@ blocked(m.preview_packing_buckets, -1, 1, 1, 1, 1)
 blocked(m.preview_packing_buckets, 5, 1, 1, 0.5, 1)
 
 print("FASE2_YA_MO2_PRIORITY_PURE_PASS")
-print("MO2: reuse MO1, batch-rounding, incremental qty, cutoff and duplicate guards")
+print("MO2: MO1 reuse, SO + RO kitchen demand, Max cap, batch increment and duplicate guards")
 print("PACKING_PREVIEW: actual-stock SO first, RO Paket, ordinary RO; shortage shown")
 print("SCOPE: PURE_SOURCE_ONLY; no MO2 release, PCK transfers, SO/RO delivery or mutation")
