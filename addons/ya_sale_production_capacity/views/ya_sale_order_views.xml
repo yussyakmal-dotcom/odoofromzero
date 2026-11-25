@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Extend the existing native Sales form, not a replacement sale.order. -->
+  <record id="view_ya_capacity_sale_order_form" model="ir.ui.view">
+    <field name="name">sale.order.form.ya.production.capacity</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="inside">
+        <group string="YA Production Capacity" invisible="not ya_is_capacity_so">
+          <field name="ya_is_capacity_so" invisible="1"/>
+          <field name="ya_delivery_date" required="ya_is_capacity_so"
+                 readonly="state not in ('draft', 'sent')"/>
+          <field name="ya_slot" required="ya_is_capacity_so"
+                 readonly="state not in ('draft', 'sent')"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="action_ya_capacity_sale_orders" model="ir.actions.act_window">
+    <field name="name">Sales Order — Pengadaan Produk Jadi</field>
+    <field name="res_model">sale.order</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('ya_is_capacity_so', '=', True)]</field>
+    <field name="context">{'default_ya_is_capacity_so': True}</field>
+  </record>
+  <menuitem id="menu_ya_capacity_sale_orders"
+            name="Sales Order"
+            parent="ya_workflow_navigation.menu_ya_before_production"
+            action="action_ya_capacity_sale_orders"
+            sequence="18"
+            groups="sales_team.group_sale_salesman"/>
+</odoo>
