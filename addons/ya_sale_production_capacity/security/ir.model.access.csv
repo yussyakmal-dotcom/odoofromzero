@@ -2,3 +2,5 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_ya_sale_capacity_confirm_wizard_sales,ya.sale.capacity.confirm.wizard.sales,model_ya_sale_capacity_confirm_wizard,sales_team.group_sale_salesman,1,1,1,1
 access_ya_sale_quotation_discount_wizard_sales,ya.sale.quotation.discount.wizard.sales,model_ya_sale_quotation_discount_wizard,sales_team.group_sale_salesman,1,1,1,1
 access_ya_sale_capacity_reservation_packing,ya.sale.capacity.reservation.packing,model_ya_sale_capacity_reservation,ya_store_ro.group_ya_packing_admin,1,0,0,0
+access_ya_sale_mo2_finalization_packing,ya.sale.mo2.finalization.packing,model_ya_sale_mo2_finalization,ya_store_ro.group_ya_packing_admin,1,0,0,0
+access_ya_sale_mo2_release_line_packing,ya.sale.mo2.release.line.packing,model_ya_sale_mo2_release_line,ya_store_ro.group_ya_packing_admin,1,0,0,0
