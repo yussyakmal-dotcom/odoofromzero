@@ -1,5 +1,6 @@
 """Source-only gate for isolated Fase 2 YA Sales Order stage 1. Run as feri."""
 import ast
+import csv
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -14,6 +15,7 @@ files = [
     addon / "wizard/__init__.py",
     addon / "wizard/confirm_wizard.py",
     addon / "wizard/quotation_discount_wizard.py",
+    addon / "security/ir.model.access.csv",
 ]
 for path in files:
     assert path.is_file(), "MISSING: %s" % path
@@ -68,6 +70,19 @@ for token in required_xml:
     assert token in xml, "VIEW_GUARD_MISSING: %s" % token
 assert "ya_workflow_navigation" in manifest["depends"]
 assert "sale_stock" in manifest["depends"]
+assert "security/ir.model.access.csv" in manifest["data"]
+assert manifest["data"].index("security/ir.model.access.csv") < manifest["data"].index("views/ya_sale_confirm_wizard_views.xml")
+with (addon / "security/ir.model.access.csv").open(newline="", encoding="utf-8") as fh:
+    acl_rows = list(csv.DictReader(fh))
+expected_wizard_models = {
+    "model_ya_sale_capacity_confirm_wizard",
+    "model_ya_sale_quotation_discount_wizard",
+}
+assert len(acl_rows) == 2, "ACL_EXPECTED_EXACTLY_TWO_YA_WIZARDS"
+assert {row["model_id:id"] for row in acl_rows} == expected_wizard_models, "ACL_WIZARD_MODELS_MISMATCH"
+for row in acl_rows:
+    assert row["group_id:id"] == "sales_team.group_sale_salesman", "ACL_WRONG_GROUP"
+    assert all(row["perm_" + p] == "1" for p in ("read", "write", "create", "unlink")), "ACL_MISSING_WIZARD_RIGHTS"
 assert manifest["installable"] is True
 assert not any(token in source for token in (
     "env.cr.commit()", "env.cr.execute(", "mrp.production'].create(",
