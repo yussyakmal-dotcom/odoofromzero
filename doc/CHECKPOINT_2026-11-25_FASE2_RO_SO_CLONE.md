@@ -3,6 +3,8 @@
 **Status:** checkpoint perpindahan environment dan dokumentasi; **belum ada install addon Fase 2**
 **Repository:** `yussyakmal-dotcom/odoofromzero`, `main`
 
+> **KOREKSI TERBARU OWNER — 25 NOV 2026: QUOTATION TIDAK BOLEH DIBLOKIR OLEH SLOT.** Tanggal/slot YA baru diwajibkan pada tahap konfirmasi menjadi Sales Order, bukan saat pembuatan Draft/Sent quotation. Source `ya_sale_production_capacity` v19.0.1.0.4 memakai wizard saat Confirm; saat ini wizard **fail-closed** sampai reservasi kapasitas SO/Paket siap. Lihat Bagian 12. Catatan sebelumnya yang menyebut wajib sejak create bersifat historis dan telah digantikan.
+
 > **START HERE untuk pekerjaan Fase 2 berikutnya.** Baca juga `doc/HANDOVER_ODOO_FROM_ZERO_2026-11-23_RO_TO_STORE_PASS.md` (histori Fase 1) dan `doc/FASE2_SO_CAPACITY_AND_PACKING_DESIGN_2026-11-25.md` (keputusan owner). Jangan membaca checkpoint ini secara terpisah dari gambaran besar RO → produksi → PCK → toko.
 
 ## 1. Database Fase 2 — keputusan OWNER terbaru, mengesampingkan instruksi DB lama
@@ -103,3 +105,10 @@ Syarat: tepat nama DB clone tercetak dan audit PASS. Ini **bukan** mengulang pen
 - Form primary YA: di bawah Payment Terms terdapat input `YA Tanggal Kirim`, label baca-saja `Format YYYY-Mon-DD`, serta `YA Slot Kirim`. List custom SO menampilkan computed label `YA Tanggal Kirim` (bukan kolom native date) supaya konsisten dengan RO.
 - Source preflight `script/check_fase2_ya_sale_stage1_source_ya.py` melindungi keberadaan label+reuse formatter. Tidak ada perubahan pada SO standar, RO/MO/DO, reservasi kapasitas maupun Paket.
 - Next Feri: `git pull`, source preflight PASS, compileall, deploy hanya `ya_sale_production_capacity`, `-u ya_sale_production_capacity` **hanya** pada `erp-yussyakmal-mrp-test-RO_SO` sesudah backup, restart service pada waktu aman, refresh UI. Buktikan tanggal `2026-Nov-27` pada form/list dan date picker tetap bisa memilih tanggal; Custom SO Confirm masih sengaja diblokir.
+
+## 12. Koreksi KRITIS owner: penawaran ≠ SO Confirmed (25 Nov 2026)
+- Owner menjelaskan `YA Tanggal Kirim` dan `YA Slot Kirim` **tidak boleh wajib pada dokumen Quotation/Penawaran Draft/Sent**. Jika diwajibkan dari create, proses quotation diblokir. Keputusan sebelumnya "Custom SO wajib slot sejak dibuat" diganti: **wajib hanya ketika akan mengonfirmasi Custom YA SO**.
+- Source addon **v19.0.1.0.4**: `sale.order.create()/write()` YA tidak memvalidasi jadwal Draft/Sent; YA date+slot hanya tampil pada Confirmed SO di form primary; dialog konfirmasi via `ya.sale.capacity.confirm.wizard` meminta native date picker + YA Slot Kirim serta label `YYYY-Mon-DD` dan memeriksa Published Planning date+slot.
+- **PENTING:** Wizard saat ini hanya memvalidasi keberadaan Published schedule; **BELUM mengecek kapasitas SKU/Paket dan sengaja TIDAK mengonfirmasi Sales Order**. Button memberi pesan bahwa Confirm belum aktif. Tidak ada reservasi, perubahan state SO, pembuatan MO, atau transaksi stok. SO standar dari Sales tetap memakai native Confirm Odoo.
+- Status: GitHub SOURCE committed; **belum ada hasil preflight/upgrade/UI Stage 1 revisi ini dari Feri**. Jangan menyatakan PASSED hanya karena file source ada. Hindari deploy versi `19.0.1.0.3` dan lebih lama karena memblokir quotation.
+- Next: Feri `git pull`, `python3 script/check_fase2_ya_sale_stage1_source_ya.py`, `python3 -m compileall -q addons/ya_sale_production_capacity`; bila PASS dan backup clone siap, deploy hanya addon `ya_sale_production_capacity`, `-u ya_sale_production_capacity` **pada `erp-yussyakmal-mrp-test-RO_SO` saja**, restart service waktu aman. GUI checks: Draft Save/Sent tanpa slot PASS, Confirm Custom YA membuka wizard, tanpa jadwal invalid ditolak, Published schedule valid tetap fail-closed, native Sales Confirm tetap normal. Setelah itu lanjut implement reservasi atomik dan unblock Confirm.
