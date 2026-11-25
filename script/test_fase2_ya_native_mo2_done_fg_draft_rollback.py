@@ -193,7 +193,7 @@ for days in range(14, 75):
         break
 assert date, "STOP_NO_FREE_FUTURE_S1; NO_TEST_WRITES"
 
-ids = {}
+ids = {"company_id": Sample.company_id.id}
 success = False
 try:
     # Minimal synthetic Planning and Packing fixture following actual
@@ -719,7 +719,7 @@ finally:
                     WHERE company_id = %s AND product_id = %s
                       AND location_id = %s AND lot_id IS NULL
                       AND package_id IS NULL AND owner_id IS NULL
-                """, (Sample.company_id.id, pid, loc))
+                """, (ids["company_id"], pid, loc))
                 qty, reserved = map(float, check_cr.fetchone())
                 if (abs(qty - expected_qty) >= 1e-7 or
                         abs(reserved - expected_reserved) >= 1e-7):
