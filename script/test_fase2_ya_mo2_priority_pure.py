@@ -74,6 +74,7 @@ a = m.preview_packing_buckets(10, 3, 2, 2, 7)
 assert (a["so_fulfilled"], a["ro_package_fulfilled"],
         a["ro_direct_fulfilled"], a["ro_direct_shortage"]) == (5, 2, 3, 4)
 assert a["unallocated_finished"] == 0
+assert a["requires_exception_review"]  # RO shortage still needs explicit review.
 # Actual stock shortage must be explicit. Do NOT create stock.
 a = m.preview_packing_buckets(4, 3, 2, 2, 7)
 assert a["so_shortage"] == 1
