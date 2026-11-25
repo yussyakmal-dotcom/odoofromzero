@@ -28,7 +28,7 @@ assert env["ir.module.module"].search(
 chosen = None
 today = fields.Date.context_today(Sale)
 plannings = Plan.sudo().search([
-    ("state", "=", "published"), ("delivery_date", ">=", today),
+    ("state", "=", "published"), ("delivery_date", ">", today),
 ], order="delivery_date,slot,id")
 by_schedule = {}
 for p in plannings:
@@ -44,7 +44,6 @@ for (date, slot), schedules in sorted(by_schedule.items()):
         continue
     candidates = Counter(
         line.product_id.id for p in schedules for line in p.line_ids
-        if line.max_capacity > 0
     )
     for p in schedules:
         for line in p.line_ids:
