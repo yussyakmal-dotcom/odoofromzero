@@ -512,6 +512,12 @@ try:
             assert cdc_qty - cdc_reserved >= qty - 1e-7, (
                 "STOP_INSUFFICIENT_CDC_FOR_NATIVE_TEST: %s" % pid)
         assert stock_at(mo2.product_id.id, kitchen.lot_stock_id)[1] == 0
+        # Retain immutable baseline OUTSIDE the success-only tail, so an
+        # exception (e.g. native Consumption Warning) still gets a verified
+        # stock rollback in the finally block before propagating.
+        ids["stock_before"] = [
+            (pid, loc.id, *before[(pid, loc.id)]) for pid, loc in pairs
+        ]
         print("NATIVE_STOCK_BASELINE_CAPTURED:", len(before))
 
         # Native Odoo CDC picking validates actual stock movement.
@@ -636,8 +642,6 @@ try:
         print("MO2_FG_NATIVE_DRAFT_CREATION_PASS:",
               "PICKING:", fg.id, "QTY:", done_qty)
         print("MO2_FG_DOUBLE_CLICK_NO_DUPLICATE_PASS")
-        ids["stock_before"] = [
-            (pid, loc.id, *before[(pid, loc.id)]) for pid, loc in pairs]
         ids["synthetic_moves"] = list(set(
             real_mo2.move_raw_ids.ids + real_mo2.move_finished_ids.ids
             + real_cdc.move_ids.ids + fg.move_ids.ids))
@@ -686,6 +690,23 @@ try:
 finally:
     env.cr.rollback()
     print("EXPLICIT_ROLLBACK_EXECUTED")
+    env.invalidate_all()
+    # IMPORTANT: this verification executes even if the native MO completion
+    # raised an assertion; the earlier implementation skipped all post-try
+    # checks when exceptions propagated.
+    if ids.get("stock_before"):
+        for pid, loc, expected_qty, expected_reserved in ids["stock_before"]:
+            quants = env["stock.quant"].sudo().search([
+                ("company_id", "=", Sample.company_id.id),
+                ("product_id", "=", pid), ("location_id", "=", loc),
+                ("lot_id", "=", False), ("owner_id", "=", False),
+                ("package_id", "=", False)])
+            qty = sum(quants.mapped("quantity"))
+            reserved = sum(quants.mapped("reserved_quantity"))
+            assert abs(qty - expected_qty) < 1e-7 and abs(
+                reserved - expected_reserved) < 1e-7, (
+                    "STOCK_NOT_RESTORED_AFTER_ROLLBACK: %s/%s" % (pid, loc))
+        print("NATIVE_STOCK_ROLLBACK_VERIFIED")
 
 env.invalidate_all()
 if ids.get("mo1"):
@@ -705,19 +726,6 @@ if ids.get("synthetic_moves"):
 if ids.get("valuation_ids"):
     assert not env["stock.valuation.layer"].sudo().browse(
         ids["valuation_ids"]).exists(), "SYNTHETIC_VALUATION_PERSISTED"
-if ids.get("stock_before"):
-    for pid, loc, expected_qty, expected_reserved in ids["stock_before"]:
-        quants = env["stock.quant"].sudo().search([
-            ("company_id", "=", Sample.company_id.id),
-            ("product_id", "=", pid), ("location_id", "=", loc),
-            ("lot_id", "=", False), ("owner_id", "=", False),
-            ("package_id", "=", False)])
-        qty = sum(quants.mapped("quantity"))
-        reserved = sum(quants.mapped("reserved_quantity"))
-        assert abs(qty - expected_qty) < 1e-7 and abs(
-            reserved - expected_reserved) < 1e-7, (
-                "STOCK_NOT_RESTORED_AFTER_ROLLBACK: %s/%s" % (pid, loc))
-    print("NATIVE_STOCK_ROLLBACK_VERIFIED")
 
 if ids.get("final"):
     assert not env["ya.sale.mo2.finalization"].sudo().browse(
