@@ -394,7 +394,10 @@ print("RECIPE_ROUNDING_SUMMARY_BOTH_WAVES:", {
         rounding_totals["MO2"]["covered_by_mo1_surplus"],
     "mo2_additional_rounding_surplus":
         rounding_totals["MO2"]["additional_rounding_surplus"],
-    "TRUE_FINAL_EXTRA_UNITS": true_final_units,
+    # NEVER label a subtotal as FINAL if the exact 8-line fixture still
+    # lacks a valid kitchen route or exceeds Published Planning Max.
+    "THEORETICAL_EXTRA_FOR_RESOLVED_SKUS": true_final_units,
+    "IS_COMPLETE_ACROSS_ALL_REQUESTED_SKUS": all_resolved,
 })
 print("RECIPE_ROUNDING_ALL_SKUS_RESOLVED:", all_resolved)
 if not all_resolved:
@@ -485,6 +488,15 @@ print("OWNER_FIXTURE_ALL_NATIVE_CAPACITY_WITHIN_PUBLISHED_MAX:",
       not any(x[0] == "TWO_MO_WAVES_EXCEED_PUBLISHED_MAX"
               for x in blockers))
 print("OWNER_FIXTURE_FULL_NATIVE_READY:", not blockers)
+valid_extra = all_resolved and not blockers
+if valid_extra:
+    print("RECIPE_ROUNDING_FEASIBLE_FINAL_EXTRA_UNITS:",
+          true_final_units)
+else:
+    print("RECIPE_ROUNDING_PARTIAL_THEORETICAL_EXTRA_UNITS:",
+          true_final_units)
+    print("RECIPE_ROUNDING_FINAL_EXTRA_NOT_APPROVED:",
+          "unresolved SKU route/PCK source and/or Published Max blockers")
 print("NOTE: NO real inventory adjustment made; 10x requires")
 print("      a new Fase2 CLONE-ONLY SINGLE ROLLBACK test.")
 print("READ_ONLY_OWNER_MIXED_PAKET_MO1_MO2_10X_GATE_COMPLETE")
