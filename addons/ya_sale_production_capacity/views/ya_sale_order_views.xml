@@ -13,13 +13,11 @@
       <xpath expr="//field[@name='payment_term_id']" position="after">
         <field name="ya_is_capacity_so" invisible="1"/>
         <field name="ya_delivery_date" string="YA Tanggal Kirim"
-               required="ya_is_capacity_so"
-               readonly="state not in ('draft', 'sent')"/>
+               readonly="1" invisible="state in ('draft', 'sent')"/>
         <field name="ya_delivery_date_label" string="Format YYYY-Mon-DD"
-               readonly="1" invisible="not ya_delivery_date"/>
+               readonly="1" invisible="state in ('draft', 'sent') or not ya_delivery_date"/>
         <field name="ya_slot" string="YA Slot Kirim"
-               required="ya_is_capacity_so"
-               readonly="state not in ('draft', 'sent')"/>
+               readonly="1" invisible="state in ('draft', 'sent')"/>
       </xpath>
     </field>
   </record>
