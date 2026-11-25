@@ -382,9 +382,8 @@ class YaPackingBatchMo2Release(models.Model):
                 "location_dest_id": pt.default_location_dest_id.id,
                 "company_id": pt.company_id.id,
                 "date_start": fields.Datetime.now(),
-                "origin": "YA MO2 / %s / %s / %s" % (
-                    self.delivery_date, self.slot,
-                    product.default_code or product.id),
+                "origin": "MO2 / %s / %s" % (
+                    self.delivery_date.strftime("%Y-%b-%d"), self.slot),
                 # NEVER set ya_packing_batch_line_id (reserved to MO1).
             })
             mo.action_confirm()
