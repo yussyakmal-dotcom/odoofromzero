@@ -96,3 +96,10 @@ Syarat: tepat nama DB clone tercetak dan audit PASS. Ini **bukan** mengulang pen
 - Data yang tersimpan tetap `fields.Date` Odoo dan jadwal Planning tetap cocok; jika input harus menggunakan date picker asli, tampilkan label computed standar tanpa menjadikannya input Char. Jangan mengklaim form yang sedang terpasang otomatis berubah hanya karena dokumentasi diperbarui.
 - Ketentuan ini telah ditambahkan di **bagian paling atas handover utama**, sehingga saat sesi baru semua perubahan UI mengikuti standardisasi tanggal sebelum menulis XML/Python.
 - Khusus Custom SO saat ini: `YA Tanggal Kirim` dan `YA Slot Kirim` posisinya di bawah Payment Terms dalam source, tetapi perubahan format visible-date khusus SO masih perlu implementasi dan pengujian server clone tersendiri.
+
+## 11. Implementasi source format tanggal SO — 25 Nov 2026
+- Standar global `YYYY-Mon-DD` kini diimplementasikan **di SOURCE** addon SO versi `19.0.1.0.3` (belum diverifikasi deployed/UI).
+- `sale.order.ya_delivery_date` tetap `fields.Date` yang editable dengan date-picker standar; `sale.order.ya_delivery_date_label` dihitung dari `odoo.addons.ya_store_ro.models.date_labels.format_ymondd`, tanpa menggandakan logika format dan tanpa mengubah ISO date di database.
+- Form primary YA: di bawah Payment Terms terdapat input `YA Tanggal Kirim`, label baca-saja `Format YYYY-Mon-DD`, serta `YA Slot Kirim`. List custom SO menampilkan computed label `YA Tanggal Kirim` (bukan kolom native date) supaya konsisten dengan RO.
+- Source preflight `script/check_fase2_ya_sale_stage1_source_ya.py` melindungi keberadaan label+reuse formatter. Tidak ada perubahan pada SO standar, RO/MO/DO, reservasi kapasitas maupun Paket.
+- Next Feri: `git pull`, source preflight PASS, compileall, deploy hanya `ya_sale_production_capacity`, `-u ya_sale_production_capacity` **hanya** pada `erp-yussyakmal-mrp-test-RO_SO` sesudah backup, restart service pada waktu aman, refresh UI. Buktikan tanggal `2026-Nov-27` pada form/list dan date picker tetap bisa memilih tanggal; Custom SO Confirm masih sengaja diblokir.
