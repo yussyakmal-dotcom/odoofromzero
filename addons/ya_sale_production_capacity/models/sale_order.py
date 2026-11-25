@@ -1,7 +1,7 @@
-"""Fase 2 Stage 1: quotation remains native; YA schedule belongs to SO confirmation.
+"""YA commercial SO confirmation is tied to protected kitchen capacity.
 
-Capacity reservation is not implemented: YA SO confirmation MUST fail closed.
-Standard Sales / Quotations are unaffected.
+Only the RO_SO test clone may confirm YA capacity orders. Standard Sales
+Quotations remain native and are not subject to YA manufacturing guards.
 """
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
@@ -53,8 +53,38 @@ class SaleOrder(models.Model):
             for order in self
         ):
             raise UserError(_('Jadwal Sales Order YA tidak boleh diubah setelah Confirm.'))
-        # Do not validate date/slot on draft quotation, send, or standard SO.
+        protected = {'order_line'}
+        if protected.intersection(vals) and any(
+            o.ya_is_capacity_so and o.state in ('sale', 'done') for o in self
+        ):
+            raise UserError(_(
+                'Produk/Qty YA SO Confirmed terkunci karena kapasitas produksi '
+                'sudah dipesan. Perubahan memerlukan prosedur revisi terpisah.'
+            ))
+        if vals.get('state') in ('draft', 'sent', 'cancel') and any(
+            o.ya_is_capacity_so and o.state in ('sale', 'done') for o in self
+        ):
+            raise UserError(_(
+                'SO YA Confirmed tidak dapat dibatalkan/dibuka kembali: '
+                'pelepasan reservasi kapasitas belum tersedia.'
+            ))
+        # Draft quotation remains freely editable; normal Sales unchanged.
         return super().write(vals)
+
+    def action_cancel(self):
+        if any(o.ya_is_capacity_so and o.state in ('sale', 'done') for o in self):
+            raise UserError(_(
+                'Pembatalan SO YA setelah Confirm memerlukan prosedur release '
+                'kapasitas yang belum diaktifkan.'
+            ))
+        return super().action_cancel()
+
+    def action_draft(self):
+        if any(o.ya_is_capacity_so and o.state in ('sale', 'done') for o in self):
+            raise UserError(_(
+                'SO YA Confirmed tidak boleh kembali Draft dengan reservasi aktif.'
+            ))
+        return super().action_draft()
 
     def action_open_discount_wizard(self):
         """Use YA's PO-style discount choices only for YA quotations."""
@@ -86,8 +116,7 @@ class SaleOrder(models.Model):
         self.ensure_one()
         if self.state not in ('draft', 'sent'):
             raise UserError(_('Hanya penawaran Draft/Sent yang dapat dikonfirmasi.'))
-        # Open a wizard for date and slot; it will not confirm while the
-        # capacity reservation engine is unfinished.
+        # Open the YA-only atomic capacity confirmation wizard.
         return {
             'type': 'ir.actions.act_window',
             'name': _('YA Jadwal Kirim — Konfirmasi Sales Order'),
@@ -105,7 +134,7 @@ class SaleOrder(models.Model):
         }
 
     def _ya_native_confirm_without_early_delivery(self):
-        """Internal future Confirm step after locked booking, NOT UI exposed.
+        """Internal native Confirm after protected capacity is booked.
 
         Odoo 19 sale_stock respects context skip_procurement in
         sale.order.line._action_launch_stock_rule. Confirm YA commercial
@@ -133,3 +162,45 @@ class SaleOrder(models.Model):
                 'reach Confirmed state; transaction must roll back.'
             ))
         return result
+
+
+class SaleOrderLine(models.Model):
+    _inherit = 'sale.order.line'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        order_ids = [v.get('order_id') for v in vals_list if v.get('order_id')]
+        if order_ids and any(
+            order.ya_is_capacity_so and order.state in ('sale', 'done')
+            for order in self.env['sale.order'].browse(order_ids)
+        ):
+            raise UserError(_(
+                'Cannot add lines to confirmed YA SO while production '
+                'capacity is reserved.'
+            ))
+        return super().create(vals_list)
+
+    def write(self, vals):
+        protected = {'product_id', 'product_uom_qty', 'product_uom_id', 'order_id'}
+        if protected.intersection(vals) and any(
+            line.order_id.ya_is_capacity_so
+            and line.order_id.state in ('sale', 'done')
+            for line in self
+        ):
+            raise UserError(_(
+                'Cannot change the product/Qty/UoM of confirmed YA SO. '
+                'Protected capacity would become inconsistent.'
+            ))
+        return super().write(vals)
+
+    def unlink(self):
+        if any(
+            line.order_id.ya_is_capacity_so
+            and line.order_id.state in ('sale', 'done')
+            for line in self
+        ):
+            raise UserError(_(
+                'Cannot delete lines from confirmed YA SO with capacity '
+                'reservations.'
+            ))
+        return super().unlink()
