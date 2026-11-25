@@ -6,6 +6,7 @@ Native Sales Orders with ya_is_capacity_so=False remain unchanged.
 """
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError, UserError
+from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
 
 
 class SaleOrder(models.Model):
@@ -18,11 +19,21 @@ class SaleOrder(models.Model):
     ya_delivery_date = fields.Date(
         string='YA Tanggal Kirim', copy=False, index=True,
     )
+    ya_delivery_date_label = fields.Char(
+        string='YA Tanggal Kirim (YYYY-Mon-DD)',
+        compute='_compute_ya_delivery_date_label',
+        readonly=True,
+    )
     ya_slot = fields.Selection(
         [('S1', 'S1 - 05.00 WIB'), ('S2', 'S2 - 09.00 WIB'),
          ('S3', 'S3 - 11.00 WIB')],
         string='YA Slot Kirim', copy=False, index=True,
     )
+
+    @api.depends('ya_delivery_date')
+    def _compute_ya_delivery_date_label(self):
+        for order in self:
+            order.ya_delivery_date_label = format_ymondd(order.ya_delivery_date)
 
     def _ya_validate_published_schedule(self):
         """Validate live Published Planning at create/edit, never trust view alone."""
