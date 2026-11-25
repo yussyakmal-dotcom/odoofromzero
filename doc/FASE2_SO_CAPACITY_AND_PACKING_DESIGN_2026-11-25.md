@@ -1,3 +1,5 @@
+> **KOREKSI OWNER TERBARU 25 NOV 2026 — MENGGANTIKAN ATURAN QUOTATION LAMA:** Quotation YA Draft/Sent **tidak memerlukan tanggal/slot**; YA Tanggal Kirim + YA Slot Kirim baru diwajibkan pada saat Confirm Sales Order. Source addon v19.0.1.0.4 menggunakan wizard jadwal, **belum boleh mengonfirmasi** sampai reservasi kapasitas atomic selesai; jangan deploy versi lama yang memblokir Quotation. [Checkpoint aktif](CHECKPOINT_2026-11-25_FASE2_RO_SO_CLONE.md).
+
 > **CHECKPOINT AKTIF (25 Nov 2026):** [CHECKPOINT_2026-11-25_FASE2_RO_SO_CLONE.md](CHECKPOINT_2026-11-25_FASE2_RO_SO_CLONE.md). DB Fase 2 sudah dipindahkan atas keputusan owner ke `erp-yussyakmal-mrp-test-RO_SO` (clone). Source addon tahap awal sudah dibuat, **belum diinstal**. Instruksi database lama dalam riwayat dokumen tidak berlaku untuk pekerjaan Fase 2.
 
 # Fase 2 — Custom Sales Order YA / Pengadaan Produk Jadi
@@ -7,7 +9,7 @@ Fase 1 RO biasa + Paket sampai store receipt dan surplus native transfer telah P
 
 ## Scope
 - Jalur **Custom SO** di menu YA Production Capacity → SEBELUM PRODUKSI, menggunakan model `sale.order` standar beserta penanda workflow YA yang dilindungi backend.
-- Custom SO **tidak boleh dibuat tanpa delivery date + slot yang tersedia di Published Planning**. Tidak boleh Confirm jika validasi kapasitas gagal. Produk jadi biasa dan Paket lintas dapur didukung.
+- Quotation YA **boleh dibuat/disimpan/dikirim tanpa delivery date + slot**. Ketika melakukan Confirm menjadi Custom SO YA, pengguna wajib mengisi delivery date + slot Published Planning dan kapasitas harus berhasil direservasi secara atomik. Produk jadi biasa dan Paket lintas dapur didukung.
 - Sales Order **biasa** dari Sales → Orders tetap dapat dibuat tanpa slot YA, tidak memesan kapasitas YA, tidak otomatis masuk alokasi YA. Jalur SOP native/manual **di luar scope addon**.
 - SO Confirm mengikat prioritas kapasitas produksi; RO Confirm **tidak** mereservasi kapasitas yang terlindungi dari SO belakangan.
 - Setiap SO yang dikonfirmasi mencadangkan kapasitas per SKU/BoM keluaran dapur di delivery date+slot; kebutuhan Paket harus diekspansi ke komponen produksi dapur tanpa menghitung ganda. Reservasi SO berikutnya atomik per slot, cegah race.
@@ -49,7 +51,7 @@ Cut-off relatif ke slot perlu dimodelkan berbasis jadwal kebijakan; jangan hardc
 ## Gate implementasi
 A. Read-only schema audit originally completed on `erp-yussyakmal-mrp-test` (sale.order, sale.order.line, published planning, material/packing links; no writes).
 B. Pure capacity math regression: SO after RO, MO1 already full, incremental SO→MO2, BoM round-up overflow, Paket cross-kitchen, concurrency policy, SO cancel/amend and cut-off exception boundaries.
-C. Isolated addon `ya_sale_production_capacity` SOURCE CREATED; NOT INSTALLED/TESTED. Mandatory slot on custom SO, backend route marker, confirm reservation; native SO unaffected.
+C. Isolated addon `ya_sale_production_capacity` SOURCE CREATED; NOT INSTALLED/TESTED. Mandatory slot at YA confirmation (NOT quotation create), backend route marker; confirm reservation to be implemented; native SO unaffected.
 D. Extend Pre Produksi/MO model minimally to record MO1 vs MO2, enforce aggregated cap, **without** weakening existing RO-only uniqueness/idempotence behavior.
 E. Add Packing final allocation and SO delivery linking only after reservation/MO2 tests; native stock guard and actual receipt unchanged.
 F. Fase 2 source → rollback Odoo shell ONLY on cloned `erp-yussyakmal-mrp-test-RO_SO` → GUI owner UAT; never touch live DB or original Fase 1 test DB.
