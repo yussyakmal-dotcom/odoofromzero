@@ -42,6 +42,10 @@ required_xml = [
     "default_ya_is_capacity_so",
     "[('ya_is_capacity_so', '=', True)]",
     'required="ya_is_capacity_so"',
+    '<field name="mode">primary</field>',
+    '<xpath expr="//sheet/notebook" position="before">',
+    'view_ya_capacity_sale_order_list',
+    'action_ya_capacity_sale_orders_form_view',
 ]
 for token in required_xml:
     assert token in xml, "VIEW_GUARD_MISSING: %s" % token
