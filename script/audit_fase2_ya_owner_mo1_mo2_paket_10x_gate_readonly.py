@@ -248,6 +248,10 @@ for wave in ("MO1", "MO2"):
 mo_plan = {}
 blockers = []
 raw_needs_by_kitchen = defaultdict(float)
+rounding_totals = {
+    "MO1": {"required": 0, "rounded": 0, "extra": 0},
+    "MO2": {"required": 0, "rounded": 0, "extra": 0},
+}
 for pid in sorted(set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])):
     product = Product.browse(pid)
     route = route_of.get(pid)
@@ -270,12 +274,45 @@ for pid in sorted(set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])):
     if qty1 and qty2 and qty1+qty2 <= maximum:
         print("SKU_IN_BOTH_MO_WAVES_CAPACITY_PASS:",
               product.default_code, qty1, qty2, maximum)
+    # Track oversupply at the SKU level. NEVER net leftovers of distinct
+    # product IDs against each other; a Paket consumes its exact BoM SKUs.
+    extra1 = qty1 - int(round(need1))
+    extra2 = qty2 - int(round(need2))
+    assert extra1 >= 0 and extra2 >= 0
+    for wave, required, rounded, extra in (
+        ("MO1", int(round(need1)), qty1, extra1),
+        ("MO2", int(round(need2)), qty2, extra2),
+    ):
+        rounding_totals[wave]["required"] += required
+        rounding_totals[wave]["rounded"] += rounded
+        rounding_totals[wave]["extra"] += extra
+        print("RECIPE_ROUNDING_PER_WAVE_SKU:", {
+            "wave": wave,
+            "sku": product.default_code,
+            "product_id": pid,
+            "kitchen": route["warehouse"].code,
+            "required_after_paket_expansion": required,
+            "bom_output_per_batch": batch,
+            "batches_needed": rounded // batch,
+            "rounded_production": rounded,
+            "extra_from_bom_rounding": extra,
+            "published_max": maximum,
+            "combined_both_waves_within_max": qty1 + qty2 <= maximum,
+        })
+    print("RECIPE_ROUNDING_PER_SKU_TOTAL:", {
+        "sku": product.default_code, "product_id": pid,
+        "mo1_extra": extra1, "mo2_extra": extra2,
+        "total_extra": extra1 + extra2,
+    })
     plan = {
         "sku": product.default_code, "product_id": pid,
         "kitchen": route["warehouse"].code,
         "mo1_demand": int(round(need1)), "mo2_demand": int(round(need2)),
         "bom_output": batch, "mo1_rounded": qty1,
         "mo2_rounded": qty2, "total_rounded": qty1+qty2,
+        "mo1_extra_from_rounding": extra1,
+        "mo2_extra_from_rounding": extra2,
+        "total_extra_from_rounding": extra1+extra2,
         "published_max": maximum, "capacity_ok": qty1+qty2 <= maximum,
         "kitchen_bom": route["bom"].id,
     }
@@ -293,6 +330,29 @@ for pid in sorted(set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])):
         raw_needs_by_kitchen[(route["warehouse"].id, raw.id)] += (
             ratio * (qty1+qty2)/batch
         )
+
+# Totals are a COUNT of surplus units across different SKUs, not an
+# interchangeable pool of inventory. Exact per-SKU surplus above is the
+# authoritative allocation input (including overlap SKU11637).
+all_resolved = all(
+    pid in mo_plan
+    for pid in set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])
+)
+for wave in ("MO1", "MO2"):
+    print("RECIPE_ROUNDING_SUMMARY_PER_WAVE:", wave,
+          rounding_totals[wave])
+print("RECIPE_ROUNDING_SUMMARY_BOTH_WAVES:", {
+    key: sum(rounding_totals[wave][key] for wave in ("MO1", "MO2"))
+    for key in ("required", "rounded", "extra")
+})
+print("RECIPE_ROUNDING_ALL_SKUS_RESOLVED:", all_resolved)
+if not all_resolved:
+    print("RECIPE_ROUNDING_TOTAL_PARTIAL_ONLY: missing unique validated"
+          " Published kitchen route or fractional demand for some SKUs")
+print("RECIPE_ROUNDING_NOTE: Qty excess cannot replace another SKU;"
+      " Paket final SKU output1 is assembled in PCK separately")
+print("RECIPE_ROUNDING_NOTE: a positive extra with combined MO1+MO2"
+      " above Published Max is an INVALID production plan, not approved surplus")
 
 # Stock Opname 10x preview for *all* waves, aggregated shared raw deficits.
 # Keep existing quantity+reservation completely untouched in this audit.
