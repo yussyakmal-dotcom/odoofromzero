@@ -2,12 +2,12 @@
 
 Usage:
   sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell \\
-    -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test --no-http \\
+    -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test-RO_SO --no-http \\
     < script/audit_fase2_sale_capacity_schema_readonly_ya.py
 
 No create, write, upgrade, Stock adjustment, or commit.
 """
-assert env.cr.dbname == "erp-yussyakmal-mrp-test", "REFUSED: MRP TEST DB ONLY"
+assert env.cr.dbname == "erp-yussyakmal-mrp-test-RO_SO", "REFUSED: MRP TEST DB ONLY"
 
 print("DATABASE:", env.cr.dbname)
 print("MODE: FASE2_SALE_CAPACITY_SCHEMA_READ_ONLY")
