@@ -562,6 +562,19 @@ try:
         assert abs(fg_after - (fg_before + done_qty)) < 1e-7, (
             "MO2_DONE_DID_NOT_POST_FINISHED_STOCK")
         assert not mo2.workorder_ids and bline.mo_id == mo
+        assert all(m.state == "done" for m in real_mo2.move_raw_ids), (
+            "MO2_COMPONENT_CONSUMPTION_NOT_DONE")
+        for pid, consumed in materials.items():
+            original_kitchen, _ = before[(pid, kitchen.lot_stock_id.id)]
+            after_kitchen, after_reserved = stock_at(
+                pid, kitchen.lot_stock_id)
+            assert after_kitchen >= -1e-7, (
+                "MO2_KITCHEN_NEGATIVE_RAW_STOCK: %s" % pid)
+            assert abs(after_kitchen - original_kitchen) < 1e-7, (
+                "MO2_RAW_STOCK_CONSUMPTION_DELTA_WRONG: %s" % pid)
+            assert after_reserved <= after_kitchen + 1e-7, (
+                "MO2_RAW_STOCK_OVERRESERVED_AFTER_DONE: %s" % pid)
+        print("NATIVE_MO2_RAW_CONSUMPTION_STOCK_DELTAS_PASS")
         print("NATIVE_MO2_DONE_STOCK_DELTAS_PASS:",
               "MO2:", mo2.id, "FG:", done_qty)
 
