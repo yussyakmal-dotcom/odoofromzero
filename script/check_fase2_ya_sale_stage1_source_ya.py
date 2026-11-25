@@ -11,6 +11,8 @@ files = [
     addon / "__manifest__.py",
     addon / "models/__init__.py",
     addon / "models/sale_order.py",
+    addon / "models/confirm_capacity_math.py",
+    addon / "models/confirm_readiness.py",
     addon / "views/ya_sale_order_views.xml",
     addon / "wizard/__init__.py",
     addon / "wizard/confirm_wizard.py",
@@ -101,6 +103,18 @@ assert not any(token in source for token in (
 )), "UNSAFE_SOURCE_SCOPE"
 print("FASE2_YA_SALE_SOURCE_PREFLIGHT_PASS")
 wizard = (addon / "wizard/confirm_wizard.py").read_text(encoding="utf-8")
+readiness = (addon / "models/confirm_readiness.py").read_text(encoding="utf-8")
+assert "from . import confirm_readiness" in (addon / "models/__init__.py").read_text(encoding="utf-8")
+assert "_ya_prepare_capacity_confirm_readonly" in wizard
+for token in ("def _ya_prepare_capacity_confirm_readonly(", "_is_global_discount()",
+              "All / Produk Jadi / Paket", "Published Planning",
+              "expand_so_package_requirements", "check_so_capacity",
+              "PCK", "line.product_uom_id"):
+    assert token in readiness, "CONFIRM_READINESS_MISSING: %s" % token
+assert not any(token in readiness for token in (
+    ".create(", ".write(", "env.cr.commit(", "env.cr.execute(",
+    "action_confirm(",
+)), "CONFIRM_READINESS_MUST_REMAIN_READONLY"
 assert "('state', '=', 'published')" in wizard
 assert "default_ya_is_capacity_so" in xml
 assert "required=\"ya_is_capacity_so\"" not in xml
@@ -122,4 +136,5 @@ assert "from . import quotation_discount_wizard" in (addon / "wizard/__init__.py
 print("SCOPE: YA date/slot visible OPTIONAL and editable in Draft/Sent; validation at Confirm only; fail-closed")
 print("YA_DISCOUNT: one-line Rp/%; all-lines %; global Rp/%; native Sales unaffected")
 print("STANDARD_SALES: native action_confirm delegate, no YA rules")
+print("CONFIRM_READINESS: published SKU route, native global discount exclusions, Paket components; read-only")
 print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN")
