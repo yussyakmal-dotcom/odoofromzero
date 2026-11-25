@@ -76,3 +76,10 @@ Syarat: tepat nama DB clone tercetak dan audit PASS. Ini **bukan** mengulang pen
 - **DO NOT** memakai `erp-yussyakmal-mrp-test` untuk Fase 2 meski banyak dokumen sejarah mencantumkannya.
 - **DO NOT** mengubah rancangan kapasitas karena informasi SOP out-of-band.
 - **DO NOT** membuat backup privat, data pelanggan, token, atau URL intranet yang sensitif menjadi script command publik; URL internal di atas hanya untuk konteks operator.
+
+## 8. Owner UI feedback — menu visible, input slot belum terlihat (25 Nov)
+- Owner melaporkan menu `YA Production Capacity → Sales Order` **sudah muncul**, tetapi form masih terlihat standar, belum terlihat Tanggal Kirim dan Slot. Ini **belum** membuktikan seluruh modul berfungsi; jangan nyatakan UI PASS.
+- Investigasi source: view tahap awal mewarisi form Sales secara global, lalu menambah group di **akhir** `//sheet`; layout dapat membuat input tidak terlihat di area utama dan pemakaian view native/default action tidak eksplisit. Perbaikan source: `view_ya_capacity_sale_order_form` dijadikan `mode=primary` untuk YA saja, wajib field tanggal+slot ditempatkan **sebelum tab order lines/notebook**, action YA mengikat **list + form** eksplisit dengan `ir.actions.act_window.view`. Native Sales form tidak diubah.
+- Version `ya_sale_production_capacity` naik `19.0.1.0.1`. Update static source gate untuk memeriksa primary view dan action bindings.
+- **Status: source fix committed, BUKAN server deployed/test PASS.** Next Feri `git pull`, source preflight, deploy hanya addon baru ke `/opt/odoo19/custom-addons/`, verifikasi module already installed pada clone, **`-u ya_sale_production_capacity` pada CLONE saja** (bukan `-i`), exit 0, restart terkoordinasi, refresh UI, periksa apakah Tanggal Kirim dan Slot muncul di atas detail produk saat New YA SO. Jika masih tidak muncul, audit `ir.actions.act_window.view` dan resolved `fields_view_get` pada clone read-only; jangan mengubah Fase1.
+- **Custom SO Confirm tetap sengaja BLOKIR** sampai mesin reservasi kapasitas dibuat.
