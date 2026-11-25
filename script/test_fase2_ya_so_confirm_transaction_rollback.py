@@ -72,20 +72,40 @@ for (date, slot), schedules in sorted(by_schedule.items()):
             tzinfo=ZoneInfo("Asia/Jakarta")):
         skip("S1_CUTOFF_EXPIRED", date=date, slot=slot)
         continue
-    if Ledger.search_count([("delivery_date", "=", date), ("slot", "=", slot)]):
-        skip("SLOT_ALREADY_HAS_SO_LEDGER", date=date, slot=slot)
-        continue
+    # Existing Packing Batch is EXPECTED in the owner-approved scenario:
+    # SO can arrive after MO1 and must reuse its output before MO2.
+    # Only a physically advanced Packing/dispatch stage blocks new booking.
     batch = env["ya.packing.batch"].sudo().search([
         ("delivery_date", "=", date), ("slot", "=", slot),
     ], limit=1)
     if batch:
-        skip("SLOT_ALREADY_HAS_PACKING_BATCH", date=date, slot=slot)
-        continue
+        packing_do = len(batch.ya_store_delivery_ids)
+        package_mo = len(batch.ya_package_assembly_mo_ids)
+        fg_done = sum(t.state == "done" for t in batch.ya_fg_transfer_ids)
+        print("EXISTING_BATCH:", batch.id, "STATE:", batch.state,
+              "LINES:", len(batch.line_ids),
+              "MO1_LINKS:", len(batch.line_ids.mapped("mo_id")),
+              "STORE_DO:", packing_do, "PACKAGE_ASSEMBLY_MO:", package_mo,
+              "FG_TRANSFER_DONE:", fg_done)
+        if packing_do or package_mo or fg_done:
+            skip("PACKING_ALREADY_ADVANCED", date=date, slot=slot)
+            continue
+    existing_ledger = Ledger.search_count([
+        ("delivery_date", "=", date), ("slot", "=", slot),
+    ])
+    if existing_ledger:
+        print("PRIOR_SO_CAPACITY_LEDGER_ROWS:", existing_ledger)
     candidates = Counter(
         line.product_id.id for p in schedules for line in p.line_ids
     )
-    for p in schedules:
-        for line in p.line_ids:
+    # Prefer SKUs with MO1 already released: tests RO->MO1->SO reuse.
+    mo1_products = set(batch.line_ids.filtered(
+        lambda row: bool(row.mo_id)).mapped("product_id").ids) if batch else set()
+    plan_lines = [line for p in schedules for line in p.line_ids]
+    plan_lines.sort(key=lambda line: (
+        0 if line.product_id.id in mo1_products else 1, line.id
+    ))
+    for line in plan_lines:
             product = line.product_id
             info = (product.id, date, slot)
             if line.max_capacity <= 0:
@@ -147,8 +167,8 @@ for (date, slot), schedules in sorted(by_schedule.items()):
                     print("BOM_LOOKUP_ERROR_SAMPLE:", line.id, str(exc)[:200])
                 continue
             chosen = (date, slot, product, int(round(maximum)), line)
-            break
-        if chosen:
+            print("SELECTED_MO1_ALREADY_RELEASED:",
+                  product.id in mo1_products)
             break
     if chosen:
         break
