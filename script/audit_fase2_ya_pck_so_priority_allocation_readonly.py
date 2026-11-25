@@ -88,7 +88,7 @@ wanted_fields = {
 }
 
 for label, model_name in models.items():
-    assert model_name in env, "STOP_MODEL_MISSING: %s" % model_name
+    assert model_name in env.registry.models, ("STOP_MODEL_MISSING: %s" % model_name)
     Model = env[model_name]
     result = {}
     for key in wanted_fields.get(model_name, []):
