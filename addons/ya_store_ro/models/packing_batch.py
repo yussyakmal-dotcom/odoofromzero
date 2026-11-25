@@ -293,8 +293,8 @@ class YaPackingBatchLine(models.Model):
                 'location_dest_id': pt.default_location_dest_id.id,
                 'company_id': pt.company_id.id,
                 'date_start': fields.Datetime.now(),
-                'origin': '%s / %s / %s' % (
-                    batch.name, line.kitchen_code, line.reference,
+                'origin': 'MO1 / %s / %s' % (
+                    batch.delivery_date.strftime('%Y-%b-%d'), batch.slot,
                 ),
                 'ya_packing_batch_line_id': line.id,
             })
