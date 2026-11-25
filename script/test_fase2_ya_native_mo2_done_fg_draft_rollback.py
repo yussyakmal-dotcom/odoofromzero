@@ -1,4 +1,4 @@
-"""Clone-only native MO2 -> separate CDC material picking, rollback-only.
+"""Clone-only native CDC Done -> MO2 native Done -> FG Draft, rollback-only.
 
 All objects are synthetic in ONE uncommitted transaction:
 Published Planning -> Packing Batch -> native confirmed MO1 -> YA SO1 -> YA SO2.
@@ -544,6 +544,44 @@ try:
                 tracking_disable=True, mail_notify_force_send=False)
         real_mo2.action_assign()
         real_mo2.write({"qty_producing": float(units_per_batch)})
+        # Odoo 19's normal production UI also prepares actual component
+        # quantities when entering Qty Producing. The previous shell test
+        # set only qty_producing, leaving stock.move.quantity/picked empty;
+        # strict/warning BoM consumption correctly opened the wizard.
+        # Use native Odoo mechanics, NOT skip_consumption or wizard override.
+        assert callable(getattr(real_mo2, "_set_qty_producing", None)), (
+            "STOP_NATIVE_MO2_COMPONENT_PREPARATION_METHOD_MISSING"
+        )
+        real_mo2._set_qty_producing()
+        actual_components = {}
+        for raw_move in real_mo2.move_raw_ids:
+            assert raw_move.state not in ("done", "cancel"), (
+                "RAW_MOVE_ALREADY_CLOSED_BEFORE_MO2_DONE"
+            )
+            qty = raw_move.product_uom._compute_quantity(
+                raw_move.quantity, raw_move.product_id.uom_id, round=False
+            )
+            if raw_move.picked and qty > 0:
+                pid = raw_move.product_id.id
+                actual_components[pid] = actual_components.get(pid, 0) + qty
+        assert set(actual_components) == set(materials), (
+            "NATIVE_MO2_PICKED_COMPONENTS_NOT_EQUAL_BOM: "
+            "actual=%s expected=%s" % (actual_components, materials)
+        )
+        for pid, needed in materials.items():
+            assert abs(actual_components[pid] - needed) < 1e-7, (
+                "NATIVE_MO2_COMPONENT_QTY_DIFFERS_FROM_BOM: "
+                "%s actual=%s expected=%s"
+                % (pid, actual_components[pid], needed)
+            )
+        issues = real_mo2._get_consumption_issues()
+        assert not issues, (
+            "NATIVE_MO2_CONSUMPTION_WARNING_REQUIRES_REVIEW: %s"
+            % [(entry[1].default_code, entry[2], entry[3])
+               for entry in issues]
+        )
+        print("NATIVE_MO2_CONSUMPTION_MATCHES_BOM_PASS:",
+              "RAW_SKUS:", len(actual_components))
         result = real_mo2.with_context(
             skip_backorder=True, skip_redirection=True).button_mark_done()
         assert real_mo2.state == "done", (
