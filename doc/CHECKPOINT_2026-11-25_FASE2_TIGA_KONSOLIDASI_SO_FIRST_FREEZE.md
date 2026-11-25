@@ -29,7 +29,7 @@
 | Logika tiga konsolidasi | `FASE2_OWNER_THREE_CONSOLIDATIONS_PURE_PASS` | Urutan PP1→PP2→Packing dan RO 0/partial valid di pure Python |
 | Frozen RO/DO DB clone | `READ_ONLY_FASE2_FROZEN_SURPLUS_RISK_AUDIT_PASS`, exit 0 | 3 batch, tidak ditemukan `allocated > RO requested` pada snapshot yang diperiksa |
 | Native MO/PCK DB clone | `READ_ONLY_FASE2_THREE_STAGE_NATIVE_EVIDENCE_PASS`, exit 0 | MO/status/stock terbaca, **bukan** UAT operator SO→MO2→final DO |
-| Pre-Confirm SO impact test | `script/test_fase2_ya_sales_admin_preconfirm_so_impact_pure.py` | **Masih menunggu log PASS Feri** |
+| Pre-Confirm SO impact test | `FASE2_SALES_ADMIN_PRECONFIRM_IMPACT_PURE_PASS` dan 14 case PASS dari Feri | SO kecil / Paket / RO asli190 vs frozen195 / double claim5 / per-store / Published Max, **PURE only, belum terpasang UI** |
 | Native E2E SO/PP2/final packing | Belum ada SO Confirmed dan belum ada MO2 release pada audit | **BELUM PASS; belum boleh diklaim siap operasional** |
 
 ## 3. Snapshot asli database clone — 25 Nov 2026
@@ -66,7 +66,7 @@
 ## 6. Resume next session (bukan perintah menjalankan sekarang)
 
 1. Buka handover dan checkpoint kumulatif, pahami versi terpasang serta semua pengecualian PP1/PP2/PCK.
-2. Mulai dari pure `script/test_fase2_ya_sales_admin_preconfirm_so_impact_pure.py` (belum ada output Feri), kemudian audit read-only SKU/stock eligibility serta schema slot. Jangan implementasi lebih dulu.
+2. Pure `script/test_fase2_ya_sales_admin_preconfirm_so_impact_pure.py` **sudah PASS Feri**. Lanjut review integrasi secara read-only: SKU/stock eligibility, SO/RO source/slot dan native reservation; jangan langsung deploy.
 3. Implementasi **adapter baca-saja** untuk Sales Admin: RO asli, provisional PP1, SO confirmed, Paket component, MO1 Done/cancel, MO2 nyata, stock/reserved/DO PCK; buat preview sebelum Confirm. Sekaligus revalidate dengan date-slot mutex saat confirm.
 4. Setelah bukti terverifikasi, perbaiki perhitungan MO2 imported menjadi SO-only, lalu ledger final recipient native SO-first dengan store partial/zero; rollback UAT di clone dan freeze audit, **bukan** deploy langsung.
 5. Keputusan belum lengkap: kebijakan distribusi kekurangan antar toko, persetujuan risiko surplus SO kecil, disposisi stok lebih, S2/S3 cutoff, dan aturan pembatalan SO Confirmed.
@@ -75,3 +75,11 @@
 **Referensi lama yang tetap wajib dibaca untuk flow Fase 1:** [HANDOVER_ODOO_FROM_ZERO_2026-11-23_RO_TO_STORE_PASS.md](HANDOVER_ODOO_FROM_ZERO_2026-11-23_RO_TO_STORE_PASS.md).
 
 *Status akhir: dokumentasi selesai. Tidak ada test atau database mutation yang dilakukan dalam pembuatan checkpoint ini.*
+
+
+## 7. Final update dokumentasi / PASS setelah checkpoint awal
+
+- Feri menjalankan `python3 script/test_fase2_ya_sales_admin_preconfirm_so_impact_pure.py` dan seluruh asersi berhasil, termasuk `DRAFT_SO5_BOM200_BEFORE_CONFIRM_SHOWS_PLUS195_PASS`, `DRAFT_SO8_BOM100_BEFORE_CONFIRM_SHOWS_PLUS92_PASS`, `RO_ORIGINAL_190_NOT_MISTAKEN_FOR_FROZEN_ALLOCATED_195_PASS`, `SO10_WITH_FROZEN_RO195_EXPOSES_DOUBLE_CLAIM_5_PASS`, `PER_STORE_SURPLUS_NOT_HIDDEN_BY_OTHER_STORE_SHORTAGE_PASS`, `HARD_PUBLISHED_MAX_AND_BOM_GATES_UNCHANGED_PASS`, dan final `FASE2_SALES_ADMIN_PRECONFIRM_IMPACT_PURE_PASS`.
+- Hasil PURE PASS **bukan** bukti Sales Admin UI live atau native SO Confirm / final PCK DO. Tidak ada addon yang ditambahkan ke `models/__init__.py` dalam sesi dokumentasi.
+- **Dokumen handover sekarang tersedia dan sudah lengkap:** [HANDOVER_2026-11-25_FASE2_TIGA_KONSOLIDASI_SO_FIRST.md](HANDOVER_2026-11-25_FASE2_TIGA_KONSOLIDASI_SO_FIRST.md). Mulai kelanjutan pekerjaan dengan membaca handover tersebut, checkpoint ini dan riwayat kumulatif; jangan ulangi perintah pure yang sudah PASS kecuali ada perubahan kode relevan.
+- **Status akhir:** DOCUMENTATION/HANDOVER FREEZE. Belum ada perubahan DB ataupun uji native dari pekerjaan dokumentasi ini.
