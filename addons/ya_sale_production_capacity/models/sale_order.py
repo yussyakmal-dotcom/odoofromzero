@@ -103,3 +103,33 @@ class SaleOrder(models.Model):
                 'default_slot': self.ya_slot or False,
             },
         }
+
+    def _ya_native_confirm_without_early_delivery(self):
+        """Internal future Confirm step after locked booking, NOT UI exposed.
+
+        Odoo 19 sale_stock respects context skip_procurement in
+        sale.order.line._action_launch_stock_rule. Confirm YA commercial
+        obligation without a premature Sales-warehouse delivery; the real
+        PCK shipment must be created and linked by Packing later.
+        """
+        self.ensure_one()
+        if self.env.cr.dbname != 'erp-yussyakmal-mrp-test-RO_SO':
+            raise UserError(_('YA Confirm integration may run only on the RO_SO clone.'))
+        if not self.ya_is_capacity_so or self.state not in ('draft', 'sent'):
+            raise UserError(_('Expected one YA Draft/Sent quotation.'))
+        reserved = self.env['ya.sale.capacity.reservation'].sudo().search_count([
+            ('order_id', '=', self.id),
+        ])
+        if not reserved:
+            raise UserError(_('Cannot Confirm YA SO without protected kitchen capacity.'))
+        if self.picking_ids:
+            raise UserError(_('YA quotation has unexpected existing pickings.'))
+        result = super(SaleOrder, self.with_context(
+            skip_procurement=True,
+        )).action_confirm()
+        if self.state not in ('sale', 'done') or self.picking_ids:
+            raise UserError(_(
+                'YA SO Confirm created an unexpected delivery or did not '
+                'reach Confirmed state; transaction must roll back.'
+            ))
+        return result
