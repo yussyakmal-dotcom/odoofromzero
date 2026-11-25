@@ -234,9 +234,11 @@ class YaMo2FinishedGoodsRelease(models.Model):
             "location_dest_id": dest.id,
             "company_id": company.id,
         })
-        picking.action_confirm()
-        if move.state in ("done", "cancel") or picking.state == "done":
-            raise UserError(_("MO2 FG picking unexpectedly completed on creation."))
-        # The document leaves actual native Qty for operator validation
-        # after a new physical-stock check. Never auto validate here.
+        # Leave draft: confirming can reserve native stock, which must not
+        # happen at source-stage QA. A later guarded action will confirm
+        # and validate in one atomic transaction after rechecking stock.
+        if move.state != "draft" or picking.state != "draft":
+            raise UserError(_("MO2 FG preparation unexpectedly reserved/posted stock."))
+        # Demand equals DONE MO2 output. Actual picked Qty remains zero
+        # until the separately tested validation/one-click handoff stage.
         return picking
