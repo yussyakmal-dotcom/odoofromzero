@@ -1,20 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <!-- Extend the existing native Sales form, not a replacement sale.order. -->
+  <!-- Fase 2: dedicated primary form for the YA action.
+       Do NOT globally inherit/change the native Sales order form. -->
   <record id="view_ya_capacity_sale_order_form" model="ir.ui.view">
     <field name="name">sale.order.form.ya.production.capacity</field>
     <field name="model">sale.order</field>
     <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="mode">primary</field>
     <field name="arch" type="xml">
-      <xpath expr="//sheet" position="inside">
-        <group string="YA Production Capacity" invisible="not ya_is_capacity_so">
+      <!-- Show the delivery schedule ABOVE the order lines, not after all
+           notebook tabs where the old inherited view placed it. -->
+      <xpath expr="//sheet/notebook" position="before">
+        <group string="YA Production Capacity — Jadwal Pengiriman">
           <field name="ya_is_capacity_so" invisible="1"/>
-          <field name="ya_delivery_date" required="ya_is_capacity_so"
-                 readonly="state not in ('draft', 'sent')"/>
-          <field name="ya_slot" required="ya_is_capacity_so"
-                 readonly="state not in ('draft', 'sent')"/>
+          <group>
+            <field name="ya_delivery_date" required="ya_is_capacity_so"
+                   readonly="state not in ('draft', 'sent')"/>
+            <field name="ya_slot" required="ya_is_capacity_so"
+                   readonly="state not in ('draft', 'sent')"/>
+          </group>
         </group>
       </xpath>
+    </field>
+  </record>
+
+  <record id="view_ya_capacity_sale_order_list" model="ir.ui.view">
+    <field name="name">sale.order.list.ya.production.capacity</field>
+    <field name="model">sale.order</field>
+    <field name="arch" type="xml">
+      <list string="Sales Order — YA Production Capacity"
+            decoration-muted="state == 'cancel'">
+        <field name="name"/>
+        <field name="partner_id"/>
+        <field name="ya_delivery_date" string="Tanggal Kirim"/>
+        <field name="ya_slot" string="Slot"/>
+        <field name="state"/>
+        <field name="amount_total" sum="Total"/>
+      </list>
     </field>
   </record>
 
@@ -25,6 +47,21 @@
     <field name="domain">[('ya_is_capacity_so', '=', True)]</field>
     <field name="context">{'default_ya_is_capacity_so': True}</field>
   </record>
+  <record id="action_ya_capacity_sale_orders_list_view"
+          model="ir.actions.act_window.view">
+    <field name="sequence" eval="1"/>
+    <field name="view_mode">list</field>
+    <field name="view_id" ref="view_ya_capacity_sale_order_list"/>
+    <field name="act_window_id" ref="action_ya_capacity_sale_orders"/>
+  </record>
+  <record id="action_ya_capacity_sale_orders_form_view"
+          model="ir.actions.act_window.view">
+    <field name="sequence" eval="2"/>
+    <field name="view_mode">form</field>
+    <field name="view_id" ref="view_ya_capacity_sale_order_form"/>
+    <field name="act_window_id" ref="action_ya_capacity_sale_orders"/>
+  </record>
+
   <menuitem id="menu_ya_capacity_sale_orders"
             name="Sales Order"
             parent="ya_workflow_navigation.menu_ya_before_production"
