@@ -13,6 +13,7 @@ files = [
     addon / "views/ya_sale_order_views.xml",
     addon / "wizard/__init__.py",
     addon / "wizard/confirm_wizard.py",
+    addon / "wizard/quotation_discount_wizard.py",
 ]
 for path in files:
     assert path.is_file(), "MISSING: %s" % path
@@ -21,6 +22,7 @@ for path in files:
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 ET.parse(addon / "views/ya_sale_order_views.xml")
 ET.parse(addon / "views/ya_sale_confirm_wizard_views.xml")
+ET.parse(addon / "views/ya_quotation_discount_wizard_views.xml")
 
 source = (addon / "models/sale_order.py").read_text(encoding="utf-8")
 xml = (addon / "views/ya_sale_order_views.xml").read_text(encoding="utf-8")
@@ -39,6 +41,9 @@ required_source = [
     "def action_confirm(self):",
     "ya_orders = self.filtered('ya_is_capacity_so')",
     "ya.sale.capacity.confirm.wizard",
+    "def action_open_discount_wizard(self):",
+    "return super().action_open_discount_wizard()",
+    "ya.sale.quotation.discount.wizard",
     "return super().action_confirm()",
 ]
 for token in required_source:
@@ -81,6 +86,14 @@ assert "raise UserError(" in wizard
 assert "order.action_confirm()" not in wizard
 assert "super().action_confirm()" not in wizard
 assert "views/ya_sale_confirm_wizard_views.xml" in manifest["data"]
+discount_wizard = (addon / "wizard/quotation_discount_wizard.py").read_text(encoding="utf-8")
+for key in ("one_percent", "one_amount", "all_percent", "global_percent", "global_amount",
+            "sale.order.discount", "line.discount", "discount_percentage=value / 100",
+            "order.state not in ('draft', 'sent')", "_is_global_discount()"):
+    assert key in discount_wizard, "DISCOUNT_WIZARD_MISSING: %s" % key
+assert "views/ya_quotation_discount_wizard_views.xml" in manifest["data"]
+assert "from . import quotation_discount_wizard" in (addon / "wizard/__init__.py").read_text(encoding="utf-8")
 print("SCOPE: YA quotation Draft/Sent without schedule; wizard at confirm; fail-closed")
+print("YA_DISCOUNT: one-line Rp/%; all-lines %; global Rp/%; native Sales unaffected")
 print("STANDARD_SALES: native action_confirm delegate, no YA rules")
 print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN")
