@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_planning_revision_wizard" model="ir.ui.view">
+    <field name="name">ya.planning.revision.wizard.form</field>
+    <field name="model">ya.planning.revision.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Revisi Published Planning">
+        <group>
+          <field name="planning_id"/>
+          <field name="line_id" domain="[('planning_id','=',planning_id)]" options="{'no_create': True}"/>
+          <field name="old_max" force_save="1"/>
+          <field name="delete_sku"/>
+          <field name="new_max" invisible="delete_sku"/>
+          <field name="reason"/>
+        </group>
+        <footer>
+          <button name="action_apply" type="object" string="Apply Revision" class="btn-primary"/>
+          <button string="Cancel" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="view_ya_planning_revision_form_inherit" model="ir.ui.view">
+    <field name="name">ya.production.planning.revision.form</field>
+    <field name="model">ya.production.planning</field>
+    <field name="inherit_id" ref="ya_production_planning.view_ya_production_planning_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button name="action_ya_open_revision" type="object" string="Revisi Published Planning"
+                groups="mrp.group_mrp_manager" invisible="state != 'published'"/>
+      </xpath>
+    </field>
+  </record>
+  <record id="view_ya_planning_revision_audit_list" model="ir.ui.view">
+    <field name="name">ya.planning.revision.audit.list</field>
+    <field name="model">ya.planning.revision.audit</field>
+    <field name="arch" type="xml">
+      <list create="false" edit="false" delete="false">
+        <field name="changed_at"/><field name="actor_id"/><field name="delivery_date"/>
+        <field name="slot"/><field name="product_id"/><field name="operation"/>
+        <field name="old_max"/><field name="new_max"/><field name="ro_qty"/><field name="so_qty"/>
+        <field name="ro_shortage_before"/><field name="ro_shortage_after"/><field name="reason"/>
+      </list>
+    </field>
+  </record>
+  <record id="action_ya_planning_revision_audit" model="ir.actions.act_window">
+    <field name="name">Planning Revision Audit</field>
+    <field name="res_model">ya.planning.revision.audit</field>
+    <field name="view_mode">list</field>
+  </record>
+  <menuitem id="menu_ya_planning_revision_audit" name="Planning Revision Audit"
+            parent="ya_production_planning.menu_ya_capacity_root"
+            action="action_ya_planning_revision_audit" groups="mrp.group_mrp_manager" sequence="20"/>
+</odoo>
