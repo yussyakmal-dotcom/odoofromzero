@@ -217,3 +217,19 @@ class YaProductionPlanningLine(models.Model):
         if any(r.planning_id.state != 'draft' for r in self):
             raise UserError(_('Cannot delete Published planning lines.'))
         return super().unlink()
+
+    def _ya_revision_allowed(self):
+        """Extension hook; base module never authorizes Published revisions."""
+        return False
+
+    def _ya_revision_write(self, new_max):
+        self.ensure_one()
+        if self.planning_id.state != 'published' or not self._ya_revision_allowed():
+            raise UserError(_('Published revision is not authorized.'))
+        return super().write({'max_capacity': new_max})
+
+    def _ya_revision_unlink(self):
+        self.ensure_one()
+        if self.planning_id.state != 'published' or not self._ya_revision_allowed():
+            raise UserError(_('Published deletion is not authorized.'))
+        return super().unlink()
