@@ -26,6 +26,7 @@ assert Version and Version.state == "installed" and (
 ), "STOP_WRONG_YA_SALES_ADDON_VERSION"
 assert env.user.has_group("mrp.group_mrp_manager"), "STOP_MRP_MANAGER_REQUIRED"
 assert env.user.has_group("sales_team.group_sale_salesman"), "STOP_SALES_ROLE_REQUIRED"
+assert env.user.has_group("ya_store_ro.group_ya_packing_admin"), "STOP_PACKING_ADMIN_ROLE_REQUIRED"
 
 Planning = env["ya.production.planning"]
 Line = env["ya.production.planning.line"]
@@ -344,6 +345,31 @@ try:
             print("DUPLICATE_MO2_RELEASE_REJECTED:", str(exc)[:200])
         assert len(final.line_ids) == 1
         print("MO2_ONE_TIME_DATE_SLOT_GUARD_PASS")
+
+    # The operational 27-Nov batch (or any other advanced batch) must
+    # remain blocked even when the release clock is inside the allowed
+    # window. This check is read-only, never edits real historical data.
+    advanced_batch = Batch.sudo().search([
+        ("state", "=", "production_ok"),
+        ("delivery_date", "!=", date),
+        ("slot", "=", "S1"),
+    ]).filtered(lambda b: bool(b.ya_store_delivery_ids)
+               or bool(b.ya_fg_transfer_ids))[:1]
+    if advanced_batch:
+        archived_clock = datetime.combine(
+            advanced_batch.delivery_date - timedelta(days=1),
+            time(15, 31), tzinfo=ZoneInfo("Asia/Jakarta"),
+        )
+        with patch.object(mo2_release, "_now_wib", return_value=archived_clock):
+            try:
+                advanced_batch._ya_prepare_mo2_final_release()
+                raise AssertionError("ADVANCED_PACKING_WAS_WRONGLY_ALLOWED")
+            except UserError as exc:
+                assert "already exist" in str(exc), (
+                    "REJECTION_NOT_PHYSICAL_STAGE: %s" % exc
+                )
+                print("EXISTING_ADVANCED_PACKING_MO2_REJECTED_PASS",
+                      "BATCH:", advanced_batch.id)
 
     # The actual clock is restored. Neither native MO2 nor Confirm should
     # create a PCK picking or customer/store delivery in this step.
