@@ -18,7 +18,7 @@ Version = env["ir.module.module"].sudo().search([
     ("name", "=", "ya_sale_production_capacity")
 ], limit=1)
 assert Version and Version.state == "installed" and (
-    Version.installed_version in ("19.0.1.1.0", "19.0.1.1.1")
+    Version.installed_version in ("19.0.1.1.0", "19.0.1.1.1", "19.0.1.1.2")
 ), "STOP_WRONG_YA_SALES_ADDON_VERSION"
 assert env.user.has_group("mrp.group_mrp_manager"), "STOP_MRP_MANAGER_REQUIRED"
 assert env.user.has_group("sales_team.group_sale_salesman"), "STOP_SALES_ROLE_REQUIRED"
