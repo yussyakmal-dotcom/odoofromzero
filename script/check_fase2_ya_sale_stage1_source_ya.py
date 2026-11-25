@@ -1,4 +1,4 @@
-"""Source gate for YA Sales v19.0.1.1.1 MO2 native release, no GUI activation."""
+"""Source gate for YA Sales v19.0.1.1.2 MO2/CDC material wave, no GUI activation."""
 import ast
 import csv
 from pathlib import Path
@@ -17,6 +17,7 @@ files = [
     addon / "models/capacity_booking.py",
     addon / "models/mo2_priority_rules.py",
     addon / "models/mo2_release.py",
+    addon / "models/mo2_material_wave.py",
     addon / "views/ya_sale_order_views.xml",
     addon / "wizard/__init__.py",
     addon / "wizard/confirm_wizard.py",
@@ -86,7 +87,7 @@ for field_name in ("ya_delivery_date", "ya_slot"):
     node = form_fields[0]
     assert node.attrib.get("readonly") == "state not in ('draft', 'sent')", "QUOTATION_NOT_EDITABLE: %s" % field_name
     assert node.attrib.get("required") not in ("1", "True", "true"), "QUOTATION_SCHEDULE_MUST_BE_OPTIONAL"
-assert manifest["version"] == "19.0.1.1.1", "UNEXPECTED_ADDON_VERSION"
+assert manifest["version"] == "19.0.1.1.2", "UNEXPECTED_ADDON_VERSION"
 assert "ya_workflow_navigation" in manifest["depends"]
 assert "sale_stock" in manifest["depends"]
 assert "security/ir.model.access.csv" in manifest["data"]
@@ -208,6 +209,23 @@ assert "env.cr.commit()" not in mo2
 assert '"ya_packing_batch_line_id":' not in mo2, "MO2_MUST_NOT_LINK_TO_MO1_UNIQUE_FIELD"
 assert "_ya_release_final_mo2" not in wizard, "NO_EARLY_MO2_RELEASE_BY_SALES_CONFIRM"
 assert "def action_release_mo2(" not in mo2, "NO_GUI_MO2_BUTTON_UNTIL_QA"
+cdc = (addon / "models/mo2_material_wave.py").read_text(encoding="utf-8")
+for token in ('_inherit = "stock.picking"',
+              "UNIQUE(ya_mo2_material_release_line_id)",
+              "def _ya_create_mo2_cdc_transfer(self):",
+              "lock_ro_slot(self.env.cr, batch.delivery_date, batch.slot)",
+              "mo.move_raw_ids", "product_uom_qty",
+              '"origin": origin', "stock.group_stock_manager",
+              "erp-yussyakmal-mrp-test-RO_SO"):
+    assert token in cdc, "MO2_CDC_SOURCE_GUARD_MISSING: %s" % token
+assert "from . import mo2_material_wave" in mo2_init
+assert not any(x in cdc for x in (
+    "env.cr.commit()", ".button_validate(", "stock.quant'].create(",
+    '"ya_mr_batch_id":', '"ya_mr_kitchen_id":',
+    '"ya_fg_batch_id":', '"ya_fg_kitchen_id":',
+)), "MO2_CDC_MUST_NOT_AUTO_VALIDATE_OR_REUSE_FASE1_LINKS"
+print("MO2_CDC_MATERIAL: separate native picking per MO2; no stock validate,"
+      " no reuse of Fase1 batch/kitchen link")
 print("MO2_NATIVE: separate one-time date-slot finalization and mrp.production "
       "source staged; MO1 and Fase1 unchanged")
 print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN; CLONE_NATIVE_MO2_ROLLBACK_REQUIRED")
