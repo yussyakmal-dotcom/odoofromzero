@@ -131,3 +131,9 @@ sudo -u odoo19 env YA_APPLY_PRODUCT_SALES_POS=YES /opt/odoo19/venv/bin/python3 /
 ```
 - Jika `STOP_...` atau error muncul, jangan lanjut; periksa hasil, pastikan transaksi belum dikomit. Verifikasi ulang via read-only audit dan uji memilih barang di Quotation. Tidak perlu addon upgrade/restart hanya untuk perubahan nilai master ORM.
 - Keterlihatan item di suatu sesi POS mungkin juga bergantung pada konfigurasi POS dan pemuatan ulang katalog; flag True adalah langkah master produk, bukan bukti UI POS PASS.
+
+## 14. APPLY Sales/POS dijalankan tetapi belum terbukti persisted (25 Nov 2026)
+- Feri melaporkan Dry Run PASS lalu `APPLY_SUCCESS_IN_SHELL_TRANSACTION`, `UPDATED_TOTAL: 1071` pada database clone. Script saat eksekusi itu **TIDAK MEMANGGIL `env.cr.commit()`**. Ini hanya membuktikan ORM write dalam transaksi, bukan keberhasilan penyimpanan permanen. Odoo shell lazimnya rollback saat keluar tanpa commit.
+- **Perbaikan source GitHub:** `script/enable_ya_sales_pos_product_flags_ro_so.py` kini memanggil `env.cr.commit()` **hanya setelah** semua guard + postcheck kedua kategori PASS, lalu menampilkan `APPLY_COMMITTED_TO_DB`. Tetap dry-run default, clone-only, idempotent, category-ID/path/count guard, hanya ubah `sale_ok` dan `available_in_pos`.
+- **LANGKAH BERIKUTNYA JANGAN LANGSUNG APPLY**: terlebih dahulu `git pull` dan jalankan ulang `script/audit_ya_sale_pos_product_flags_ro_so_readonly.py` untuk memeriksa status persistent pada transaksi baru. Jika kedua `SALE_FALSE`/`POS_FALSE` di `WITH_CHILDREN` = **0**, sudah persisted, tidak perlu ulang apply. Jika masih `757/757` dan `314/314`, setelah backup clone tersedia jalankan script apply yang sudah di-fix dengan `YA_APPLY_PRODUCT_SALES_POS=YES`; pastikan `APPLY_COMMITTED_TO_DB`, lalu **audit baru lagi** untuk memastikan semuanya 0.
+- Jangan menyebut master product PASS/persisted atau UI Quotation PASS tanpa audit fresh. Tidak perlu restart/upgrade addon hanya karena perubahan master flags.
