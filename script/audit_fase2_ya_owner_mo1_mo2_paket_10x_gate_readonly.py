@@ -249,8 +249,11 @@ mo_plan = {}
 blockers = []
 raw_needs_by_kitchen = defaultdict(float)
 rounding_totals = {
-    "MO1": {"required": 0, "rounded": 0, "extra": 0},
-    "MO2": {"required": 0, "rounded": 0, "extra": 0},
+    "MO1": {"gross_demand": 0, "rounded_production": 0,
+            "intermediate_surplus": 0},
+    "MO2": {"gross_demand": 0, "covered_by_mo1_surplus": 0,
+            "net_incremental_demand": 0, "rounded_production": 0,
+            "additional_rounding_surplus": 0},
 }
 for pid in sorted(set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])):
     product = Product.browse(pid)
@@ -266,7 +269,15 @@ for pid in sorted(set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])):
         continue
     batch = route["bom_output"]
     qty1 = ceil(need1 / batch) * batch
-    qty2 = ceil(need2 / batch) * batch
+    # Owner principle: an MO2 makes ONLY the missing increment. Any MO1
+    # BoM-rounded surplus not needed by MO1 demand remains available to
+    # cover the same SKU in MO2 before creating more batches. This is a
+    # production-volume preview, not permission to steal physically
+    # reserved SO/RO stock; the final PCK ledger still checks native free.
+    provisional_mo1_surplus = qty1 - need1
+    mo1_surplus_reused = min(provisional_mo1_surplus, need2)
+    mo2_net_incremental_need = max(0, need2 - mo1_surplus_reused)
+    qty2 = ceil(mo2_net_incremental_need / batch) * batch
     maximum = route["published_max"]
     if qty1 + qty2 > maximum:
         blockers.append(("TWO_MO_WAVES_EXCEED_PUBLISHED_MAX",
@@ -274,18 +285,28 @@ for pid in sorted(set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])):
     if qty1 and qty2 and qty1+qty2 <= maximum:
         print("SKU_IN_BOTH_MO_WAVES_CAPACITY_PASS:",
               product.default_code, qty1, qty2, maximum)
-    # Track oversupply at the SKU level. NEVER net leftovers of distinct
-    # product IDs against each other; a Paket consumes its exact BoM SKUs.
-    extra1 = qty1 - int(round(need1))
-    extra2 = qty2 - int(round(need2))
-    assert extra1 >= 0 and extra2 >= 0
-    for wave, required, rounded, extra in (
-        ("MO1", int(round(need1)), qty1, extra1),
-        ("MO2", int(round(need2)), qty2, extra2),
+    # Count an early-rounding surplus only ONCE. As it is consumed by later
+    # MO2 demand, it is no longer excess at the END of both waves.
+    extra1_provisional = int(round(provisional_mo1_surplus))
+    mo1_used = int(round(mo1_surplus_reused))
+    net2 = int(round(mo2_net_incremental_need))
+    extra2 = qty2 - net2
+    final_extra = int(round(qty1 + qty2 - need1 - need2))
+    assert final_extra == extra1_provisional - mo1_used + extra2
+    assert final_extra >= 0
+    rounding_totals["MO1"]["gross_demand"] += int(round(need1))
+    rounding_totals["MO1"]["rounded_production"] += qty1
+    rounding_totals["MO1"]["intermediate_surplus"] += extra1_provisional
+    rounding_totals["MO2"]["gross_demand"] += int(round(need2))
+    rounding_totals["MO2"]["covered_by_mo1_surplus"] += mo1_used
+    rounding_totals["MO2"]["net_incremental_demand"] += net2
+    rounding_totals["MO2"]["rounded_production"] += qty2
+    rounding_totals["MO2"]["additional_rounding_surplus"] += extra2
+    for wave, required, rounded, surplus, carried, net_demand in (
+        ("MO1", int(round(need1)), qty1, extra1_provisional, 0,
+         int(round(need1))),
+        ("MO2", int(round(need2)), qty2, extra2, mo1_used, net2),
     ):
-        rounding_totals[wave]["required"] += required
-        rounding_totals[wave]["rounded"] += rounded
-        rounding_totals[wave]["extra"] += extra
         print("RECIPE_ROUNDING_PER_WAVE_SKU:", {
             "wave": wave,
             "sku": product.default_code,
@@ -293,26 +314,35 @@ for pid in sorted(set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])):
             "kitchen": route["warehouse"].code,
             "required_after_paket_expansion": required,
             "bom_output_per_batch": batch,
+            "demand_covered_by_prior_mo1_surplus": carried,
+            "net_incremental_demand_to_produce": net_demand,
             "batches_needed": rounded // batch,
             "rounded_production": rounded,
-            "extra_from_bom_rounding": extra,
+            "extra_from_this_wave_batch_rounding": surplus,
             "published_max": maximum,
             "combined_both_waves_within_max": qty1 + qty2 <= maximum,
         })
     print("RECIPE_ROUNDING_PER_SKU_TOTAL:", {
         "sku": product.default_code, "product_id": pid,
-        "mo1_extra": extra1, "mo2_extra": extra2,
-        "total_extra": extra1 + extra2,
+        "mo1_temporary_surplus": extra1_provisional,
+        "mo1_surplus_reused_for_mo2": mo1_used,
+        "mo2_new_batch_rounding_surplus": extra2,
+        "true_final_extra_after_both_waves": final_extra,
     })
+    if need2 and qty2 == 0:
+        print("MO2_SKU_FULLY_COVERED_BY_MO1_SURPLUS_NO_MO2_NEEDED:",
+              product.default_code)
     plan = {
         "sku": product.default_code, "product_id": pid,
         "kitchen": route["warehouse"].code,
         "mo1_demand": int(round(need1)), "mo2_demand": int(round(need2)),
         "bom_output": batch, "mo1_rounded": qty1,
+        "mo2_net_incremental_demand": net2,
+        "mo2_demand_covered_by_mo1_surplus": mo1_used,
         "mo2_rounded": qty2, "total_rounded": qty1+qty2,
-        "mo1_extra_from_rounding": extra1,
+        "mo1_intermediate_extra_from_rounding": extra1_provisional,
         "mo2_extra_from_rounding": extra2,
-        "total_extra_from_rounding": extra1+extra2,
+        "total_final_extra_after_mo1_reuse": final_extra,
         "published_max": maximum, "capacity_ok": qty1+qty2 <= maximum,
         "kitchen_bom": route["bom"].id,
     }
@@ -332,8 +362,9 @@ for pid in sorted(set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])):
         )
 
 # Totals are a COUNT of surplus units across different SKUs, not an
-# interchangeable pool of inventory. Exact per-SKU surplus above is the
-# authoritative allocation input (including overlap SKU11637).
+# interchangeable pool of inventory. Exact per-SKU FINAL surplus above is
+# authoritative (especially overlapping SKU11637). MO1 provisional extra
+# and MO2 extra must NOT be added without deducting MO1 quantity reused.
 all_resolved = all(
     pid in mo_plan
     for pid in set(wave_kitchen["MO1"]) | set(wave_kitchen["MO2"])
@@ -341,14 +372,36 @@ all_resolved = all(
 for wave in ("MO1", "MO2"):
     print("RECIPE_ROUNDING_SUMMARY_PER_WAVE:", wave,
           rounding_totals[wave])
+true_final_units = (
+    rounding_totals["MO1"]["intermediate_surplus"]
+    - rounding_totals["MO2"]["covered_by_mo1_surplus"]
+    + rounding_totals["MO2"]["additional_rounding_surplus"]
+)
+grand_produced = (
+    rounding_totals["MO1"]["rounded_production"]
+    + rounding_totals["MO2"]["rounded_production"]
+)
+grand_demand = (
+    rounding_totals["MO1"]["gross_demand"]
+    + rounding_totals["MO2"]["gross_demand"]
+)
+assert true_final_units == grand_produced - grand_demand
 print("RECIPE_ROUNDING_SUMMARY_BOTH_WAVES:", {
-    key: sum(rounding_totals[wave][key] for wave in ("MO1", "MO2"))
-    for key in ("required", "rounded", "extra")
+    "total_demand_after_paket_expansion": grand_demand,
+    "total_actual_production_after_bom_rounding": grand_produced,
+    "mo1_provisional_surplus": rounding_totals["MO1"]["intermediate_surplus"],
+    "mo1_surplus_reused_for_mo2":
+        rounding_totals["MO2"]["covered_by_mo1_surplus"],
+    "mo2_additional_rounding_surplus":
+        rounding_totals["MO2"]["additional_rounding_surplus"],
+    "TRUE_FINAL_EXTRA_UNITS": true_final_units,
 })
 print("RECIPE_ROUNDING_ALL_SKUS_RESOLVED:", all_resolved)
 if not all_resolved:
     print("RECIPE_ROUNDING_TOTAL_PARTIAL_ONLY: missing unique validated"
           " Published kitchen route or fractional demand for some SKUs")
+print("RECIPE_ROUNDING_NOTE: MO1 excess of SAME SKU is reused to"
+      " cover incremental MO2 demand before creating MO2 batches")
 print("RECIPE_ROUNDING_NOTE: Qty excess cannot replace another SKU;"
       " Paket final SKU output1 is assembled in PCK separately")
 print("RECIPE_ROUNDING_NOTE: a positive extra with combined MO1+MO2"
