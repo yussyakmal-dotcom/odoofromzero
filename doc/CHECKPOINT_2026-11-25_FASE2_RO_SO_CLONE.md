@@ -112,3 +112,22 @@ Syarat: tepat nama DB clone tercetak dan audit PASS. Ini **bukan** mengulang pen
 - **PENTING:** Wizard saat ini hanya memvalidasi keberadaan Published schedule; **BELUM mengecek kapasitas SKU/Paket dan sengaja TIDAK mengonfirmasi Sales Order**. Button memberi pesan bahwa Confirm belum aktif. Tidak ada reservasi, perubahan state SO, pembuatan MO, atau transaksi stok. SO standar dari Sales tetap memakai native Confirm Odoo.
 - Status: GitHub SOURCE committed; **belum ada hasil preflight/upgrade/UI Stage 1 revisi ini dari Feri**. Jangan menyatakan PASSED hanya karena file source ada. Hindari deploy versi `19.0.1.0.3` dan lebih lama karena memblokir quotation.
 - Next: Feri `git pull`, `python3 script/check_fase2_ya_sale_stage1_source_ya.py`, `python3 -m compileall -q addons/ya_sale_production_capacity`; bila PASS dan backup clone siap, deploy hanya addon `ya_sale_production_capacity`, `-u ya_sale_production_capacity` **pada `erp-yussyakmal-mrp-test-RO_SO` saja**, restart service waktu aman. GUI checks: Draft Save/Sent tanpa slot PASS, Confirm Custom YA membuka wizard, tanpa jadwal invalid ditolak, Published schedule valid tetap fail-closed, native Sales Confirm tetap normal. Setelah itu lanjut implement reservasi atomik dan unblock Confirm.
+
+## 13. Master produk — Sales dan POS tersedia untuk Quotation/SO (25 Nov 2026)
+- Feri telah menjalankan `script/audit_ya_sale_pos_product_flags_ro_so_readonly.py` **PASS** pada `erp-yussyakmal-mrp-test-RO_SO` (bukti log user, read-only).
+- `product.template` field `sale_ok` dan `available_in_pos` keduanya Boolean tersedia; `point_of_sale`, `sale`, `sale_stock` installed.
+- Kategori persis `All / Produk Jadi` ID 9, **17 kategori termasuk induk dan 16 turunan**, **757** template; keduanya False di semua 757.
+- Kategori persis `All / Konsinyasi Masuk` ID 11, 1 kategori, **314** template; keduanya False di semua 314.
+- **Total 1071 template**. Keputusan owner: atur kedua flag ke True di produk kedua pohon kategori untuk dapat dipilih dalam quotation/SO dan POS. Jangan ubah kategori lain, BoM, harga, persediaan, workflow MO atau kapasitas.
+- Skrip `script/enable_ya_sales_pos_product_flags_ro_so.py` baru dibuat, default **DRY RUN**, hanya DB clone, verifikasi full category path dan ID, template count eksak 757/314, lalu update ORM idempotent jika environment flag `YA_APPLY_PRODUCT_SALES_POS=YES`. **Belum pernah dijalankan APPLY oleh Feri** berdasarkan bukti saat checkpoint ditulis. Jangan menyatakan semua produk sudah diubah.
+- Dry run:
+```bash
+cd ~/odoofromzero && git pull
+sudo -u odoo19 /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test-RO_SO --no-http < script/enable_ya_sales_pos_product_flags_ro_so.py
+```
+- Jika Dry Run PASS + backup clone tersedia, apply eksplisit (ubah **hanya** clone):
+```bash
+sudo -u odoo19 env YA_APPLY_PRODUCT_SALES_POS=YES /opt/odoo19/venv/bin/python3 /opt/odoo19/odoo/odoo-bin shell -c /etc/odoo19.conf -d erp-yussyakmal-mrp-test-RO_SO --no-http < script/enable_ya_sales_pos_product_flags_ro_so.py
+```
+- Jika `STOP_...` atau error muncul, jangan lanjut; periksa hasil, pastikan transaksi belum dikomit. Verifikasi ulang via read-only audit dan uji memilih barang di Quotation. Tidak perlu addon upgrade/restart hanya untuk perubahan nilai master ORM.
+- Keterlihatan item di suatu sesi POS mungkin juga bergantung pada konfigurasi POS dan pemuatan ulang katalog; flag True adalah langkah master produk, bukan bukti UI POS PASS.
