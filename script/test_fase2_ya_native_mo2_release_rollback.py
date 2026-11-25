@@ -26,7 +26,6 @@ assert Version and Version.state == "installed" and (
 ), "STOP_WRONG_YA_SALES_ADDON_VERSION"
 assert env.user.has_group("mrp.group_mrp_manager"), "STOP_MRP_MANAGER_REQUIRED"
 assert env.user.has_group("sales_team.group_sale_salesman"), "STOP_SALES_ROLE_REQUIRED"
-assert env.user.has_group("ya_store_ro.group_ya_packing_admin"), "STOP_PACKING_ADMIN_ROLE_REQUIRED"
 
 Planning = env["ya.production.planning"]
 Line = env["ya.production.planning.line"]
@@ -38,6 +37,47 @@ Sample = Sale.sudo().search([
     ("ya_is_capacity_so", "=", True), ("partner_id", "!=", False)
 ], limit=1)
 assert Sample, "STOP_NO_SAMPLE_YA_QUOTATION"
+
+# Odoo shell OS user 'odoo19' maps to Odoo's shell environment user,
+# who need not belong to the YA Packing Admin business group.
+# Keep sales/MRP fixture creation under the original shell user;
+# perform the MO2 release as an EXISTING authorized Packing operator
+# (no group grants, no sudo bypass for the release itself).
+PACKING_GROUP = "ya_store_ro.group_ya_packing_admin"
+packing_actor = env.user
+if not packing_actor.has_group(PACKING_GROUP):
+    candidates = env["res.users"].sudo().search([
+        ("active", "=", True), ("share", "=", False),
+    ])
+    packing_admins = candidates.filtered(
+        lambda user: user.has_group(PACKING_GROUP)
+    )
+    eligible = packing_admins.filtered(
+        lambda user: Sample.company_id in user.company_ids
+        and (user.has_group("mrp.group_mrp_manager")
+             or user.has_group("mrp.group_mrp_user"))
+    )
+    print("PACKING_ADMIN_EXISTING_ACTIVE_USERS:", len(packing_admins))
+    print("PACKING_ADMIN_WITH_MRP_AND_TEST_COMPANY:", len(eligible))
+    assert eligible, (
+        "STOP_NO_EXISTING_AUTHORIZED_PACKING_MRP_USER: "
+        "test created no MO/Planning/SO; do not grant groups automatically"
+    )
+    packing_actor = eligible.sorted(
+        key=lambda user: (
+            0 if user.has_group("mrp.group_mrp_manager") else 1,
+            user.id,
+        )
+    )[0]
+print("MO2_RELEASE_ACTOR_USER_ID:", packing_actor.id,
+      "IS_PACKING_ADMIN:", packing_actor.has_group(PACKING_GROUP),
+      "MRP_ACCESS:", bool(
+          packing_actor.has_group("mrp.group_mrp_manager") or
+          packing_actor.has_group("mrp.group_mrp_user")
+      ))
+assert Sample.company_id in packing_actor.company_ids, (
+    "STOP_RELEASE_ACTOR_COMPANY_ACCESS"
+)
 print("DATABASE:", env.cr.dbname)
 print("MODE: NATIVE_MO2_RELEASE_ROLLBACK_NO_PACKING")
 print("SAMPLE_YA_QUOTATION_ID:", Sample.id)
@@ -312,7 +352,9 @@ try:
         mo2_release, "_now_wib",
         return_value=synthetic_release_clock,
     ):
-        final = batch._ya_release_final_mo2()
+        final = batch.with_user(packing_actor).with_company(
+            Sample.company_id
+        )._ya_release_final_mo2()
         ids["final"] = final.id
         lines = final.line_ids
         assert len(lines) == 1, "MO2_ONE_SKU_EXPECTED"
@@ -339,7 +381,9 @@ try:
               "MO2_QTY:", line.qty_mo2, "MAX:", max_capacity)
 
         try:
-            batch._ya_release_final_mo2()
+            batch.with_user(packing_actor).with_company(
+                Sample.company_id
+            )._ya_release_final_mo2()
             raise AssertionError("DUPLICATE_MO2_FINALIZATION_ACCEPTED")
         except UserError as exc:
             print("DUPLICATE_MO2_RELEASE_REJECTED:", str(exc)[:200])
@@ -362,7 +406,9 @@ try:
         )
         with patch.object(mo2_release, "_now_wib", return_value=archived_clock):
             try:
-                advanced_batch._ya_prepare_mo2_final_release()
+                advanced_batch.with_user(packing_actor).with_company(
+                    Sample.company_id
+                )._ya_prepare_mo2_final_release()
                 raise AssertionError("ADVANCED_PACKING_WAS_WRONGLY_ALLOWED")
             except UserError as exc:
                 assert "already exist" in str(exc), (
