@@ -1,4 +1,4 @@
-"""Source-only gate for isolated Fase 2 YA Sales Order stage 1. Run as feri."""
+"""Source-only gate for YA Sales Fase2 atomic Confirm v19.0.1.1.0. Run as feri."""
 import ast
 import csv
 from pathlib import Path
@@ -84,7 +84,7 @@ for field_name in ("ya_delivery_date", "ya_slot"):
     node = form_fields[0]
     assert node.attrib.get("readonly") == "state not in ('draft', 'sent')", "QUOTATION_NOT_EDITABLE: %s" % field_name
     assert node.attrib.get("required") not in ("1", "True", "true"), "QUOTATION_SCHEDULE_MUST_BE_OPTIONAL"
-assert manifest["version"] == "19.0.1.0.9", "UNEXPECTED_ADDON_VERSION"
+assert manifest["version"] == "19.0.1.1.0", "UNEXPECTED_ADDON_VERSION"
 assert "ya_workflow_navigation" in manifest["depends"]
 assert "sale_stock" in manifest["depends"]
 assert "security/ir.model.access.csv" in manifest["data"]
@@ -114,7 +114,7 @@ print("FASE2_YA_SALE_SOURCE_PREFLIGHT_PASS")
 wizard = (addon / "wizard/confirm_wizard.py").read_text(encoding="utf-8")
 readiness = (addon / "models/confirm_readiness.py").read_text(encoding="utf-8")
 assert "from . import confirm_readiness" in (addon / "models/__init__.py").read_text(encoding="utf-8")
-assert "_ya_prepare_capacity_confirm_readonly" in wizard
+assert "_ya_confirm_with_protected_capacity" in wizard
 for token in ("def _ya_prepare_capacity_confirm_readonly(", "_is_global_discount()",
               "All / Produk Jadi / Paket", "Published Planning",
               "expand_so_package_requirements", "check_so_capacity",
@@ -142,7 +142,7 @@ for key in ("one_percent", "one_amount", "all_percent", "global_percent", "globa
     assert key in discount_wizard, "DISCOUNT_WIZARD_MISSING: %s" % key
 assert "views/ya_quotation_discount_wizard_views.xml" in manifest["data"]
 assert "from . import quotation_discount_wizard" in (addon / "wizard/__init__.py").read_text(encoding="utf-8")
-print("SCOPE: YA date/slot visible OPTIONAL and editable in Draft/Sent; validation at Confirm only; fail-closed")
+print("SCOPE: YA date/slot OPTIONAL on Draft/Sent; Confirm protected capacity CLONE-ONLY")
 print("YA_DISCOUNT: one-line Rp/%; all-lines %; global Rp/%; native Sales unaffected")
 print("STANDARD_SALES: native action_confirm delegate, no YA rules")
 print("CONFIRM_READINESS: published SKU route, native global discount exclusions, Paket components; read-only")
@@ -161,10 +161,23 @@ for token in ("_name = \"ya.sale.capacity.reservation\"",
               "CHECK(qty_required > 0)", "def unlink(self):",
               "ya_sale_confirm_slot_locked"):
     assert token in ledger, "RESERVATION_LEDGER_GUARD_MISSING: %s" % token
-assert "_ya_write_locked_capacity_reservations" not in wizard, "DO_NOT_ACTIVATE_RESERVATION_PREMATURELY"
-print("CAPACITY_LEDGER: guarded schema and transaction recheck SOURCE_ONLY; not activated")
+assert "def _ya_confirm_with_protected_capacity(self, delivery_date, slot):" in booking
+assert "self._ya_native_confirm_without_early_delivery()" in booking
+assert "self._ya_write_locked_capacity_reservations(booking)" in booking
+assert "return order._ya_confirm_with_protected_capacity(" in wizard
+assert 'erp-yussyakmal-mrp-test-RO_SO' in source
+assert 'CLONE_DB = "erp-yussyakmal-mrp-test-RO_SO"' in booking
+assert "lock_ro_slot(self.env.cr, delivery_date, slot)" in booking
+assert "self.env.cr.commit()" not in booking
+print("CAPACITY_LEDGER: atomic YA Confirm wired in clone; production/dispatch not yet wired")
 assert "def _ya_native_confirm_without_early_delivery(" in source
 assert "skip_procurement=True" in source
-assert "_ya_native_confirm_without_early_delivery" not in wizard, "YA_NATIVE_CONFIRM_NOT_YET_ACTIVATED"
-print("YA_NATIVE_DELIVERY: internal skip_procurement path staged; Confirm wizard still fail-closed")
-print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN")
+assert "_ya_native_confirm_without_early_delivery" not in wizard
+assert "('sale', 'done')" in source
+assert "def action_cancel(self):" in source
+assert "class SaleOrderLine(models.Model):" in source
+wizard_view = (addon / "views/ya_sale_confirm_wizard_views.xml").read_text(encoding="utf-8")
+assert 'Confirm Sales Order — Reservasi Kapasitas' in wizard_view
+assert 'Confirm Belum Aktif' not in wizard_view
+print("YA_NATIVE_DELIVERY: skip_procurement and zero-stock-move postcheck; YA SO mutations locked")
+print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN; CLONE ROLLBACK TEST REQUIRED")
