@@ -15,6 +15,8 @@
         <field name="ya_delivery_date" string="YA Tanggal Kirim"
                required="ya_is_capacity_so"
                readonly="state not in ('draft', 'sent')"/>
+        <field name="ya_delivery_date_label" string="Format YYYY-Mon-DD"
+               readonly="1" invisible="not ya_delivery_date"/>
         <field name="ya_slot" string="YA Slot Kirim"
                required="ya_is_capacity_so"
                readonly="state not in ('draft', 'sent')"/>
@@ -30,7 +32,7 @@
             decoration-muted="state == 'cancel'">
         <field name="name"/>
         <field name="partner_id"/>
-        <field name="ya_delivery_date" string="Tanggal Kirim"/>
+        <field name="ya_delivery_date_label" string="YA Tanggal Kirim"/>
         <field name="ya_slot" string="Slot"/>
         <field name="state"/>
         <field name="amount_total" sum="Total"/>
