@@ -688,57 +688,124 @@ try:
     ])) == 2
     success = True
 finally:
+    # ROLLBACK THE NATIVE CDC + MRP + FG TRANSACTION FIRST.
+    # Do not call env.invalidate_all() with its default flush=True after
+    # rollback: it can flush pending ORM work. Do not use old ORM recordsets
+    # for the post-rollback verdict; they share transaction-era caches.
     env.cr.rollback()
     print("EXPLICIT_ROLLBACK_EXECUTED")
-    env.invalidate_all()
-    # IMPORTANT: this verification executes even if the native MO completion
-    # raised an assertion; the earlier implementation skipped all post-try
-    # checks when exceptions propagated.
-    if ids.get("stock_before"):
-        for pid, loc, expected_qty, expected_reserved in ids["stock_before"]:
-            quants = env["stock.quant"].sudo().search([
-                ("company_id", "=", Sample.company_id.id),
-                ("product_id", "=", pid), ("location_id", "=", loc),
-                ("lot_id", "=", False), ("owner_id", "=", False),
-                ("package_id", "=", False)])
-            qty = sum(quants.mapped("quantity"))
-            reserved = sum(quants.mapped("reserved_quantity"))
-            assert abs(qty - expected_qty) < 1e-7 and abs(
-                reserved - expected_reserved) < 1e-7, (
-                    "STOCK_NOT_RESTORED_AFTER_ROLLBACK: %s/%s" % (pid, loc))
-        print("NATIVE_STOCK_ROLLBACK_VERIFIED")
 
-env.invalidate_all()
-if ids.get("mo1"):
-    assert not MO.sudo().browse(ids["mo1"]).exists(), "MO1_REMAINED_AFTER_ROLLBACK"
-if ids.get("mo2"):
-    assert not MO.sudo().browse(ids["mo2"]).exists(), "MO2_REMAINED_AFTER_ROLLBACK"
-if ids.get("cdc_picking"):
-    assert not env["stock.picking"].sudo().browse(
-        ids["cdc_picking"]
-    ).exists(), "MO2_CDC_PICKING_REMAINED_AFTER_ROLLBACK"
-if ids.get("fg_picking"):
-    assert not env["stock.picking"].sudo().browse(
-        ids["fg_picking"]).exists(), "MO2_FG_PICKING_PERSISTED"
-if ids.get("synthetic_moves"):
-    assert not env["stock.move"].sudo().browse(
-        ids["synthetic_moves"]).exists(), "SYNTHETIC_NATIVE_MOVES_PERSISTED"
-if ids.get("valuation_ids"):
-    assert not env["stock.valuation.layer"].sudo().browse(
-        ids["valuation_ids"]).exists(), "SYNTHETIC_VALUATION_PERSISTED"
+    # Independent PostgreSQL connection and a fresh READ ONLY transaction:
+    # neither the rolled-back shell cursor nor its Environment cache is read.
+    errors = []
+    with env.registry.cursor() as check_cr:
+        check_cr.execute("SET TRANSACTION READ ONLY")
+        check_cr.execute("SHOW transaction_read_only")
+        assert check_cr.fetchone()[0] == "on", (
+            "STOP_ROLLBACK_VERIFIER_IS_NOT_SQL_READ_ONLY"
+        )
+        print("ROLLBACK_VERIFIER: INDEPENDENT_SQL_READ_ONLY_CURSOR")
 
-if ids.get("final"):
-    assert not env["ya.sale.mo2.finalization"].sudo().browse(
-        ids["final"]
-    ).exists(), "MO2_FINALIZATION_REMAINED_AFTER_ROLLBACK"
-if ids.get("planning"):
-    assert not Planning.sudo().browse(ids["planning"]).exists(), (
-        "PLANNING_REMAINED_AFTER_ROLLBACK"
-    )
-if ids.get("so1"):
-    assert not Sale.sudo().browse(ids["so1"]).exists(), "SO1_REMAINED_AFTER_ROLLBACK"
-if ids.get("so2"):
-    assert not Sale.sudo().browse(ids["so2"]).exists(), "SO2_REMAINED_AFTER_ROLLBACK"
+        # Compare BOTH physical and reserved quantities with the exact
+        # snapshot taken before the native CDC, MRP and FG test operations.
+        # In a concurrent clone, a real third-party stock edit can also
+        # trigger a mismatch; do not silently overwrite any actual stock.
+        if ids.get("stock_before"):
+            for pid, loc, expected_qty, expected_reserved in ids["stock_before"]:
+                check_cr.execute("""
+                    SELECT COALESCE(SUM(quantity), 0),
+                           COALESCE(SUM(reserved_quantity), 0)
+                    FROM stock_quant
+                    WHERE company_id = %s AND product_id = %s
+                      AND location_id = %s AND lot_id IS NULL
+                      AND package_id IS NULL AND owner_id IS NULL
+                """, (Sample.company_id.id, pid, loc))
+                qty, reserved = map(float, check_cr.fetchone())
+                if (abs(qty - expected_qty) >= 1e-7 or
+                        abs(reserved - expected_reserved) >= 1e-7):
+                    detail = {
+                        "product_id": pid, "location_id": loc,
+                        "expected_physical": expected_qty,
+                        "observed_physical": qty,
+                        "expected_reserved": expected_reserved,
+                        "observed_reserved": reserved,
+                    }
+                    print("ROLLBACK_SQL_QUANT_MISMATCH:", detail)
+                    errors.append("QUANT_%s_%s" % (pid, loc))
+            if not errors:
+                print("NATIVE_STOCK_ROLLBACK_VERIFIED:",
+                      len(ids["stock_before"]), "exact stock locations")
+
+        # Look for every synthetic document we know by ID. Sequences may
+        # have gaps after rollback, but these actual rows MUST be absent.
+        checked = 0
+        for label, table, record_id in (
+            ("MO1", "mrp_production", ids.get("mo1")),
+            ("MO2", "mrp_production", ids.get("mo2")),
+            ("PACKING_BATCH", "ya_packing_batch", ids.get("batch")),
+            ("SO1", "sale_order", ids.get("so1")),
+            ("SO2", "sale_order", ids.get("so2")),
+            ("OVERCAP_SO", "sale_order", ids.get("overcap")),
+            ("CDC_PICKING", "stock_picking", ids.get("cdc_picking")),
+            ("FG_PICKING", "stock_picking", ids.get("fg_picking")),
+            ("FINALIZATION", "ya_sale_mo2_finalization", ids.get("final")),
+            ("PLANNING", "ya_production_planning", ids.get("planning")),
+        ):
+            if not record_id:
+                continue
+            check_cr.execute(
+                "SELECT COUNT(*) FROM %s WHERE id = %%s" % table,
+                (record_id,),
+            )
+            found = check_cr.fetchone()[0]
+            checked += 1
+            if found:
+                print("ROLLBACK_SQL_OBJECT_LEFTOVER:", label, record_id, found)
+                errors.append("OBJECT_%s" % label)
+
+        if ids.get("final"):
+            check_cr.execute(
+                "SELECT COUNT(*) FROM ya_sale_mo2_release_line "
+                "WHERE finalization_id = %s", (ids["final"],)
+            )
+            if check_cr.fetchone()[0]:
+                errors.append("MO2_RELEASE_LINE_PERSISTED")
+
+        # Check stock moves and valuation layers from real native calls,
+        # including partial-progress errors before the FG success tail.
+        mo_ids = [x for x in (ids.get("mo1"), ids.get("mo2")) if x]
+        picking_ids = [x for x in (
+            ids.get("cdc_picking"), ids.get("fg_picking")
+        ) if x]
+        move_ids = ids.get("synthetic_moves") or []
+        check_cr.execute("""
+            SELECT COUNT(*) FROM stock_move
+            WHERE id = ANY(%s::integer[])
+               OR picking_id = ANY(%s::integer[])
+               OR raw_material_production_id = ANY(%s::integer[])
+               OR production_id = ANY(%s::integer[])
+        """, (move_ids, picking_ids, mo_ids, mo_ids))
+        if check_cr.fetchone()[0]:
+            errors.append("NATIVE_STOCK_MOVES_PERSISTED")
+
+        if ids.get("valuation_ids"):
+            check_cr.execute(
+                "SELECT COUNT(*) FROM stock_valuation_layer "
+                "WHERE id = ANY(%s::integer[])",
+                (ids["valuation_ids"],),
+            )
+            if check_cr.fetchone()[0]:
+                errors.append("STOCK_VALUATION_LAYERS_PERSISTED")
+
+        print("ROLLBACK_SQL_OBJECTS_CHECKED:", checked)
+        if not errors:
+            print("INDEPENDENT_SQL_SYNTHETIC_OBJECTS_ABSENT_PASS")
+        else:
+            print("ROLLBACK_SQL_VERIFICATION_ERRORS:", errors)
+            raise AssertionError(
+                "ROLLBACK_INDEPENDENT_SQL_FAILED: " + ",".join(errors)
+            )
+
 assert success, "NATIVE_MO2_ROLLBACK_TEST_INCOMPLETE"
 print("FASE2_YA_NATIVE_MO2_DONE_FG_DRAFT_ROLLBACK_PASS")
 print("SCOPE: NATIVE CDC DONE + MO2 DONE + FG PICKING DRAFT; FG NOT VALIDATED, NO SO/RO DO")
