@@ -21,7 +21,7 @@ class SaleOrder(models.Model):
     ya_slot = fields.Selection(
         [('S1', 'S1 - 05.00 WIB'), ('S2', 'S2 - 09.00 WIB'),
          ('S3', 'S3 - 11.00 WIB')],
-        string='YA Slot Produksi', copy=False, index=True,
+        string='YA Slot Kirim', copy=False, index=True,
     )
 
     def _ya_validate_published_schedule(self):
@@ -31,7 +31,7 @@ class SaleOrder(models.Model):
             if not order.ya_delivery_date or not order.ya_slot:
                 raise ValidationError(_(
                     'Custom YA Sales Order wajib memiliki Tanggal Kirim dan '
-                    'Slot Produksi dari Published Planning.'
+                    'Slot Kirim dari Published Planning.'
                 ))
             exists = Planning.search_count([
                 ('delivery_date', '=', order.ya_delivery_date),
