@@ -1,9 +1,8 @@
 """Atomic capacity ledger preparation for YA SO confirmation.
 
-This service is SOURCE-ONLY and NOT wired to any UI Confirm action. Future
-activation must put it in the SAME transaction as native SO confirmation,
-suppress the native warehouse delivery for YA safely, and integrate SO
-priority/MO2/PCK before enabling the wizard.
+The confirm transaction is clone-only. It reserves a Published Planning
+capacity ledger and confirms the native commercial SO without early delivery.
+Physical MO2/Packing allocation/real PCK delivery are separate next phases.
 """
 from collections import defaultdict
 
@@ -164,11 +163,10 @@ class SaleOrderYACapacityBooking(models.Model):
         }
 
     def _ya_write_locked_capacity_reservations(self, booking):
-        """Future internal booking step. NOT called by Confirm wizard yet.
+        """Write protected capacity in the SAME database transaction as SO confirm.
 
-        Call only after a successful _ya_prepare_locked_booking and as part
-        of ONE transaction that will also safely confirm SO. A failed
-        confirmation must roll back the ledger rows automatically.
+        Must be called after _ya_prepare_locked_booking. A failed confirmation
+        rolls back BOTH native SO state and all ledger rows.
         """
         self.ensure_one()
         if self.env.cr.dbname != CLONE_DB or self.state not in ("draft", "sent"):
@@ -186,3 +184,51 @@ class SaleOrderYACapacityBooking(models.Model):
         return self.env["ya.sale.capacity.reservation"].sudo().with_context(
             ya_sale_confirm_slot_locked=True
         ).create(rows)
+
+    def _ya_confirm_with_protected_capacity(self, delivery_date, slot):
+        """Clone-only atomic Confirm: quote -> capacity ledger -> native SO.
+
+        No kitchen MO, Packing allocation, stock transfer, invoice, or native
+        warehouse Delivery may be created here. Subsequent Fase 2 work must
+        consume the protected ledger during MO1/MO2 and PCK allocation.
+        """
+        self.ensure_one()
+        if self.env.cr.dbname != CLONE_DB:
+            raise UserError(_("SO capacity Confirm hanya boleh di database clone RO_SO."))
+        if not self.env.user.has_group("sales_team.group_sale_salesman"):
+            raise UserError(_("Sales permission is required to Confirm YA SO."))
+        # Locks a date-slot shared with RO, Paket RO and Packing; also locks
+        # this quotation row to avoid duplicate Confirm across workers.
+        booking = self._ya_prepare_locked_booking(delivery_date, slot)
+        if self.picking_ids:
+            raise UserError(_("Quotation YA has unexpected outgoing deliveries."))
+
+        # Schedule is finalized only AFTER passing all capacity checks.
+        # All three operations below are atomic in the Odoo HTTP transaction.
+        self.write({"ya_delivery_date": delivery_date, "ya_slot": slot})
+        created = self._ya_write_locked_capacity_reservations(booking)
+        if len(created) != len(booking["reservation_rows"]):
+            raise UserError(_("YA capacity ledger is incomplete; Confirm rolled back."))
+
+        # sale_stock must not create a DO from the normal Sales warehouse.
+        # Packing will later issue the actual PCK -> Customer delivery.
+        self._ya_native_confirm_without_early_delivery()
+
+        if (self.state not in ("sale", "done") or self.picking_ids or
+                self.ya_delivery_date != delivery_date or self.ya_slot != slot):
+            raise UserError(_("YA SO Confirm integrity check failed; rolled back."))
+        if sum(created.mapped("qty_required")) != sum(
+                row["qty_required"] for row in booking["reservation_rows"]):
+            raise UserError(_("YA capacity ledger Qty mismatch; rolled back."))
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("YA Sales Order Confirmed (Production Reserved)"),
+            "res_model": "sale.order",
+            "res_id": self.id,
+            "view_mode": "form",
+            "views": [(self.env.ref(
+                "ya_sale_production_capacity.view_ya_capacity_sale_order_form"
+            ).id, "form")],
+            "target": "current",
+        }
