@@ -41,4 +41,20 @@ for name in ("ya_is_capacity_so", "ya_delivery_date", "ya_delivery_date_label", 
     for node in nodes:
         print("  ATTRS:", dict(node.attrib))
         print("  PARENT_TAG:", node.getparent().tag if node.getparent() is not None else "NONE")
+# Inspect ancestor modifiers: a field may exist in the merged XML yet be
+# hidden by a wrapping group/page. Do not treat XML presence as UI proof.
+for name in ("ya_delivery_date", "ya_slot"):
+    for node in root.xpath(".//field[@name='%s']" % name):
+        print("FIELD_ANCESTORS:", name)
+        current = node.getparent()
+        depth = 0
+        while current is not None and depth < 12:
+            attrs = {k: v for k, v in current.attrib.items()
+                     if k in ("name", "string", "invisible", "groups",
+                              "readonly", "attrs", "states")}
+            print("  LEVEL:", depth + 1, "TAG:", current.tag, "ATTRS:", attrs)
+            if current.tag == "form":
+                break
+            current = current.getparent()
+            depth += 1
 print("READ_ONLY_YA_FORM_DIAGNOSTIC_COMPLETE")
