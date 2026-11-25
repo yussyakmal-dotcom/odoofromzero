@@ -193,7 +193,67 @@ for days in range(14, 75):
         break
 assert date, "STOP_NO_FREE_FUTURE_S1; NO_TEST_WRITES"
 
-ids = {"company_id": Sample.company_id.id}
+# CRITICAL: SNAPSHOT THE *PERSISTED* BASELINE BEFORE ANY TEMPORARY MO,
+# Planning, SO, CDC picking or release is created. A snapshot after the
+# synthetic CDC document has been prepared already contains provisional
+# stock.quant.reserved_quantity (4 BoM items: 10/1/1/1) and cannot be
+# compared to the state after rollback (correctly 0 reserved).
+company_id = Sample.company_id.id
+bom_product_ids = sorted(set(source_bom.bom_line_ids.mapped(
+    "product_id"
+).ids))
+assert bom_product_ids, "STOP_REFERENCE_BOM_HAS_NO_COMPONENTS"
+wh_model = env["stock.warehouse"].sudo()
+cdc_base = wh_model.search([
+    ("code", "=", "CDC"), ("company_id", "=", company_id)])
+pck_base = wh_model.search([
+    ("code", "=", "PCK"), ("company_id", "=", company_id)])
+kitchen_base = source_bom.picking_type_id.warehouse_id
+assert len(cdc_base) == len(pck_base) == 1 and kitchen_base
+assert len({cdc_base.id, pck_base.id, kitchen_base.id}) == 3
+pre_fixture_pairs = [
+    (pid, loc.id)
+    for pid in bom_product_ids
+    for loc in (cdc_base.lot_stock_id, kitchen_base.lot_stock_id)
+] + [
+    (source_line.product_id.id, kitchen_base.lot_stock_id.id),
+    (source_line.product_id.id, pck_base.lot_stock_id.id),
+]
+assert len(pre_fixture_pairs) == 2 * len(bom_product_ids) + 2
+
+ids = {"company_id": company_id}
+with env.registry.cursor() as baseline_cr:
+    baseline_cr.execute("SET TRANSACTION READ ONLY")
+    baseline_cr.execute("SHOW transaction_read_only")
+    assert baseline_cr.fetchone()[0] == "on", (
+        "STOP_PERSISTED_PRE_FIXTURE_BASELINE_NOT_READ_ONLY"
+    )
+    persisted_baseline = []
+    for pid, loc in pre_fixture_pairs:
+        baseline_cr.execute("""
+            SELECT COALESCE(SUM(quantity), 0),
+                   COALESCE(SUM(reserved_quantity), 0)
+            FROM stock_quant
+            WHERE company_id = %s AND product_id = %s
+              AND location_id = %s AND lot_id IS NULL
+              AND package_id IS NULL AND owner_id IS NULL
+        """, (company_id, pid, loc))
+        quantity, reserved_quantity = map(float, baseline_cr.fetchone())
+        persisted_baseline.append(
+            (pid, loc, quantity, reserved_quantity)
+        )
+ids["stock_before"] = persisted_baseline
+persisted_stock = {
+    (pid, loc): (physical, reserved)
+    for pid, loc, physical, reserved in persisted_baseline
+}
+print("PREFIXTURE_SQL_COMMITTED_BASELINE_PASS:",
+      "PRODUCTS:", len(bom_product_ids),
+      "EXACT_STOCK_LOCATIONS:", len(persisted_baseline))
+print("PREFIXTURE_CDC_RESERVED:", [
+    (pid, persisted_stock[(pid, cdc_base.lot_stock_id.id)][1])
+    for pid in bom_product_ids
+])
 success = False
 try:
     # Minimal synthetic Planning and Packing fixture following actual
@@ -505,20 +565,38 @@ try:
                  (cdc_wh.lot_stock_id, kitchen.lot_stock_id)]
         pairs += [(mo2.product_id.id, kitchen.lot_stock_id),
                   (mo2.product_id.id, pck_wh.lot_stock_id)]
+        assert set(materials) == set(bom_product_ids), (
+            "STOP_MO2_RAW_SKUS_DIFFER_FROM_PRE_FIXTURE_BOM"
+        )
+        assert set((pid, loc.id) for pid, loc in pairs) == (
+            set(pre_fixture_pairs)
+        ), "STOP_STOCK_PAIRS_DIFFER_FROM_PRE_FIXTURE_BASELINE"
         for pid, loc in pairs:
             before[(pid, loc.id)] = stock_at(pid, loc)
+            persisted_physical, persisted_reserved = persisted_stock[
+                (pid, loc.id)]
+            if abs(before[(pid, loc.id)][0] - persisted_physical) > 1e-7:
+                raise AssertionError(
+                    "STOP_PHYSICAL_STOCK_CHANGED_BEFORE_NATIVE_TRANSFER: "
+                    "%s/%s persisted=%s after_fixture=%s" %
+                    (pid, loc.id, persisted_physical,
+                     before[(pid, loc.id)][0])
+                )
+        print("SYNTHETIC_CDC_RESERVED_AFTER_PREPARATION:", [
+            (pid,
+             persisted_stock[(pid, cdc_wh.lot_stock_id.id)][1],
+             before[(pid, cdc_wh.lot_stock_id.id)][1])
+            for pid in sorted(materials)
+        ])
         for pid, qty in materials.items():
             cdc_qty, cdc_reserved = stock_at(pid, cdc_wh.lot_stock_id)
             assert cdc_qty - cdc_reserved >= qty - 1e-7, (
                 "STOP_INSUFFICIENT_CDC_FOR_NATIVE_TEST: %s" % pid)
         assert stock_at(mo2.product_id.id, kitchen.lot_stock_id)[1] == 0
-        # Retain immutable baseline OUTSIDE the success-only tail, so an
-        # exception (e.g. native Consumption Warning) still gets a verified
-        # stock rollback in the finally block before propagating.
-        ids["stock_before"] = [
-            (pid, loc.id, *before[(pid, loc.id)]) for pid, loc in pairs
-        ]
-        print("NATIVE_STOCK_BASELINE_CAPTURED:", len(before))
+        # This snapshot is ONLY for in-transaction stock delta checks.
+        # Final rollback must compare to PREFIXTURE SQL committed baseline.
+        print("NATIVE_TRANSACTION_STOCK_SNAPSHOT_CAPTURED:",
+              len(before))
 
         # Native Odoo CDC picking validates actual stock movement.
         real_cdc = cdc_picking.with_user(stock_actor).with_company(
