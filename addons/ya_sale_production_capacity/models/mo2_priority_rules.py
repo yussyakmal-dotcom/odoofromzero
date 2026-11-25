@@ -130,5 +130,6 @@ def preview_packing_buckets(actual_finished_available, so_direct_finished,
         "unallocated_finished": stock,
         "requires_exception_review": (
             so_required > so_fulfilled or ro_pkg > pkg_fulfilled
+            or ro > ro_fulfilled
         ),
     }
