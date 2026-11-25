@@ -51,6 +51,8 @@ required_source = [
     "return super().action_open_discount_wizard()",
     "ya.sale.quotation.discount.wizard",
     "return super().action_confirm()",
+    "def _ya_native_confirm_without_early_delivery(",
+    "skip_procurement=True",
 ]
 for token in required_source:
     assert token in source, "SOURCE_GUARD_MISSING: %s" % token
@@ -161,4 +163,8 @@ for token in ("_name = \"ya.sale.capacity.reservation\"",
     assert token in ledger, "RESERVATION_LEDGER_GUARD_MISSING: %s" % token
 assert "_ya_write_locked_capacity_reservations" not in wizard, "DO_NOT_ACTIVATE_RESERVATION_PREMATURELY"
 print("CAPACITY_LEDGER: guarded schema and transaction recheck SOURCE_ONLY; not activated")
+assert "def _ya_native_confirm_without_early_delivery(" in source
+assert "skip_procurement=True" in source
+assert "_ya_native_confirm_without_early_delivery" not in wizard, "YA_NATIVE_CONFIRM_NOT_YET_ACTIVATED"
+print("YA_NATIVE_DELIVERY: internal skip_procurement path staged; Confirm wizard still fail-closed")
 print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN")
