@@ -13,7 +13,7 @@
         </group>
         <footer>
           <button name="action_check_and_confirm" type="object"
-                  string="Periksa Jadwal (Confirm Belum Aktif)" class="btn-primary"/>
+                  string="Confirm Sales Order — Reservasi Kapasitas" class="btn-primary"/>
           <button string="Batal" special="cancel"/>
         </footer>
       </form>
