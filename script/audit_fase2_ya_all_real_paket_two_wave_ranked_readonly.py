@@ -12,6 +12,7 @@ This audit is diagnostic, not a claim of full SO/Paket/MO2 end-to-end PASS.
 """
 from collections import Counter, defaultdict
 from datetime import date
+from math import ceil
 
 DB = "erp-yussyakmal-mrp-test-RO_SO"
 assert env.cr.dbname == DB, "STOP_WRONG_DATABASE"
@@ -97,6 +98,7 @@ def component_info(line):
         "ratio_in_paket": None,
         "two_wave_capacity": False,
         "cdc_two_batches_ready": False,
+        "raw_needs_for_two_batches": {},
         "wo_free": False,
         "raw_shortage_skus": [],
         "issue": [],
@@ -150,6 +152,7 @@ def component_info(line):
             raw_ids[raw.id] = raw
         if not raw_by_sku:
             result["issue"].append("BOM_WITHOUT_RAW")
+        result["raw_needs_for_two_batches"] = dict(raw_by_sku)
         for raw_id, needed in sorted(raw_by_sku.items()):
             if cdc_free[raw_id] + 1e-7 < needed:
                 result["raw_shortage_skus"].append({
@@ -228,6 +231,34 @@ for product in products:
                 continue
             component = dict(component_info(matches[0]))
             component["ratio_in_paket"] = int(round(qty))
+            # Real test MUST be capable of at least ONE complete customer
+            # Paket in MO1 AND ONE complete customer Paket in MO2. Ratio
+            # may exceed a single kitchen BoM output. These quantities are
+            # minimum, BEFORE any overlapping direct SO/RO demand is added.
+            output = component["output"]
+            maximum = component["published_max"]
+            if (output and output > 0 and
+                    abs(output - round(output)) < 1e-7 and maximum is not None):
+                batches_per_paket_wave = ceil(qty / output)
+                component["batches_per_package_wave"] = batches_per_paket_wave
+                component["minimum_output_two_package_waves"] = (
+                    2 * batches_per_paket_wave * output
+                )
+                component["two_package_waves_capacity"] = bool(
+                    component["two_wave_capacity"] and
+                    maximum + 1e-7 >=
+                    component["minimum_output_two_package_waves"]
+                )
+                raw_mult = batches_per_paket_wave
+                component["two_package_waves_cdc_raw_ready"] = bool(
+                    component["cdc_two_batches_ready"] and
+                    all(cdc_free[raw] + 1e-7 >= needed_two_batches * raw_mult
+                        for raw, needed_two_batches in
+                        component["raw_needs_for_two_batches"].items())
+                )
+            else:
+                component["two_package_waves_capacity"] = False
+                component["two_package_waves_cdc_raw_ready"] = False
             components.append(component)
             if component["warehouse"]:
                 kitchens.add(component["warehouse"])
@@ -243,22 +274,34 @@ for product in products:
                 "BOM_KITCHEN_ROUTE", "WORKCENTER_ROUTE", "HAS_OR_UNKNOWN_WO"
             )) for part in components
         ))
-        cdc_ok = bool(components and all(
+        two_package_wave = bool(all_two_wave and all(
+            c["two_package_waves_capacity"] for c in components
+        ))
+        cdc_two_batch_min = bool(components and all(
             c["cdc_two_batches_ready"] for c in components
+        ))
+        cdc_ok = bool(components and all(
+            c["two_package_waves_cdc_raw_ready"] for c in components
         ))
         if all_two_wave:
             counters["ALL_KITCHEN_COMPONENTS_TWO_WAVES"] += 1
-        if cdc_ok:
+        if two_package_wave:
+            counters["TWO_CUSTOMER_PAKET_WAVES_CAPACITY"] += 1
+        if cdc_two_batch_min:
             counters["ALL_KITCHEN_COMPONENTS_CDC_TWO_BATCHES"] += 1
-        if all_two_wave and cdc_ok:
-            counters["TWO_WAVE_AND_CDC_READY"] += 1
+        if cdc_ok:
+            counters["CDC_FOR_TWO_CUSTOMER_PAKET_WAVES"] += 1
+        if two_package_wave and cdc_ok:
+            counters["TWO_PAKET_WAVES_AND_CDC_READY"] += 1
         if unrouted:
             counters["HAS_UNROUTED_PCK_COMPONENT_TO_VALIDATE"] += 1
-        if all_two_wave and cdc_ok and not unrouted and pck_route_ready:
+        if two_package_wave and cdc_ok and not unrouted and pck_route_ready:
             counters["FULL_MINIMUM_NATIVE_TWO_WAVE_CANDIDATE"] += 1
         blockers = [x for x in (
             "not_all_bom_two_waves" if not all_two_wave else None,
-            "not_all_cdc_raw_ready" if not cdc_ok else None,
+            "cannot_produce_one_paket_in_each_mo_wave"
+                if not two_package_wave else None,
+            "not_enough_cdc_raw_for_two_paket_waves" if not cdc_ok else None,
             "unrouted_pck_components_unverified" if unrouted else None,
             "no_unique_pck_manufacturing_type" if not pck_route_ready else None,
         ) if x]
@@ -273,15 +316,18 @@ for product in products:
             "components": components,
             "unrouted_pck_component_skus": unrouted,
             "all_two_wave_capacity": all_two_wave,
-            "all_cdc_two_batch_raw_ready": cdc_ok,
+            "two_customer_paket_waves_capacity": two_package_wave,
+            "all_cdc_two_batch_raw_ready": cdc_two_batch_min,
+            "all_cdc_two_package_waves_raw_ready": cdc_ok,
             "full_minimum_candidate": not blockers,
             "blockers": blockers,
         })
 
 ranked.sort(key=lambda r: (
     -int(r["full_minimum_candidate"]),
+    -int(r["two_customer_paket_waves_capacity"]),
     -int(r["all_two_wave_capacity"]),
-    -int(r["all_cdc_two_batch_raw_ready"]),
+    -int(r["all_cdc_two_package_waves_raw_ready"]),
     len(r["unrouted_pck_component_skus"]),
     len(r["components"]),
     r["paket_id"],
@@ -298,7 +344,10 @@ for r in ranked[:12]:
         "kitchens": r["kitchens"],
         "eligible_minimum": r["full_minimum_candidate"],
         "two_wave": r["all_two_wave_capacity"],
-        "cdc_raw": r["all_cdc_two_batch_raw_ready"],
+        "two_customer_paket_waves": r["two_customer_paket_waves_capacity"],
+        "cdc_raw_two_bom_batches": r["all_cdc_two_batch_raw_ready"],
+        "cdc_raw_for_two_paket_waves":
+            r["all_cdc_two_package_waves_raw_ready"],
         "blockers": r["blockers"],
         "unrouted": r["unrouted_pck_component_skus"],
         "components": [
@@ -309,6 +358,12 @@ for r in ranked[:12]:
                 "Published_Max": c["published_max"],
                 "Paket_ratio": c["ratio_in_paket"],
                 "two_wave": c["two_wave_capacity"],
+                "two_customer_paket_waves":
+                    c["two_package_waves_capacity"],
+                "minimum_output_two_paket_waves":
+                    c.get("minimum_output_two_package_waves"),
+                "cdc_raw_for_two_paket_waves":
+                    c["two_package_waves_cdc_raw_ready"],
                 "raw_shortage_count": len(c["raw_shortage_skus"]),
                 "shortage_examples": c["raw_shortage_skus"][:4],
                 "issues": c["issue"],
@@ -319,10 +374,15 @@ for r in ranked[:12]:
 
 if counters["FULL_MINIMUM_NATIVE_TWO_WAVE_CANDIDATE"]:
     print("REAL_PAKET_TWO_WAVE_NATIVE_CDC_CANDIDATE_FOUND")
+elif counters["TWO_CUSTOMER_PAKET_WAVES_CAPACITY"]:
+    print("REAL_PAKET_TWO_PAKET_WAVES_CAPACITY_FOUND_BUT_RAW_OR_PCK_BLOCKED")
 elif counters["ALL_KITCHEN_COMPONENTS_TWO_WAVES"]:
-    print("REAL_PAKET_TWO_WAVE_CAPACITY_FOUND_BUT_RAW_OR_PCK_BLOCKED")
+    print("REAL_PAKET_TWO_WAVE_CAPACITY_FOUND_BUT_PACKAGE_RATIO_BLOCKED")
 else:
     print("REAL_PAKET_TWO_WAVE_CAPACITY_NOT_PROVEN_IN_PUBLISHED_REFERENCES")
+print("NOTES: Ranking requires one COMPLETE customer Paket in MO1 and")
+print("one COMPLETE customer Paket in MO2 across ALL kitchens; added SO direct")
+print("and RO Paket/ordinary quantities require further capacity checks.")
 print("NOTES: Two native BoM batches are MINIMUM only; real SO/RO demand")
 print("must be recalculated for each SKU, per date/slot, with native raw demand.")
 print("NOTES: Unrouted PCK components are UNVERIFIED, not automatically free.")
