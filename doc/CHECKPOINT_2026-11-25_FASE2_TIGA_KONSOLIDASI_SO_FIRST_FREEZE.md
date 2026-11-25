@@ -8,7 +8,9 @@
 
 > **START HERE:** [Handover aktif](HANDOVER_2026-11-25_FASE2_TIGA_KONSOLIDASI_SO_FIRST.md). Riwayat lengkap tersimpan pada [checkpoint kumulatif](CHECKPOINT_2026-11-25_FASE2_RO_SO_CLONE.md). Dokumen historis Fase 1 tidak boleh dijadikan alasan mengaktifkan prorata surplus untuk alokasi FINAL Fase 2.
 
-## 1. Keputusan owner yang mengikat
+> **UPDATE OWNER 2026-Nov-26 — DESIGN B APPROVED:** Bagian 8 di bawah adalah aturan desain terkini dan menggantikan bagian lama yang bertentangan (PP1 RO-only, istilah PP3, hard-coded cutoff, approval surplus). Bukti PASS historis tetap dipertahankan, bukan bukti implementasi desain baru.
+
+## 1. Keputusan owner yang mengikat (baseline 25 Nov; baca supersession bagian 8)
 
 1. **Ada TIGA konsolidasi, jangan digabung:**
    - **Pre Produksi 1 (PP1):** konsolidasi **RO asli toko + RO Paket**, pembulatan BoM / Published Planning, snapshot immutable, MO1.
@@ -91,3 +93,50 @@
 - Normal SO and manual MO retain native Odoo origin. No new field or list view required for this change.
 - Existing MO origin and historical snapshots are not rewritten; relational MO1/MO2 links remain authoritative, not the display string.
 - Source change only; no deployment, database mutation or native UAT performed. PP1 inclusion of early SO and timer/operator policy remain open; no production calculation changes in this patch.
+
+
+## 8. Owner design freeze — 2026-Nov-26 WIB (APPROVED, NOT IMPLEMENTED)
+
+### 8.1 Tiga konsolidasi, dua Pre Produksi, Design B
+
+- PP1 = RO reguler asli + RO Paket + SO Konsolidasi yang sudah Confirmed sebelum Produksi OK PP1; termasuk komponen Paket SO. SO-first, lalu RO Paket, lalu RO reguler dalam Published Max dan kelipatan BoM; kekurangan RO boleh terjadi. PP1 menyiapkan kebutuhan utama material bagi CDC agar tersedia waktu pengadaan kekurangan dari supplier.
+- PP2 = setelah SO cutoff, konsolidasi SELURUH SO Konsolidasi Confirmed (termasuk yang sudah masuk PP1, dihitung satu kali), memperhitungkan supply MO1/MO2 yang sah; hanya menambah MO2 untuk kekurangan SO, bukan memulihkan kekurangan RO. Material Requirement 2 hanya tambahan dari MO2 dengan mempertimbangkan stok/reservasi/pemenuhan terdahulu. Tidak mengulang kebutuhan MO1.
+- Tahap ketiga bernama **POST PRODUKSI / FINAL PACKING ALLOCATION**, BUKAN PP3 atau Pre Produksi 3. Setelah MO selesai dan produk jadi ditransfer ke PCK, alokasi berdasarkan stok fisik eligible, prioritas SO langsung dan kebutuhan lengkap Paket SO > RO Paket > RO reguler. Kekurangan SO exception/stop; RO partial/zero; surplus tidak otomatis dialokasikan. Native perakitan Paket dan DO mengikuti final ledger.
+- SO Normal = Big Order, jalur independen native SO/MO dan Material Requirement dari MO sendiri; kapasitas, jadwal dan pemenuhan diatur SOP terpisah. Jangan masukkan demand, MO, surplus, kapasitas ataupun alokasi Big Order ke mesin PP1/PP2/Post Produksi konsolidasi. Stok CDC tetap bersama; native reservation harus mencegah double consumption. Koordinasi kapasitas fisik adalah tanggung jawab SOP.
+- Tidak mengubah Fase 1, histori, snapshot immutable, DO Done, aturan native stock, unique relational MO links, atau menambah WO.
+
+### 8.2 Hybrid Trigger dan Settings
+
+| Parameter | Default / keputusan owner |
+|---|---|
+| Zona waktu | Asia/Jakarta (WIB) tetap |
+| PP1 trigger | Hybrid: timer menutup RO dan menyiapkan konsolidasi, operator review dan Produksi OK |
+| RO cutoff | H-2 08.00 WIB, serentak untuk RO reguler dan RO Paket S1/S2/S3 |
+| PP1 batch | Terpisah per delivery date dan slot; CDC melihat kebutuhan pengadaan gabungan ketiga slot tanpa double counting |
+| PP2 trigger | Hybrid: timer menutup SO dan menyiapkan konsolidasi, operator review dan Produksi OK 2 |
+| SO cutoff S1 | H-1 15.00 WIB |
+| SO cutoff S2/S3 | Belum ditentukan; fail closed untuk PP2 otomatis jika belum dikonfigurasi |
+| Jeda release MO2 | Default 30 menit setelah SO cutoff; S1 default earliest H-1 15.30 WIB |
+| Dispatch | S1 05.00, S2 09.00, S3 11.00 WIB (existing) |
+
+- Parameter cutoff RO (hari relatif dan jam bersama), SO cutoff per slot dan jeda release MO2 configurable melalui menu Settings, bukan hard code. Hybrid trigger dan zona waktu tetap.
+- Hanya user berwenang mengubah Settings, dengan audit history. Perubahan setting tidak membuka kembali slot yang telah terkunci. Timer idempotent, tidak boleh membuat konsolidasi ganda. Validate ulang sebelum release MO1/MO2; gunakan mutex date-slot yang sama dengan Confirm SO dan RO. Tidak otomatis menerbitkan MO hanya karena timer tercapai.
+- SO Confirmed sebelum Produksi OK PP1 ikut MO1; sesudah Produksi OK PP1 menggunakan MO1 aktual dan proyeksi MO2. Jika SO masuk saat review PP1, refresh/revalidate konsolidasi sebelum lock/release. Snapshot PP1 setelah release immutable.
+- Jam cutoff merupakan batas penerimaan meski timer terlambat; detail implementasi scheduler, permissions dan transisi state masih perlu review. Jangan mengaktifkan cron atau mengubah DB dalam checkpoint ini.
+
+### 8.3 Simulasi kumulatif dan otoritas Sales Admin
+
+- Satu Quotation flow; Draft/Sent boleh tanpa tanggal/slot, wajib tanggal/slot untuk simulasi yang valid dan Confirm. Sebelum PP1 gunakan proyeksi MO1 berdasarkan RO yang diketahui + SO Confirmed dan draft; setelah PP1 gunakan MO1 valid dan proyeksi MO2 kumulatif SO-only.
+- Setiap draft baru membandingkan kondisi BEFORE dan AFTER berdasarkan seluruh SO Confirmed pada SKU/date/slot, bukan order independen. Tampilkan tambahan produksi marginal, surplus sebelum/sesudah, surplus yang diserap, potensi kekurangan RO Paket/reguler, kapasitas Max dan BoM; RO asli terpisah dari provisional snapshot. Proyeksi tidak boleh dianggap native MO atau stok fisik.
+- Contoh sesudah PP1: MO1 200, BoM 200, RO asli 190, SO 5 lalu 15 lalu 190 lalu 10: SO kumulatif 5/20/210/220, proyeksi MO2 0/0/200/200. SO terakhir tidak memicu batch tambahan. MO2 aktual hanya setelah cutoff dan operator release.
+- Sales Admin berwenang Confirm, revisi atau membatalkan quotation sebelum Confirm berdasarkan data risiko marginal, termasuk order 1–5 pcs yang memicu batch 200 dan menghasilkan 195 pcs di luar kebutuhan SO. Tampilkan warning (bedakan sisa untuk RO dan surplus akhir), bukan auto reject atau wajib approval atasan karena surplus besar. Hard gates Published Max, BoM, routing, cutoff dan integrity tetap berlaku. Recheck atomic saat Confirm; tidak boleh mengabaikan stale preview.
+- Catatan audit hasil simulasi pada saat Confirm, actor dan timestamp merupakan usulan implementasi; detail penyimpanan belum ditetapkan. Pembatalan SO yang SUDAH Confirmed tetap belum diputuskan; jangan disamakan dengan membatalkan quotation.
+- AI PP2 setelah cutoff adalah arah eksplorasi: aplikasi menyiapkan data locked + prompt + template keluaran, AI mengisi feeder template; tanggal dan slot fixed. Belum ada persetujuan implementasi atau kontrak template final; validasi deterministik Odoo tetap wajib. Tidak memberi AI hak mengubah transaksi langsung.
+
+### 8.4 Source code status, mismatch dan resume
+
+- Format native origin sudah committed: MO1 / YYYY-Mon-DD / Sx dan MO2 / YYYY-Mon-DD / Sx (tanggal kirim). Native SO Normal tetap native. Commits 1985d5f, 2345d9f, c33e031; belum deployed/UAT. Native origin tidak unique; audit custom DB constraints belum dilakukan.
+- PP1 aktif masih RO-only; belum mengintegrasikan early SO. Helper preview `so_draft_production_impact_rules.py` masih memakai gross SO+RO untuk forecast setelah PP1, demikian pula `mo2_priority_rules.py` pada release. Keduanya tidak sesuai SO-only setelah PP1; PASS lama bukan PASS desain baru. `capacity_booking.py` masih menggunakan mo2_output=0 dan cutoff hard-coded S1; PP2 release hard-coded; S2/S3 belum approved. Direct non-kitchen/consignment routing juga belum lengkap.
+- Urutan kerja berikut: review desain simulasi sebelum PP1 ketika RO belum lengkap (jangan menjanjikan RO yang belum masuk), definisikan adapter/contract dan lock transition; kemudian perbaiki rumus bersama, settings/trigger dan native integration secara bertahap dengan test relevan. Jangan ulang PASS yang tidak terdampak; jangan klaim PASS untuk perilaku yang berubah.
+- Pending: detail simulasi sebelum PP1 dan penanganan RO belum lengkap; jam SO cutoff S2/S3; distribusi kekurangan antar toko; disposisi surplus; cancel/edit SO Confirmed; approval teknis kontrak AI; detail audit/cron dan edge cases PP1 belum release saat SO cutoff. Tidak mengarang keputusan yang belum disetujui.
+- Scope checkpoint ini DOCUMENTATION ONLY. Tidak ada perubahan kode, cron, instal/upgrade/restart, test, database mutation atau deploy. Hanya clone `erp-yussyakmal-mrp-test-RO_SO` untuk UAT kemudian setelah izin. Jangan sentuh produksi atau Fase 1.
