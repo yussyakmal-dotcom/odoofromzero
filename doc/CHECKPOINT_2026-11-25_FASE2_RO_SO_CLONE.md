@@ -625,3 +625,27 @@ echo "KODE_KELUAR_AUDIT=$?"
 - Assistant independently parsed all `SKU_THREE_STAGE_EVIDENCE` rows in user-uploaded terminal log, de-duplicated by `product_id` (21 distinct SKUs in 35 printed lines), and summed **exact company1 PCK root untracked/unowned/unpackaged current physical minus reserved = 831 units across 10 SKU** (NOT to be confused with 5833 planned surplus). Distinct current PCK free: SKU12373=201, 10042=200, 10025=160, 10026=61, 10039=61, 10040=60, 10008=26, 10035=21, 10009=11, 12379=30; sum831. PCK quant is CURRENT GLOBAL ACROSS ALL 3 BATCHES, may include earlier stock/DO; not specific date/slot, not necessarily fresh/eligible/lot-complying, and MUST NOT be blindly allocated to SO. DO already existing assigned reservations reduce visible free; some DONE moves. Native source provenance and FIFO/expiry/traceability require explicit checks.
 - Crucial cross-batch example: SKU10025 historical batch2 / Nov25 S3 MO1 output300, original RO1, frozen planned excess299, but exact shared CURRENT PCK physical300 / reserved140 / native free160 because Nov27 S1 has original RO140 / assigned dispatch. The 299 is NOT 299 unclaimed units for the Nov25 SO. Likewise 12373 global free201 while two distinct frozen batch excess figures201 and270, illustrating double-count danger.
 - **NEXT** verify `script/test_fase2_ya_sales_admin_preconfirm_so_impact_pure.py` existing (still not run by Feri) before building a native Sales Admin Draft Quotation production-impact preview with exact raw RO, existing SO confirmed ledger, MO1 Done/cancel distinction, shared PCK free and already-reserved/assigned store dispatch; Stage2 SO-only MO2 after full source validation. Do **not** activate SO booking or final Packing allocation blindly; cancelled MO1 and in-flight DO produce explicit hard blockers. Confirmed SO has no fixture in current DB, so clone-only rollback native UAT is necessary. No installed addon upgrade yet.
+
+## 67. FINAL HANDOVER / DOCUMENTATION FREEZE + FERI PRE-CONFIRM SO IMPACT PURE PASS (25 Nov 2026)
+
+- Owner requested **checkpoint documentation and handover BEFORE any more engineering**. Final authoritative pair created: `doc/CHECKPOINT_2026-11-25_FASE2_TIGA_KONSOLIDASI_SO_FIRST_FREEZE.md` and `doc/HANDOVER_2026-11-25_FASE2_TIGA_KONSOLIDASI_SO_FIRST.md`. Both link to this historical cumulative checkpoint and original Fase 1 handover. **Read all of them** before work resumes; neither a standalone latest small checkpoint nor an old Fase1 prorata rule describes current full stage2 business logic.
+- While documentation was being prepared, Feri provided full terminal stdout of `script/test_fase2_ya_sales_admin_preconfirm_so_impact_pure.py` **ALL PASS** with:
+  `DRAFT_SO5_BOM200_BEFORE_CONFIRM_SHOWS_PLUS195_PASS`;
+  `DRAFT_SO8_BOM100_BEFORE_CONFIRM_SHOWS_PLUS92_PASS`;
+  `SECOND_SMALL_SO_SHARES_PRIOR_SKU_BATCH_NO_DOUBLE_PRODUCTION_PASS`;
+  `SO5_COMPLETES_PREVIOUS_SO195_TO_FULL_BATCH_PASS`;
+  `SO5_ABSORBS_LEGITIMATE_RO_PAKET_MO1_ROUNDING_PASS`;
+  `SO_DISPLACES_FROZEN_RO_CAPACITY_SHOWN_BEFORE_CONFIRM_PASS`;
+  `SO_DISPLACES_PAKET_COMPONENT_REQUIRES_ASSEMBLY_REVIEW_PASS`;
+  `DRAFT_SO_PAKET_COMPONENT_AND_DIRECT_DEDUP_PER_KITCHEN_SKU_PASS`;
+  `RO_ORIGINAL_190_NOT_MISTAKEN_FOR_FROZEN_ALLOCATED_195_PASS`;
+  `SO5_USES_MO1_CAPACITY_WITHOUT_MAKING_RO_ORDER_195_PASS`;
+  `SO10_WITH_FROZEN_RO195_EXPOSES_DOUBLE_CLAIM_5_PASS`;
+  `PER_STORE_SURPLUS_NOT_HIDDEN_BY_OTHER_STORE_SHORTAGE_PASS`;
+  `FROZEN_RO_IDENTITY_AND_ORIGINAL_SOURCE_GUARDS_PASS`;
+  `HARD_PUBLISHED_MAX_AND_BOM_GATES_UNCHANGED_PASS`;
+  `FASE2_SALES_ADMIN_PRECONFIRM_IMPACT_PURE_PASS`.
+  Scope explicitly `SOURCE_ONLY_NO_OD00_UI_CONFIRM_MO2_OR_STOCK_MUTATION`. Do NOT confuse PURE PASS with running actual Quotation UI / native Odoo SO Confirm, no native SO confirmed or MO2 in prior actual clone.
+- Owner's binding 3 consolidations: (1) Pre Produksi1 = RO genuine + Paket, PP1 frozen snapshot & MO1; (2) Pre Produksi2 = confirmed SO per SKU and **SO-only needed MO2**, no forcing MO2 for shortage RO; (3) Final Packing = **actual native PCK free** allocation to SO first, RO Paket then ordinary store RO partial/zero; surplus stays unallocated. Commercial pre-Confirm preview shows RO original vs frozen allocation and incremental BoM cost/risk; cannot steal reserved/Done stock. This overrides **incompatible historic Fase1 surplus automatic-prorata or store-transfer rules for the Fase2 final ledger** without altering Fase1.
+- Audit trust boundary remains as sections 65-66: 5833 planned excess ≠ true free PCK; 8074 planned MO1 vs 7874 Done (2×100 cancelled 10031), WIP11076 excluded, PCK exact global free 831 distinct units across 10 SKUs at audit, 0 confirmed SO, 0 SO ledger, 0 MO2 release. 713 RO short is historical with 0 confirmed SO, not caused by SO-first. Fase2 installed release math still uses SO+RO; **native release must be considered incompatible until fixed**. No native E2E UAT.
+- **NO MORE ACTION in this handover:** no module upgrade, install, restart, DB clone writes, native MO/DO, or extra pure test. Next session starts with handover and gap review only, then seeks authorization for clone-only isolated rollback UAT. Do not run Feri scripts automatically; avoid asking Feri to redo already PASS pure tests until source changes.
