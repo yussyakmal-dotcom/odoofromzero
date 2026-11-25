@@ -83,3 +83,11 @@
 - Hasil PURE PASS **bukan** bukti Sales Admin UI live atau native SO Confirm / final PCK DO. Tidak ada addon yang ditambahkan ke `models/__init__.py` dalam sesi dokumentasi.
 - **Dokumen handover sekarang tersedia dan sudah lengkap:** [HANDOVER_2026-11-25_FASE2_TIGA_KONSOLIDASI_SO_FIRST.md](HANDOVER_2026-11-25_FASE2_TIGA_KONSOLIDASI_SO_FIRST.md). Mulai kelanjutan pekerjaan dengan membaca handover tersebut, checkpoint ini dan riwayat kumulatif; jangan ulangi perintah pure yang sudah PASS kecuali ada perubahan kode relevan.
 - **Status akhir:** DOCUMENTATION/HANDOVER FREEZE. Belum ada perubahan DB ataupun uji native dari pekerjaan dokumentasi ini.
+
+## Owner decision 2026-11-26 — native MO Source label
+
+- New PP1 MO: `MO1 / YYYY-Mon-DD / Sx` (delivery date, not creation date).
+- New PP2 MO: `MO2 / YYYY-Mon-DD / Sx`.
+- Normal SO and manual MO retain native Odoo origin. No new field or list view required for this change.
+- Existing MO origin and historical snapshots are not rewritten; relational MO1/MO2 links remain authoritative, not the display string.
+- Source change only; no deployment, database mutation or native UAT performed. PP1 inclusion of early SO and timer/operator policy remain open; no production calculation changes in this patch.
