@@ -78,7 +78,7 @@ for field_name in ("ya_delivery_date", "ya_slot"):
     node = form_fields[0]
     assert node.attrib.get("readonly") == "state not in ('draft', 'sent')", "QUOTATION_NOT_EDITABLE: %s" % field_name
     assert node.attrib.get("required") not in ("1", "True", "true"), "QUOTATION_SCHEDULE_MUST_BE_OPTIONAL"
-assert manifest["version"] == "19.0.1.0.7", "UNEXPECTED_ADDON_VERSION"
+assert manifest["version"] == "19.0.1.0.8", "UNEXPECTED_ADDON_VERSION"
 assert "ya_workflow_navigation" in manifest["depends"]
 assert "sale_stock" in manifest["depends"]
 assert "security/ir.model.access.csv" in manifest["data"]
