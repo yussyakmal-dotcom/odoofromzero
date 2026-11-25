@@ -1,3 +1,5 @@
+> **CHECKPOINT AKTIF (25 Nov 2026):** [CHECKPOINT_2026-11-25_FASE2_RO_SO_CLONE.md](CHECKPOINT_2026-11-25_FASE2_RO_SO_CLONE.md). DB Fase 2 sudah dipindahkan atas keputusan owner ke `erp-yussyakmal-mrp-test-RO_SO` (clone). Source addon tahap awal sudah dibuat, **belum diinstal**. Instruksi database lama dalam riwayat dokumen tidak berlaku untuk pekerjaan Fase 2.
+
 # Fase 2 — Custom Sales Order YA / Pengadaan Produk Jadi
 Tanggal: 2026-11-25. Status: DESAIN DISETUJUI OWNER; BELUM IMPLEMENTASI/TEST ODOO.
 Acuan: doc/HANDOVER_ODOO_FROM_ZERO_2026-11-23_RO_TO_STORE_PASS.md dan doc/SKILL_ODOO19_ADDON_WORKFLOW.md.
