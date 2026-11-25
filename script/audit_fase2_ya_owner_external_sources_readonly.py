@@ -43,21 +43,6 @@ print("DATABASE:", DB)
 print("MODE: READ_ONLY_OWNER_EXTERNAL_SOURCE_STOCK_AND_HISTORY")
 print("EXACT_OWNER_EXTERNAL_SKUS:", codes)
 
-def where_warehouse(location):
-    if not location:
-        return "NO_LOCATION"
-    candidates = []
-    for w in whs:
-        root = w.lot_stock_id
-        if root and (location == root or root.parent_path in (
-                (location.parent_path or "")[:len(root.parent_path or "")]
-                if root.parent_path else "",)):
-            # Root detection is heuristic only: never use it as a stock
-            # allocation decision. Full location paths printed below.
-            candidates.append(w.code)
-    return ",".join(sorted(candidates)) if candidates else "OTHER"
-
-
 found = Product.search([("default_code", "in", list(codes))])
 by_code = defaultdict(list)
 for p in found:
@@ -161,7 +146,9 @@ for code, expected in codes.items():
         print("SOURCE_NATIVE_MOVE_HISTORY:", {
             "sku": code, "move_id": mv.id,
             "date": str(mv.date),
-            "reference": mv.reference,
+            "reference": mv.reference if "reference" in mv._fields
+                         else mv.origin if "origin" in mv._fields
+                         else "",
             "source": mv.location_id.complete_name,
             "source_usage": mv.location_id.usage,
             "destination": mv.location_dest_id.complete_name,
