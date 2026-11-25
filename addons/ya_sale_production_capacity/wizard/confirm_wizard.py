@@ -1,4 +1,4 @@
-"""YA SO confirmation gate. Does NOT confirm or reserve capacity in Stage 1."""
+"""YA SO Confirm wizard: atomic locked capacity + commercial SO on RO_SO clone."""
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
@@ -40,20 +40,9 @@ class YaSaleCapacityConfirmWizard(models.TransientModel):
             raise ValidationError(_(
                 'Tidak ada Published Planning untuk %(date)s / %(slot)s.'
             ) % {'date': format_ymondd(self.delivery_date), 'slot': self.slot})
-        # Verify the actual products and Paket component BoMs against the
-        # published kitchen routes BEFORE the yet-unimplemented transaction.
-        # Discount lines from the normal Sales discount wizard are excluded.
-        # This is read-only: no booking, production, stock or SO confirmation.
-        preview = order._ya_prepare_capacity_confirm_readonly(
+        # ALL capacity calculations, existing SO ledger reads, and native
+        # confirmation run under the same slot transaction lock. Any error
+        # rolls back schedule, protected capacity, and SO state together.
+        return order._ya_confirm_with_protected_capacity(
             self.delivery_date, self.slot
         )
-        raise UserError(_(
-            'SKU dan Published Planning sudah lolos pemeriksaan awal: '
-            '%(count)s SKU dapur; %(pkg)s Paket; %(pck)s komponen dari PCK. '
-            'Confirm belum aktif: reservasi atomik dan integrasi prioritas '
-            'SO ke MO/Packing belum selesai. Penawaran tetap Draft/Sent.'
-        ) % {
-            'count': len(preview['capacity']),
-            'pkg': len(preview['package_qty']),
-            'pck': len(preview['pck_stock_requirements']),
-        })
