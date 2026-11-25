@@ -215,7 +215,7 @@ print("AMBIGUOUS_OR_FRACTIONAL_BOM_FAIL_CLOSED_PASS")
 
 for sku in (A, B):
     try:
-        mo2.calculate_mo2_release(
+        no_more = mo2.calculate_mo2_release(
             total_confirmed_so=so_total[sku],
             mo1_output=mo1_output[sku],
             existing_mo2_output=mo2_out[sku],
@@ -230,7 +230,9 @@ for sku in (A, B):
         raise
     # No remaining need and no new MO2 is required. A duplicate must not
     # create a second native MO; immutable release model enforces this.
-assert sum(result["ro_package_qty"].values()) == 2
+    assert no_more["mo2_incremental_qty"] == 0
+    assert not no_more["release_allowed_now"]
+assert sum(ro_package.values()) == 2
 print("PACKAGE_FINAL_SKU_IS_PCK_ASSEMBLY_ONLY_PASS")
 print("FASE2_YA_MIXED_PAKET_MO1_MO2_PURE_PASS")
 print("SCOPE: SOURCE_PURE_ONLY; NO NATIVE PACKAGE MO, FG, PCK DO OR STOCK WRITE")
