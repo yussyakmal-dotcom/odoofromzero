@@ -55,7 +55,8 @@ required_xml = [
     "ya_workflow_navigation.menu_ya_before_production",
     "default_ya_is_capacity_so",
     "[('ya_is_capacity_so', '=', True)]",
-    'invisible="state in (\'draft\', \'sent\')"',
+    'readonly="state not in (\'draft\', \'sent\')"',
+    'invisible="not ya_delivery_date"',
     '<field name="mode">primary</field>',
     '<xpath expr="//field[@name=\'payment_term_id\']" position="after">',
     'string="YA Tanggal Kirim"',
@@ -68,6 +69,16 @@ required_xml = [
 ]
 for token in required_xml:
     assert token in xml, "VIEW_GUARD_MISSING: %s" % token
+# Quotation may save without any YA schedule. These fields become mandatory
+# only in the confirmation wizard, not in Draft/Sent form views.
+view_tree = ET.parse(addon / "views/ya_sale_order_views.xml")
+for field_name in ("ya_delivery_date", "ya_slot"):
+    form_fields = view_tree.findall(".//xpath/field[@name='%s']" % field_name)
+    assert len(form_fields) == 1, "QUOTATION_FIELD_MISSING_OR_DUPLICATE: %s" % field_name
+    node = form_fields[0]
+    assert node.attrib.get("readonly") == "state not in ('draft', 'sent')", "QUOTATION_NOT_EDITABLE: %s" % field_name
+    assert node.attrib.get("required") not in ("1", "True", "true"), "QUOTATION_SCHEDULE_MUST_BE_OPTIONAL"
+assert manifest["version"] == "19.0.1.0.7", "UNEXPECTED_ADDON_VERSION"
 assert "ya_workflow_navigation" in manifest["depends"]
 assert "sale_stock" in manifest["depends"]
 assert "security/ir.model.access.csv" in manifest["data"]
@@ -108,7 +119,7 @@ for key in ("one_percent", "one_amount", "all_percent", "global_percent", "globa
     assert key in discount_wizard, "DISCOUNT_WIZARD_MISSING: %s" % key
 assert "views/ya_quotation_discount_wizard_views.xml" in manifest["data"]
 assert "from . import quotation_discount_wizard" in (addon / "wizard/__init__.py").read_text(encoding="utf-8")
-print("SCOPE: YA quotation Draft/Sent without schedule; wizard at confirm; fail-closed")
+print("SCOPE: YA date/slot visible OPTIONAL and editable in Draft/Sent; validation at Confirm only; fail-closed")
 print("YA_DISCOUNT: one-line Rp/%; all-lines %; global Rp/%; native Sales unaffected")
 print("STANDARD_SALES: native action_confirm delegate, no YA rules")
 print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN")
