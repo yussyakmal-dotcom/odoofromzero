@@ -29,31 +29,57 @@ assert env["ir.module.module"].search(
 
 chosen = None
 today = fields.Date.context_today(Sale)
-plannings = Plan.sudo().search([
-    ("state", "=", "published"), ("delivery_date", ">", today),
-], order="delivery_date,slot,id")
+now_wib = datetime.now(ZoneInfo("Asia/Jakarta"))
+all_published = Plan.sudo().search([
+    ("state", "=", "published"),
+])
+plannings = all_published.filtered(lambda p: p.delivery_date > today)
 by_schedule = {}
 for p in plannings:
     key = (p.delivery_date, p.slot)
     by_schedule.setdefault(key, []).append(p)
-now_wib = datetime.now(ZoneInfo("Asia/Jakarta"))
+reject_counts = Counter()
+reject_examples = {}
+
+
+def skip(reason, product_id=None, date=None, slot=None):
+    reject_counts[reason] += 1
+    if reason not in reject_examples:
+        reject_examples[reason] = (str(date or ""), slot or "", product_id or 0)
+
+
+print("TODAY_ODOO:", today, "NOW_WIB:", now_wib.isoformat())
+print("PUBLISHED_ALL:", len(all_published),
+      "PUBLISHED_FUTURE:", len(plannings),
+      "FUTURE_DATE_SLOTS:", len(by_schedule),
+      "FUTURE_PLANNING_LINES:", sum(len(p.line_ids) for p in plannings))
+print("FUTURE_SCHEDULES:", [
+    (str(key[0]), key[1], len(items),
+     sum(len(p.line_ids) for p in items))
+    for key, items in sorted(by_schedule.items())[:12]
+])
+
 for (date, slot), schedules in sorted(by_schedule.items()):
     dispatch = datetime.combine(
         date, {"S1": time(5), "S2": time(9), "S3": time(11)}[slot],
         tzinfo=ZoneInfo("Asia/Jakarta"),
     )
     if now_wib >= dispatch:
+        skip("SLOT_ALREADY_DEPARTED", date=date, slot=slot)
         continue
     if slot == "S1" and now_wib > datetime.combine(
             date - timedelta(days=1), time(15),
             tzinfo=ZoneInfo("Asia/Jakarta")):
+        skip("S1_CUTOFF_EXPIRED", date=date, slot=slot)
         continue
     if Ledger.search_count([("delivery_date", "=", date), ("slot", "=", slot)]):
+        skip("SLOT_ALREADY_HAS_SO_LEDGER", date=date, slot=slot)
         continue
     batch = env["ya.packing.batch"].sudo().search([
         ("delivery_date", "=", date), ("slot", "=", slot),
     ], limit=1)
     if batch:
+        skip("SLOT_ALREADY_HAS_PACKING_BATCH", date=date, slot=slot)
         continue
     candidates = Counter(
         line.product_id.id for p in schedules for line in p.line_ids
@@ -61,8 +87,15 @@ for (date, slot), schedules in sorted(by_schedule.items()):
     for p in schedules:
         for line in p.line_ids:
             product = line.product_id
-            if (line.max_capacity <= 0 or candidates[product.id] != 1 or
-                    product.categ_id.complete_name == "All / Produk Jadi / Paket"):
+            info = (product.id, date, slot)
+            if line.max_capacity <= 0:
+                skip("SKU_NONPOSITIVE_MAX", *info)
+                continue
+            if candidates[product.id] != 1:
+                skip("SKU_ROUTE_DUPLICATED", *info)
+                continue
+            if product.categ_id.complete_name == "All / Produk Jadi / Paket":
+                skip("SKU_IS_PAKET", *info)
                 continue
             try:
                 bom = line._capacity_bom()
@@ -72,24 +105,46 @@ for (date, slot), schedules in sorted(by_schedule.items()):
                     ).casefold().split())
                 actual_wh = " ".join(
                     (pt.warehouse_id.name or "").casefold().split()) if pt else ""
-                if (not bom.active or bom.type != "normal" or
-                        bom.product_tmpl_id != product.product_tmpl_id or
-                        (bom.product_id and bom.product_id != product) or
-                        not pt or not pt.warehouse_id or not pt.default_location_src_id or
-                        not pt.default_location_dest_id or
-                        pt.default_location_dest_id != pt.warehouse_id.lot_stock_id or
-                        actual_wh != expected_wh or
-                        pt.company_id != Sample.company_id):
+                invalid_route = (
+                    ("BOM_INACTIVE" if not bom.active else None) or
+                    ("BOM_NOT_NORMAL" if bom.type != "normal" else None) or
+                    ("BOM_TEMPLATE_DIFFERS" if bom.product_tmpl_id != product.product_tmpl_id else None) or
+                    ("BOM_PRODUCT_DIFFERS" if bom.product_id and bom.product_id != product else None) or
+                    ("NO_MANUFACTURING_PICKING_TYPE" if not pt else None) or
+                    ("NO_MANUFACTURING_WAREHOUSE" if not pt.warehouse_id else None) or
+                    ("NO_MANUFACTURING_SOURCE" if not pt.default_location_src_id else None) or
+                    ("NO_MANUFACTURING_DEST" if not pt.default_location_dest_id else None) or
+                    ("DEST_NOT_KITCHEN_STOCK" if pt.default_location_dest_id != pt.warehouse_id.lot_stock_id else None) or
+                    ("KITCHEN_NAME_ROUTE_DIFFERS" if actual_wh != expected_wh else None) or
+                    ("SALE_COMPANY_DIFFERS_FROM_KITCHEN" if pt.company_id != Sample.company_id else None)
+                )
+                if invalid_route:
+                    skip(invalid_route, *info)
+                    if invalid_route == "KITCHEN_NAME_ROUTE_DIFFERS":
+                        print("ROUTE_NAME_EXAMPLE:", line.id,
+                              "WORKCENTER:", line.planning_id.workcenter_id.name,
+                              "WAREHOUSE:", pt.warehouse_id.name)
                     continue
                 output = bom.product_uom_id._compute_quantity(
                     bom.product_qty, product.uom_id, round=False)
                 maximum = line.uom_id._compute_quantity(
                     line.max_capacity, product.uom_id, round=False)
-                if (output <= 0 or abs(output - round(output)) > 1e-9 or
-                        maximum < output or abs(maximum - round(maximum)) > 1e-9 or
-                        int(round(maximum)) % int(round(output))):
+                if output <= 0 or abs(output - round(output)) > 1e-9:
+                    skip("BOM_OUTPUT_NOT_POSITIVE_WHOLE", *info)
                     continue
-            except (UserError, ValueError):
+                if maximum < output:
+                    skip("PLANNING_MAX_LESS_THAN_ONE_BOM", *info)
+                    continue
+                if abs(maximum - round(maximum)) > 1e-9:
+                    skip("PLANNING_MAX_FRACTIONAL_BASE_UOM", *info)
+                    continue
+                if int(round(maximum)) % int(round(output)):
+                    skip("PLANNING_MAX_NOT_MULTIPLE_OF_BOM", *info)
+                    continue
+            except (UserError, ValueError) as exc:
+                skip("BOM_LOOKUP_ERROR", *info)
+                if reject_counts["BOM_LOOKUP_ERROR"] <= 2:
+                    print("BOM_LOOKUP_ERROR_SAMPLE:", line.id, str(exc)[:200])
                 continue
             chosen = (date, slot, product, int(round(maximum)), line)
             break
@@ -98,7 +153,12 @@ for (date, slot), schedules in sorted(by_schedule.items()):
     if chosen:
         break
 
-assert chosen, "STOP_NO_UNBOOKED_FUTURE_PUBLISHED_SKU: choose test slot"
+print("SELECTION_REJECTION_COUNTS:", sorted(reject_counts.items()))
+print("SELECTION_REJECTION_EXAMPLES:", sorted(reject_examples.items()))
+assert chosen, (
+    "STOP_NO_VALID_FUTURE_PUBLISHED_SKU: see reason counts above; "
+    "no test SO created; no business data changed"
+)
 date, slot, product, max_qty, plan_line = chosen
 print("SELECTED_DATE_SLOT:", date, slot)
 print("PLANNING_LINE_ID:", plan_line.id, "PRODUCT_ID:", product.id,
