@@ -1,4 +1,4 @@
-"""Source-only gate for YA Sales Fase2 atomic Confirm v19.0.1.1.0. Run as feri."""
+"""Source gate for YA Sales v19.0.1.1.1 MO2 native release, no GUI activation."""
 import ast
 import csv
 from pathlib import Path
@@ -15,6 +15,8 @@ files = [
     addon / "models/confirm_readiness.py",
     addon / "models/capacity_reservation.py",
     addon / "models/capacity_booking.py",
+    addon / "models/mo2_priority_rules.py",
+    addon / "models/mo2_release.py",
     addon / "views/ya_sale_order_views.xml",
     addon / "wizard/__init__.py",
     addon / "wizard/confirm_wizard.py",
@@ -84,7 +86,7 @@ for field_name in ("ya_delivery_date", "ya_slot"):
     node = form_fields[0]
     assert node.attrib.get("readonly") == "state not in ('draft', 'sent')", "QUOTATION_NOT_EDITABLE: %s" % field_name
     assert node.attrib.get("required") not in ("1", "True", "true"), "QUOTATION_SCHEDULE_MUST_BE_OPTIONAL"
-assert manifest["version"] == "19.0.1.1.0", "UNEXPECTED_ADDON_VERSION"
+assert manifest["version"] == "19.0.1.1.1", "UNEXPECTED_ADDON_VERSION"
 assert "ya_workflow_navigation" in manifest["depends"]
 assert "sale_stock" in manifest["depends"]
 assert "security/ir.model.access.csv" in manifest["data"]
@@ -95,11 +97,17 @@ expected_wizard_models = {
     "model_ya_sale_capacity_confirm_wizard",
     "model_ya_sale_quotation_discount_wizard",
     "model_ya_sale_capacity_reservation",
+    "model_ya_sale_mo2_finalization",
+    "model_ya_sale_mo2_release_line",
 }
-assert len(acl_rows) == 3, "ACL_EXPECTED_TWO_WIZARDS_PLUS_ONE_RESERVATION"
+assert len(acl_rows) == 5, "ACL_EXPECTED_TWO_WIZARDS_PLUS_THREE_READ_ONLY_MODELS"
 assert {row["model_id:id"] for row in acl_rows} == expected_wizard_models, "ACL_WIZARD_MODELS_MISMATCH"
 for row in acl_rows:
-    if row["model_id:id"] == "model_ya_sale_capacity_reservation":
+    if row["model_id:id"] in {
+        "model_ya_sale_capacity_reservation",
+        "model_ya_sale_mo2_finalization",
+        "model_ya_sale_mo2_release_line",
+    }:
         assert row["group_id:id"] == "ya_store_ro.group_ya_packing_admin", "ACL_RESERVATION_GROUP"
         assert [row["perm_" + p] for p in ("read", "write", "create", "unlink")] == ["1", "0", "0", "0"], "ACL_RESERVATION_MUST_BE_READ_ONLY"
     else:
@@ -180,4 +188,26 @@ wizard_view = (addon / "views/ya_sale_confirm_wizard_views.xml").read_text(encod
 assert 'Confirm Sales Order — Reservasi Kapasitas' in wizard_view
 assert 'Confirm Belum Aktif' not in wizard_view
 print("YA_NATIVE_DELIVERY: skip_procurement and zero-stock-move postcheck; YA SO mutations locked")
-print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN; CLONE ROLLBACK TEST REQUIRED")
+mo2 = (addon / "models/mo2_release.py").read_text(encoding="utf-8")
+mo2_init = (addon / "models/__init__.py").read_text(encoding="utf-8")
+for token in ("class YaSaleMo2Finalization(", "class YaSaleMo2ReleaseLine(",
+              "class YaPackingBatchMo2Release(", "UNIQUE(batch_id)",
+              "UNIQUE(planning_line_id)", "UNIQUE(mo_id)",
+              "def _ya_prepare_mo2_final_release(self):",
+              "def _ya_release_final_mo2(self):",
+              "lock_ro_slot(self.env.cr, self.delivery_date, self.slot)",
+              "calculate_mo2_release(", 'self.env["mrp.production"].create({',
+              'S2/S3 has not been approved',
+              "ya_store_delivery_ids", "ya_fg_transfer_ids",
+              "ya_package_assembly_mo_ids", "qty_ro_package",
+              "qty_ro_direct", "ya_packing_batch_line_id"):
+    assert token in mo2, "MO2_NATIVE_SOURCE_GUARD_MISSING: %s" % token
+assert "from . import mo2_release" in mo2_init
+assert "ya_packing_batch_line_id" in mo2
+assert "env.cr.commit()" not in mo2
+assert '"ya_packing_batch_line_id":' not in mo2, "MO2_MUST_NOT_LINK_TO_MO1_UNIQUE_FIELD"
+assert "_ya_release_final_mo2" not in wizard, "NO_EARLY_MO2_RELEASE_BY_SALES_CONFIRM"
+assert "def action_release_mo2(" not in mo2, "NO_GUI_MO2_BUTTON_UNTIL_QA"
+print("MO2_NATIVE: separate one-time date-slot finalization and mrp.production "
+      "source staged; MO1 and Fase1 unchanged")
+print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN; CLONE_NATIVE_MO2_ROLLBACK_REQUIRED")
