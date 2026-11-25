@@ -1,4 +1,4 @@
-"""Source gate for YA Sales v19.0.1.1.2 MO2/CDC material wave, no GUI activation."""
+"""Source gate for YA Sales v19.0.1.1.3 MO2/CDC/FG staged source, no GUI activation."""
 import ast
 import csv
 from pathlib import Path
@@ -18,6 +18,8 @@ files = [
     addon / "models/mo2_priority_rules.py",
     addon / "models/mo2_release.py",
     addon / "models/mo2_material_wave.py",
+    addon / "models/mo2_finished_goods_rules.py",
+    addon / "models/mo2_finished_goods_wave.py",
     addon / "views/ya_sale_order_views.xml",
     addon / "wizard/__init__.py",
     addon / "wizard/confirm_wizard.py",
@@ -87,7 +89,7 @@ for field_name in ("ya_delivery_date", "ya_slot"):
     node = form_fields[0]
     assert node.attrib.get("readonly") == "state not in ('draft', 'sent')", "QUOTATION_NOT_EDITABLE: %s" % field_name
     assert node.attrib.get("required") not in ("1", "True", "true"), "QUOTATION_SCHEDULE_MUST_BE_OPTIONAL"
-assert manifest["version"] == "19.0.1.1.2", "UNEXPECTED_ADDON_VERSION"
+assert manifest["version"] == "19.0.1.1.3", "UNEXPECTED_ADDON_VERSION"
 assert "ya_workflow_navigation" in manifest["depends"]
 assert "sale_stock" in manifest["depends"]
 assert "security/ir.model.access.csv" in manifest["data"]
@@ -226,6 +228,39 @@ assert not any(x in cdc for x in (
 )), "MO2_CDC_MUST_NOT_AUTO_VALIDATE_OR_REUSE_FASE1_LINKS"
 print("MO2_CDC_MATERIAL: separate native picking per MO2; no stock validate,"
       " no reuse of Fase1 batch/kitchen link")
+fg_rules = (addon / "models/mo2_finished_goods_rules.py").read_text(encoding="utf-8")
+fg = (addon / "models/mo2_finished_goods_wave.py").read_text(encoding="utf-8")
+for token in (
+    "def plan_mo2_finished_goods_handoff(",
+    "exact_kitchen_stock", "exact_kitchen_reserved",
+    "Actual MO2 output exceeds released Qty",
+    "Kitchen free stock insufficient",
+):
+    assert token in fg_rules, "MO2_FG_PURE_SOURCE_MISSING: %s" % token
+for token in (
+    'ya_mo2_fg_release_line_id = fields.Many2one(',
+    "UNIQUE(ya_mo2_fg_release_line_id)",
+    "def _ya_create_mo2_fg_transfer(self):",
+    "lock_ro_slot(self.env.cr, batch.delivery_date, batch.slot)",
+    'mo.state != "done"', "mo.move_finished_ids.filtered(",
+    'move.state == "done"', "plan_mo2_finished_goods_handoff(",
+    'product.tracking != "none"', "ya_mo2_material_picking_ids",
+    'materials.state != "done"', "ya_store_delivery_ids",
+    'batch.ya_package_assembly_mo_ids', "self.env.cr.execute(",
+    "ya_finished_packing_transfer.exclude_sku_codes",
+    '"origin": origin',
+):
+    assert token in fg, "MO2_FG_NATIVE_SOURCE_MISSING: %s" % token
+assert "from . import mo2_finished_goods_wave" in mo2_init
+assert not any(x in fg for x in (
+    "env.cr.commit()", ".button_validate(", ".action_confirm(",
+    '"ya_fg_batch_id":', '"ya_fg_kitchen_id":',
+    '"ya_store_batch_id":', '"ya_mr_batch_id":',
+)), "MO2_FG_MUST_NOT_POST_OR_OVERWRITE_PHASE1"
+assert "def action_mo2_fg_" not in fg
+print("MO2_FG_SOURCE: separate unique native draft picking per DONE MO2;"
+      " exact kitchen free stock; no confirm/validate/DO; original MO1 unchanged")
+
 print("MO2_NATIVE: separate one-time date-slot finalization and mrp.production "
       "source staged; MO1 and Fase1 unchanged")
 print("INSTALL_STATUS: SOURCE_ONLY_NOT_PROVEN; CLONE_NATIVE_MO2_ROLLBACK_REQUIRED")
