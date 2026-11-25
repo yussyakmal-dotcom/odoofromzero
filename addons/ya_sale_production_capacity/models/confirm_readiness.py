@@ -166,6 +166,25 @@ class SaleOrderYACapacityPreview(models.Model):
             plan_line = candidates[0]
             product = plan_line.product_id
             bom = plan_line._capacity_bom()
+            pt = bom.picking_type_id
+            expected_wh = " ".join(
+                ("Dapur " + (plan_line.planning_id.workcenter_id.name or "")
+                ).casefold().split())
+            actual_wh = " ".join(
+                (pt.warehouse_id.name or "").casefold().split()) if pt else ""
+            if (not bom.active or bom.type != "normal" or
+                    bom.product_tmpl_id != product.product_tmpl_id or
+                    (bom.product_id and bom.product_id != product) or
+                    not pt or not pt.default_location_src_id or
+                    not pt.default_location_dest_id or
+                    not pt.warehouse_id or
+                    pt.default_location_dest_id != pt.warehouse_id.lot_stock_id or
+                    pt.company_id != self.company_id or
+                    actual_wh != expected_wh):
+                raise UserError(_(
+                    "SKU %(sku)s: BoM/Work Center/Gudang dapur berubah "
+                    "atau tidak sesuai Published Planning. Periksa routing."
+                ) % {"sku": product.default_code or product.display_name})
             output = _finished_whole(
                 bom.product_uom_id, bom.product_qty, product.uom_id,
                 "BoM SKU %s" % (product.default_code or product.display_name),
