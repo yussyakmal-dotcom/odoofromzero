@@ -45,12 +45,12 @@ Cut-off relatif ke slot perlu dimodelkan berbasis jadwal kebijakan; jangan hardc
 6. `addons/ya_workflow_navigation/views/workflow_navigation_menus.xml`: menu sebelum produksi sudah ada; tempatkan Custom SO di sini melalui addon terpisah dengan dependency eksplisit. Native Sales menu jangan diganti.
 
 ## Gate implementasi
-A. Read-only schema audit on `erp-yussyakmal-mrp-test` (sale.order, sale.order.line, published planning, material/packing links; no writes).
+A. Read-only schema audit originally completed on `erp-yussyakmal-mrp-test` (sale.order, sale.order.line, published planning, material/packing links; no writes).
 B. Pure capacity math regression: SO after RO, MO1 already full, incremental SO→MO2, BoM round-up overflow, Paket cross-kitchen, concurrency policy, SO cancel/amend and cut-off exception boundaries.
-C. Isolated addon `ya_sale_production_capacity` planned, NOT YET CREATED. Mandatory slot on custom SO, backend route marker, confirm reservation; native SO unaffected.
+C. Isolated addon `ya_sale_production_capacity` SOURCE CREATED; NOT INSTALLED/TESTED. Mandatory slot on custom SO, backend route marker, confirm reservation; native SO unaffected.
 D. Extend Pre Produksi/MO model minimally to record MO1 vs MO2, enforce aggregated cap, **without** weakening existing RO-only uniqueness/idempotence behavior.
 E. Add Packing final allocation and SO delivery linking only after reservation/MO2 tests; native stock guard and actual receipt unchanged.
-F. Test source → rollback Odoo shell only on `erp-yussyakmal-mrp-test` → GUI owner UAT; never touch live DB.
+F. Fase 2 source → rollback Odoo shell ONLY on cloned `erp-yussyakmal-mrp-test-RO_SO` → GUI owner UAT; never touch live DB or original Fase 1 test DB.
 
 ## Pending policy details, not automatic assumptions
 - Whether user may reduce/cancel Confirmed YA SO and reclaim capacity after MO1/MO2 lock; treat as not yet approved.
@@ -62,4 +62,4 @@ F. Test source → rollback Odoo shell only on `erp-yussyakmal-mrp-test` → GUI
 - **GitHub source-only created:** isolated addon `addons/ya_sale_production_capacity` version 19.0.1.0.0 and `script/check_fase2_ya_sale_stage1_source_ya.py`.
 - Stage 1 behavior: native `sale.order` with readonly `ya_is_capacity_so` marker; only YA action sets marker default; date+slot mandatory & Published Planning exists, validated server-side on create/write. Dedicated menu YA Production Capacity → SEBELUM PRODUKSI → Sales Order filters YA orders. Native Sales SO unchanged.
 - **Safety:** Custom YA SO `action_confirm` intentionally fail-closed until actual capacity reservation and package component validation exist; do not tell operator it is live. No MO2, reserving, changes to RO/Paket/PCK/stock, or posting. Not installed/GUI-tested at documentation time.
-- Next gate Feri: git pull, run `python3 script/check_fase2_ya_sale_stage1_source_ya.py` and `python3 -m compileall -q addons/ya_sale_production_capacity`. Only on preflight PASS, GUI-backup `erp-yussyakmal-mrp-test`, stage only new addon and install with `-i ya_sale_production_capacity` (not `-u`). Verify module state, form, mandatory schedule, standard SO remains normal; no test in primary DB. Next step implement reservation with atomic slot-level capacity and Paket component BoM; then unlock custom Confirm.
+- Next gate Feri: git pull, run `python3 script/check_fase2_ya_sale_stage1_source_ya.py` and `python3 -m compileall -q addons/ya_sale_production_capacity`. Only on preflight PASS, verify backup/restore point of CLONE `erp-yussyakmal-mrp-test-RO_SO`, stage only new addon and install with `-i ya_sale_production_capacity` (not `-u`). Verify module state, form, mandatory schedule, standard SO remains normal; no test in primary DB. Next step implement reservation with atomic slot-level capacity and Paket component BoM; then unlock custom Confirm.
