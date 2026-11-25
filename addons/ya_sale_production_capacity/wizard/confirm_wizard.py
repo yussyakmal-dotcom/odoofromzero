@@ -1,5 +1,5 @@
 """YA SO confirmation gate. Does NOT confirm or reserve capacity in Stage 1."""
-from odoo import fields, models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
 
@@ -19,6 +19,7 @@ class YaSaleCapacityConfirmWizard(models.TransientModel):
         string='Format YYYY-Mon-DD', compute='_compute_delivery_date_label',
     )
 
+    @api.depends('delivery_date')
     def _compute_delivery_date_label(self):
         for wizard in self:
             wizard.delivery_date_label = format_ymondd(wizard.delivery_date)
