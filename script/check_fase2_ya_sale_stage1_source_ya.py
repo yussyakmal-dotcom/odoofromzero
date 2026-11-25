@@ -37,7 +37,8 @@ required_source = [
     "return super().create(vals_list)",
     "return super().write(vals)",
     "def action_confirm(self):",
-    "if any(self.mapped('ya_is_capacity_so')):",
+    "ya_orders = self.filtered('ya_is_capacity_so')",
+    "ya.sale.capacity.confirm.wizard",
     "return super().action_confirm()",
 ]
 for token in required_source:
@@ -70,6 +71,12 @@ assert not any(token in source for token in (
 print("FASE2_YA_SALE_SOURCE_PREFLIGHT_PASS")
 wizard = (addon / "wizard/confirm_wizard.py").read_text(encoding="utf-8")
 assert "('state', '=', 'published')" in wizard
+assert "default_ya_is_capacity_so" in xml
+assert "required=\"ya_is_capacity_so\"" not in xml
+assert "orders._ya_validate_published_schedule()" not in source
+assert "self._ya_validate_published_schedule()" not in source
+assert "order.write(" not in wizard
+assert "order.state =" not in wizard
 assert "raise UserError(" in wizard
 assert "order.action_confirm()" not in wizard
 assert "super().action_confirm()" not in wizard
