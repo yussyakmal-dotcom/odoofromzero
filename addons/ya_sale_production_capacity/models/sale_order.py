@@ -56,6 +56,25 @@ class SaleOrder(models.Model):
         # Do not validate date/slot on draft quotation, send, or standard SO.
         return super().write(vals)
 
+    def action_open_discount_wizard(self):
+        """Use YA's PO-style discount choices only for YA quotations."""
+        self.ensure_one()
+        if not self.ya_is_capacity_so:
+            return super().action_open_discount_wizard()
+        if self.state not in ('draft', 'sent'):
+            raise UserError(_('Diskon YA hanya dapat diubah pada Quotation Draft/Sent.'))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Discount'),
+            'res_model': 'ya.sale.quotation.discount.wizard',
+            'view_mode': 'form',
+            'views': [(self.env.ref(
+                'ya_sale_production_capacity.view_ya_quotation_discount_wizard_form'
+            ).id, 'form')],
+            'target': 'new',
+            'context': {'default_order_id': self.id},
+        }
+
     def action_confirm(self):
         ya_orders = self.filtered('ya_is_capacity_so')
         if not ya_orders:
