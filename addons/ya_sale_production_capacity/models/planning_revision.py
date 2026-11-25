@@ -132,11 +132,27 @@ class PlanningLineRevision(models.Model):
         if self.planning_id != plan:
             raise UserError(_("Planning identity changed."))
         bom = self._capacity_bom()
-        if not bom.active or bom.type != "normal" or bom.product_uom_id != self.uom_id:
+        pt = bom.picking_type_id
+        expected_wh = " ".join(("Dapur " + (plan.workcenter_id.name or "")).casefold().split())
+        actual_wh = " ".join((pt.warehouse_id.name or "").casefold().split())
+        if (not bom.active or bom.type != "normal" or bom.product_uom_id != self.uom_id
+                or bom.product_tmpl_id != self.product_id.product_tmpl_id
+                or (bom.product_id and bom.product_id != self.product_id)
+                or not pt or not pt.warehouse_id or expected_wh != actual_wh):
             raise UserError(_("Invalid capacity BoM."))
         batch = whole(bom.product_qty)
         ro, so, locked, referenced = self._ya_revision_facts()
         old = self.max_capacity
+        if delete and len(plan.line_ids) <= 1:
+            raise UserError(_("Cannot delete the last SKU of Published Planning."))
+        if new_max > 0 and not delete:
+            duplicates = self.sudo().search_count([
+                ("id", "!=", self.id), ("product_id", "=", self.product_id.id),
+                ("planning_id.delivery_date", "=", plan.delivery_date),
+                ("planning_id.slot", "=", plan.slot),
+                ("planning_id.state", "=", "published"), ("max_capacity", ">", 0)])
+            if duplicates:
+                raise UserError(_("Conflicting Published kitchen routes."))
         try:
             validate_revision(old, new_max, batch, ro=ro, so=so, locked=locked,
                               delete=delete, referenced=referenced)
