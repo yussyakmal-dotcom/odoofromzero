@@ -161,6 +161,14 @@ class SaleOrder(models.Model):
                 'YA SO Confirm created an unexpected delivery or did not '
                 'reach Confirmed state; transaction must roll back.'
             ))
+        Move = self.env['stock.move'].sudo()
+        if 'sale_line_id' in Move._fields and Move.search_count([
+            ('sale_line_id', 'in', self.order_line.ids),
+        ]):
+            raise UserError(_(
+                'Unexpected native stock movement for YA Confirm: '
+                'transaction rolled back. Dispatch must start in Packing.'
+            ))
         return result
 
 
