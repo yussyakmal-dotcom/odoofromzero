@@ -207,8 +207,16 @@ for product in products:
         unrouted = []
         issues = []
         kitchens = set()
+        seen_component_ids = set()
         for bl in b.bom_line_ids:
             comp = bl.product_id
+            if comp.id in seen_component_ids:
+                # Do not undercount a duplicated BoM component. The ORM
+                # adapter must deliberately aggregate its actual base UoM,
+                # but this first safety gate excludes ambiguous BOMs.
+                issues.append("DUPLICATE_PACKAGE_COMPONENT_REQUIRES_AGGREGATION")
+                continue
+            seen_component_ids.add(comp.id)
             try:
                 qty = bl.product_uom_id._compute_quantity(
                     bl.product_qty, comp.uom_id, round=False
