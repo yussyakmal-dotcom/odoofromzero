@@ -1,11 +1,10 @@
-"""Fase 2 / Stage 1: YA capacity SO classification and mandatory Published slot.
+"""Fase 2 Stage 1: quotation remains native; YA schedule belongs to SO confirmation.
 
-Deliberately does NOT reserve capacity, create MO2, or change Packing allocations.
-Custom SO confirmation fails closed until the approved reservation engine exists.
-Native Sales Orders with ya_is_capacity_so=False remain unchanged.
+Capacity reservation is not implemented: YA SO confirmation MUST fail closed.
+Standard Sales / Quotations are unaffected.
 """
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError, UserError
+from odoo.exceptions import UserError
 from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
 
 
@@ -21,8 +20,7 @@ class SaleOrder(models.Model):
     )
     ya_delivery_date_label = fields.Char(
         string='YA Tanggal Kirim (YYYY-Mon-DD)',
-        compute='_compute_ya_delivery_date_label',
-        readonly=True,
+        compute='_compute_ya_delivery_date_label', readonly=True,
     )
     ya_slot = fields.Selection(
         [('S1', 'S1 - 05.00 WIB'), ('S2', 'S2 - 09.00 WIB'),
@@ -35,58 +33,54 @@ class SaleOrder(models.Model):
         for order in self:
             order.ya_delivery_date_label = format_ymondd(order.ya_delivery_date)
 
-    def _ya_validate_published_schedule(self):
-        """Validate live Published Planning at create/edit, never trust view alone."""
-        Planning = self.env['ya.production.planning']
-        for order in self.filtered('ya_is_capacity_so'):
-            if not order.ya_delivery_date or not order.ya_slot:
-                raise ValidationError(_(
-                    'Custom YA Sales Order wajib memiliki Tanggal Kirim dan '
-                    'Slot Kirim dari Published Planning.'
-                ))
-            exists = Planning.search_count([
-                ('delivery_date', '=', order.ya_delivery_date),
-                ('slot', '=', order.ya_slot),
-                ('state', '=', 'published'),
-            ])
-            if not exists:
-                raise ValidationError(_(
-                    'Belum ada Published Production Planning untuk tanggal '
-                    '%(date)s, slot %(slot)s. Hubungi Admin Produksi.'
-                ) % {'date': order.ya_delivery_date, 'slot': order.ya_slot})
-
     @api.model_create_multi
     def create(self, vals_list):
-        # The dedicated YA action supplies this context default. Even a caller
-        # omitting the boolean from vals cannot bypass the dedicated entry.
+        # Quotation can be created without any YA schedule.
         if self.env.context.get('default_ya_is_capacity_so'):
             for vals in vals_list:
                 vals['ya_is_capacity_so'] = True
-        orders = super().create(vals_list)
-        orders._ya_validate_published_schedule()
-        return orders
+        return super().create(vals_list)
 
     def write(self, vals):
-        # Classification is set on creation; changing it would bypass the
-        # separate standard Sales vs YA Production Capacity workflows.
-        if 'ya_is_capacity_so' in vals:
-            if any(o.ya_is_capacity_so != bool(vals['ya_is_capacity_so'])
-                   for o in self):
-                raise UserError(_(
-                    'Jenis Sales Order YA tidak dapat diubah setelah dibuat.'
-                ))
-        result = super().write(vals)
-        self._ya_validate_published_schedule()
-        return result
+        # The classification is immutable once the quotation has been created.
+        if 'ya_is_capacity_so' in vals and any(
+            order.ya_is_capacity_so != bool(vals['ya_is_capacity_so'])
+            for order in self
+        ):
+            raise UserError(_('Jenis Sales Order YA tidak dapat diubah setelah dibuat.'))
+        if {'ya_delivery_date', 'ya_slot'} & set(vals) and any(
+            order.ya_is_capacity_so and order.state not in ('draft', 'sent')
+            for order in self
+        ):
+            raise UserError(_('Jadwal Sales Order YA tidak boleh diubah setelah Confirm.'))
+        # Do not validate date/slot on draft quotation, send, or standard SO.
+        return super().write(vals)
 
     def action_confirm(self):
-        if any(self.mapped('ya_is_capacity_so')):
-            # Never confirm a YA order without the capacity reservation engine:
-            # it would silently promise goods without locking planning Max.
-            self.filtered('ya_is_capacity_so')._ya_validate_published_schedule()
+        ya_orders = self.filtered('ya_is_capacity_so')
+        if not ya_orders:
+            return super().action_confirm()
+        if len(self) != 1:
             raise UserError(_(
-                'Custom SO YA masih tahap pengembangan. Konfirmasi ditutup '
-                'sementara sampai reservasi kapasitas produksi selesai diuji. '
-                'SO standar dari menu Sales tetap berjalan.'
+                'Konfirmasi Custom SO YA dilakukan satu per satu melalui form.'
             ))
-        return super().action_confirm()
+        self.ensure_one()
+        if self.state not in ('draft', 'sent'):
+            raise UserError(_('Hanya penawaran Draft/Sent yang dapat dikonfirmasi.'))
+        # Open a wizard for date and slot; it will not confirm while the
+        # capacity reservation engine is unfinished.
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('YA Jadwal Kirim — Konfirmasi Sales Order'),
+            'res_model': 'ya.sale.capacity.confirm.wizard',
+            'view_mode': 'form',
+            'views': [(self.env.ref(
+                'ya_sale_production_capacity.view_ya_sale_capacity_confirm_wizard_form'
+            ).id, 'form')],
+            'target': 'new',
+            'context': {
+                'default_order_id': self.id,
+                'default_delivery_date': self.ya_delivery_date or False,
+                'default_slot': self.ya_slot or False,
+            },
+        }
