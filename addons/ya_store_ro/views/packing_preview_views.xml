@@ -79,6 +79,7 @@
               <list editable="bottom" create="false" delete="false">
                 <field name="kitchen_code" string="Dapur" readonly="1"/>
                 <field name="reference" string="SKU" readonly="1"/>
+                <field name="product_id" string="Nama Produk" readonly="1"/>
                 <field name="store_warehouse_id" string="Toko" readonly="1"/>
                 <field name="ro_id" readonly="1"/>
                 <field name="old_qty" string="Qty Confirmed" readonly="1"/>
@@ -92,6 +93,7 @@
               <list create="false" delete="false">
                 <field name="kitchen_code" string="Dapur"/>
                 <field name="reference"/>
+                <field name="product_id" string="Nama Produk" readonly="1"/>
                 <field name="store_warehouse_id" string="Toko"/>
                 <field name="ro_id" string="RO Toko"/>
                 <field name="ro_date_yyyymmdd" string="Tgl RO"/>
