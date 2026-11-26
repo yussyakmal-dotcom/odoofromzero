@@ -199,6 +199,7 @@ class YaPackageStoreRO(models.Model):
 class YaPackageStoreROLine(models.Model):
     _name = "ya.package.store.ro.line"
     _description = "YA Multi-kitchen Paket Store RO Line"
+    _rec_name = "product_id"
     _order = "id"
 
     ro_id = fields.Many2one(
