@@ -6,3 +6,6 @@ access_ya_sale_mo2_finalization_packing,ya.sale.mo2.finalization.packing,model_y
 access_ya_sale_mo2_release_line_packing,ya.sale.mo2.release.line.packing,model_ya_sale_mo2_release_line,ya_store_ro.group_ya_packing_admin,1,0,0,0
 access_ya_planning_revision_wizard_manager,ya.planning.revision.wizard.manager,model_ya_planning_revision_wizard,mrp.group_mrp_manager,1,1,1,1
 access_ya_planning_revision_audit_manager,ya.planning.revision.audit.manager,model_ya_planning_revision_audit,mrp.group_mrp_manager,1,0,0,0
+
+access_ya_consolidation_review_wizard_packing,ya.consolidation.review.wizard.packing,model_ya_consolidation_review_wizard,ya_store_ro.group_ya_packing_admin,1,1,1,1
+access_ya_consolidation_review_line_packing,ya.consolidation.review.line.packing,model_ya_consolidation_review_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
