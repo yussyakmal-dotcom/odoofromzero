@@ -10,3 +10,7 @@ access_ya_consolidation_review_wizard_packing,ya.consolidation.review.wizard.pac
 access_ya_consolidation_review_line_packing,ya.consolidation.review.line.packing,model_ya_consolidation_review_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
 access_ya_cutoff_settings_system,ya.consolidation.cutoff.settings.system,model_ya_consolidation_cutoff_settings,base.group_system,1,0,1,0
 access_ya_consolidation_timer_queue_packing,ya.consolidation.timer.queue.packing,model_ya_consolidation_timer_queue,ya_store_ro.group_ya_packing_admin,1,0,0,0
+access_ya_final_packing_review_packing,ya.final.packing.review.packing,model_ya_final_packing_review,ya_store_ro.group_ya_packing_admin,1,0,1,0
+access_ya_final_packing_wizard_packing,ya.final.packing.wizard.packing,model_ya_final_packing_review_wizard,ya_store_ro.group_ya_packing_admin,1,1,1,1
+access_ya_final_packing_line_packing,ya.final.packing.line.packing,model_ya_final_packing_review_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
+access_ya_final_packing_supply_packing,ya.final.packing.supply.packing,model_ya_final_packing_supply_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
