@@ -221,6 +221,7 @@ class YaStoreRO(models.Model):
 class YaStoreROLine(models.Model):
     _name = 'ya.store.ro.line'
     _description = 'YA Store Replenishment Order Line'
+    _rec_name = 'product_id'
     _order = 'id'
 
     ro_id = fields.Many2one('ya.store.ro', required=True, ondelete='cascade', index=True)
