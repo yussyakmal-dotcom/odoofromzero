@@ -84,12 +84,17 @@ class YaStoreDeliveryPicking(models.Model):
         "A store may have only one dispatch and one receipt per RO batch.",
     )
 
+    def _ya_store_delivery_db_allowed(self):
+        """Default Fase1 authorization; clone extension verifies approved DO."""
+        self.ensure_one()
+        return self.env.cr.dbname == TEST_DB
+
     def action_ya_print_store_picking_list(self):
         """Printable preparation checklist derived directly from the native DO.
 
         This is a preparation document, NOT a stock movement or validation.
         """
-        if (self.env.cr.dbname != TEST_DB or not self or
+        if (not self or not all(p._ya_store_delivery_db_allowed() for p in self) or
                 any(p.ya_store_stage != "dispatch" or
                     not p.ya_store_batch_id for p in self)):
             raise UserError(_("Picking List Toko is available on YA dispatch in test DB only."))
@@ -100,7 +105,7 @@ class YaStoreDeliveryPicking(models.Model):
             lambda p: p.ya_store_stage == "dispatch" and p.ya_store_batch_id
         )
         if outgoing:
-            if self.env.cr.dbname != TEST_DB or len(self) != 1:
+            if len(self) != 1 or not all(p._ya_store_delivery_db_allowed() for p in self):
                 raise UserError(_("Validate YA dispatch individually in MRP test DB."))
             self._ya_check_store_dispatch_qty()
             self._ya_cancel_zero_qty_dispatch_moves()
@@ -111,7 +116,7 @@ class YaStoreDeliveryPicking(models.Model):
             lambda p: p.ya_store_stage == "receipt" and p.ya_store_batch_id
         )
         if incoming:
-            if self.env.cr.dbname != TEST_DB or len(self) != 1:
+            if len(self) != 1 or not all(p._ya_store_delivery_db_allowed() for p in self):
                 raise UserError(_("Validate YA receipt individually in MRP test DB."))
             self._ya_check_store_receipt_qty()
             return super(
@@ -270,7 +275,7 @@ class YaStoreDeliveryPicking(models.Model):
             lambda p: p.ya_store_stage == "receipt" and p.ya_store_batch_id
         )
         if receipts:
-            if self.env.cr.dbname != TEST_DB or len(receipts) != len(self):
+            if len(receipts) != len(self) or not all(p._ya_store_delivery_db_allowed() for p in receipts):
                 raise UserError(_("Complete YA store receipts separately in test DB."))
             self._ya_check_store_receipt_qty()
             return super(
@@ -282,7 +287,7 @@ class YaStoreDeliveryPicking(models.Model):
         )
         if not dispatches:
             return super()._action_done()
-        if self.env.cr.dbname != TEST_DB or len(dispatches) != len(self):
+        if len(dispatches) != len(self) or not all(p._ya_store_delivery_db_allowed() for p in dispatches):
             raise UserError(_("Complete YA Packing dispatch separately on test DB."))
         self._ya_check_store_dispatch_qty()
         self._ya_cancel_zero_qty_dispatch_moves()
