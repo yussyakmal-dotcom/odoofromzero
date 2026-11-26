@@ -6,6 +6,8 @@ all configured SO deadlines) for its first affected delivery date.
 No cron, release, or reopening existing closed delivery dates.
 """
 import re
+from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
+from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from .pp1_native_sources import DB
@@ -107,3 +109,99 @@ class ConsolidationCutoffSettings(models.Model):
     @api.ondelete(at_uninstall=False)
     def _unlink_except_version_history(self):
         raise UserError(_("Riwayat versi cutoff tidak boleh dihapus."))
+
+
+class ConsolidationSpecialCutoff(models.Model):
+    _name = "ya.consolidation.special.cutoff"
+    _description = "YA Special Cutoff per Tanggal Kirim dan Slot"
+    _order = "delivery_date desc, slot"
+    _rec_name = "name"
+
+    name = fields.Char(compute="_compute_name")
+    delivery_date = fields.Date(string="Tanggal Kirim", required=True, index=True)
+    slot = fields.Selection([("S1","S1 - 05.00 WIB"), ("S2","S2 - 09.00 WIB"),
+                             ("S3","S3 - 11.00 WIB")], required=True)
+    ro_cutoff_date = fields.Date(string="Tanggal Cutoff RO", required=True)
+    ro_time = fields.Char(string="Jam Cutoff RO (WIB)", required=True, default="08:00")
+    so_cutoff_date = fields.Date(string="Tanggal Cutoff SO", required=True)
+    so_time = fields.Char(string="Jam Cutoff SO (WIB)", required=True, default="15:00")
+    mo2_delay_minutes = fields.Integer(string="Jeda PP2 (menit)", required=True, default=30)
+    reason = fields.Text(string="Alasan Special Cutoff", required=True)
+    pp2_earliest_label = fields.Char(string="Produksi OK 2 paling awal (WIB)",
+                                     compute="_compute_pp2_earliest")
+    _unique_delivery_slot = models.Constraint(
+        "UNIQUE(delivery_date, slot)", "Special Cutoff untuk tanggal kirim dan slot ini sudah ada.")
+
+    @api.depends("delivery_date", "slot")
+    def _compute_name(self):
+        for row in self:
+            row.name = "Special Cutoff / %s / %s" % (
+                format_ymondd(row.delivery_date), row.slot or "-")
+
+    def _policy(self):
+        self.ensure_one()
+        day = self.delivery_date
+        if not day or not self.ro_cutoff_date or not self.so_cutoff_date or self.slot not in DISPATCH:
+            raise ValueError("Isi tanggal kirim, slot, tanggal cutoff RO dan SO.")
+        return dict(
+            ro_days_before=(day-self.ro_cutoff_date).days, ro_minute=_minute(self.ro_time),
+            so={key: dict(days_before=(day-self.so_cutoff_date).days,
+                         minute=_minute(self.so_time)) if key==self.slot else None
+                for key in DISPATCH},
+            mo2_delay_minutes=self.mo2_delay_minutes,
+        )
+
+    @api.depends("delivery_date", "slot", "ro_cutoff_date", "ro_time",
+                 "so_cutoff_date", "so_time", "mo2_delay_minutes")
+    def _compute_pp2_earliest(self):
+        for row in self:
+            try:
+                deadline = schedule(row.delivery_date, row.slot, row._policy())["pp2_earliest"]
+                row.pp2_earliest_label = format_ymondd(deadline)+deadline.strftime(" %H:%M")
+            except (ValueError, TypeError, OverflowError):
+                row.pp2_earliest_label = False
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if self.env.cr.dbname != DB or not self.env.user.has_group("base.group_system"):
+            raise UserError(_("Special Cutoff hanya untuk Settings Administrator di clone RO_SO."))
+        if len(vals_list) != 1:
+            raise UserError(_("Simpan satu Special Cutoff pada satu waktu."))
+        # Same date-slot transaction fence as Confirm RO/SO and PP1/PP2.
+        # A stale concurrent transaction must retry rather than admit on
+        # an old cutoff. Do not change the clock or any business documents.
+        from .consolidation_cutoff_gate import utc_now
+        with self.env.cr.savepoint():
+            vals = vals_list[0]
+            day = fields.Date.to_date(vals.get("delivery_date"))
+            slot = vals.get("slot")
+            if not day or slot not in DISPATCH:
+                raise UserError(_("Isi Tanggal Kirim dan Slot."))
+            self.env.cr.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",
+                                ["ya_consolidation_cutoff_settings_v1"])
+            lock_ro_slot(self.env.cr, day, slot)
+            self.env.invalidate_all()
+            domain = [("delivery_date","=",day),("slot","=",slot)]
+            if self.sudo().search_count(domain):
+                raise UserError(_("Special Cutoff sudah tersimpan untuk tanggal dan slot ini."))
+            if self.env["ya.packing.batch"].sudo().search_count(domain):
+                raise UserError(_("Sudah ada batch Packing. Jadwal tidak boleh diubah."))
+            default_policy, _version = self.env["ya.consolidation.cutoff.settings"]._policy_for_delivery(day)
+            row = super().create(vals_list)
+            if not row.reason or not row.reason.strip():
+                raise UserError(_("Alasan Special Cutoff wajib diisi."))
+            try:
+                old = schedule(day,slot,default_policy)
+                new = schedule(day,slot,row._policy())
+                if utc_now() >= min(old["ro_cutoff"],new["ro_cutoff"]):
+                    raise UserError(_("Cutoff RO lama dan baru harus masih di masa depan. Jadwal yang sudah ditutup tidak boleh dibuka kembali."))
+            except (ValueError,TypeError,OverflowError) as exc:
+                raise UserError(str(exc)) from exc
+            return row
+
+    def write(self, vals):
+        raise UserError(_("Special Cutoff tersimpan tidak dapat diubah."))
+
+    @api.ondelete(at_uninstall=False)
+    def _unlink_except_special_history(self):
+        raise UserError(_("Riwayat Special Cutoff tidak boleh dihapus."))
