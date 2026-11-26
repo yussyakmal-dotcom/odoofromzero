@@ -112,7 +112,7 @@ class PackingBatchDesignB(models.Model):
                         or mo.ya_packing_batch_line_id != row
                         or mo.product_qty != row.qty_production):
                     raise UserError(_("Design B native MO1 integrity failure."))
-                row.with_context(ya_release_production_batch=True).write({"mo_id":mo.id})
+                row.with_context(ya_release_production_batch=True, _ya_pp1_snapshot_token=_TOKEN).write({"mo_id":mo.id})
             if len(batch.line_ids.mapped("mo_id")) != len(items):
                 raise UserError(_("Incomplete Design B MO1 release."))
             batch._ya_pp1_frozen_facts()
