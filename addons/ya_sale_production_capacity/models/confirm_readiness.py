@@ -26,7 +26,7 @@ def _finished_whole(uom, value, target_uom, label):
 class SaleOrderYACapacityPreview(models.Model):
     _inherit = "sale.order"
 
-    def _ya_prepare_capacity_confirm_readonly(self, delivery_date, slot):
+    def _ya_prepare_capacity_confirm_readonly(self, delivery_date, slot, *, display_only=False):
         """Return preflight demand/capacity for one YA quotation, with no writes.
 
         NOT a concurrency-safe confirmed reservation. The eventual Confirm
@@ -206,10 +206,15 @@ class SaleOrderYACapacityPreview(models.Model):
             if not new_qty:
                 continue
             try:
+                # Display must show over-capacity quantities, not hide the numbers.
+                # Confirm always uses the default strict path.
+                if display_only:
+                    preview = None
+                else:
+                    preview = check_so_capacity(new_qty, 0, int(round(maximum)), output)
                 # This is a preflight for NEW demand only. Confirmed-SO
                 # reservations and MO1/MO2 must be read under the slot lock
                 # by the eventual transactional Confirm engine.
-                preview = check_so_capacity(new_qty, 0, int(round(maximum)), output)
             except CapacityDecisionError as exc:
                 raise UserError(_("SKU %s: %s")
                                 % (product.default_code or product.display_name, exc)) from exc
@@ -223,7 +228,9 @@ class SaleOrderYACapacityPreview(models.Model):
             })
 
         source_rows = []
-        for line_id,pid,qty in commercial_lines:
+        # Unsaved quotation lines have NewId identities. Display does not
+        # need source identities; the Confirm path still freezes actual IDs.
+        for line_id,pid,qty in ([] if display_only else commercial_lines):
             if pid in package_boms:
                 parts = [dict(product_id=c,source_kind=component_source[c],
                               qty_per_package=ratio,qty=ratio*qty)
