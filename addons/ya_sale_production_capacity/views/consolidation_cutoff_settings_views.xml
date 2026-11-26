@@ -78,4 +78,71 @@
   <menuitem id="menu_ya_cutoff_settings" name="Cutoff Settings"
             parent="ya_workflow_navigation.menu_ya_before_production"
             action="action_ya_cutoff_settings" sequence="56" groups="base.group_system"/>
+  <record id="view_ya_special_cutoff_list" model="ir.ui.view">
+    <field name="name">ya.consolidation.special.cutoff.list</field>
+    <field name="model">ya.consolidation.special.cutoff</field>
+    <field name="arch" type="xml">
+      <list string="Special Cutoff" edit="false" delete="false" duplicate="false">
+        <field name="delivery_date" options="{'numeric': True}"/>
+        <field name="slot"/>
+        <field name="ro_cutoff_date" options="{'numeric': True}"/>
+        <field name="ro_time"/>
+        <field name="so_cutoff_date" options="{'numeric': True}"/>
+        <field name="so_time"/>
+        <field name="mo2_delay_minutes"/>
+        <field name="pp2_earliest_label"/>
+        <field name="reason"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_ya_special_cutoff_form" model="ir.ui.view">
+    <field name="name">ya.consolidation.special.cutoff.form</field>
+    <field name="model">ya.consolidation.special.cutoff</field>
+    <field name="arch" type="xml">
+      <form string="Special Cutoff" edit="false" delete="false" duplicate="false">
+        <sheet>
+          <div class="alert alert-info" role="alert">
+            Jadwal khusus hanya berlaku untuk satu tanggal kirim dan slot.
+            Semua jam WIB. Simpan sebelum cutoff RO lama maupun baru terlewati.
+            Periksa kembali jadwal sebelum Save: pengaturan tersimpan tidak dapat diedit atau dihapus.
+          </div>
+          <group string="Jadwal Pengiriman">
+            <field name="delivery_date" options="{'numeric': True}"/>
+            <field name="slot"/>
+          </group>
+          <group>
+            <group string="Cutoff RO Toko dan RO Paket">
+              <field name="ro_cutoff_date" options="{'numeric': True}"/>
+              <field name="ro_time" placeholder="08:00"/>
+            </group>
+            <group string="Cutoff Sales Order">
+              <field name="so_cutoff_date" options="{'numeric': True}"/>
+              <field name="so_time" placeholder="15:00"/>
+              <field name="mo2_delay_minutes"/>
+              <field name="pp2_earliest_label" readonly="1"/>
+            </group>
+          </group>
+          <group>
+            <field name="reason" placeholder="Contoh: Persiapan libur panjang"/>
+          </group>
+          <group string="Audit">
+            <field name="create_uid" readonly="1"/>
+            <field name="create_date" readonly="1" options="{'numeric': True}"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_special_cutoff" model="ir.actions.act_window">
+    <field name="name">Special Cutoff</field>
+    <field name="res_model">ya.consolidation.special.cutoff</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p>Buat jadwal khusus untuk tanggal kirim dan slot tertentu, misalnya persiapan libur panjang.</p>
+      <p>Tanpa Special Cutoff, sistem menggunakan Cutoff Settings biasa.</p>
+    </field>
+  </record>
+  <menuitem id="menu_ya_special_cutoff" name="Special Cutoff"
+            parent="ya_workflow_navigation.menu_ya_before_production"
+            action="action_ya_special_cutoff" sequence="57" groups="base.group_system"/>
 </odoo>
