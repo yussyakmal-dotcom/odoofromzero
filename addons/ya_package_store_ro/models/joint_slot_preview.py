@@ -9,6 +9,7 @@ from collections import defaultdict
 import hashlib
 import json
 
+from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
 from odoo import fields, models, _
 
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
@@ -244,7 +245,7 @@ class YaPackageJointSlotPreview(models.TransientModel):
         )
         lines = [
             "RO TERPADU - Tanggal %s / Slot %s" %
-            (self.delivery_date, self.slot),
+            (format_ymondd(self.delivery_date), self.slot),
             "RO biasa Confirmed: %s | RO Paket Confirmed: %s" %
             (len(ordinary), len(packages)),
             "MO dapur: %s SKU | Qty rencana: %s" %
