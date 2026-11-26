@@ -28,11 +28,38 @@ def current_clock(env, delivery_date, slot):
         raise UserError(str(exc)) from exc
 
 
+_CONFIRM_TOKEN=object()
+
+
+def _lock_ro_parents(records):
+    """Shared slot lock for original demand changes, including Draft edits."""
+    if records.env.cr.dbname!=DB:
+        return
+    records.check_access("read")
+    keys={(r.delivery_date,r.slot) for r in records}
+    for day,slot in sorted(keys,key=lambda k:(str(k[0]),str(k[1]))):
+        if day and slot:
+            lock_ro_slot(records.env.cr,day,slot)
+    records.env.invalidate_all()
+    if {(r.delivery_date,r.slot) for r in records}!=keys:
+        raise UserError(_("Jadwal RO berubah; refresh sebelum transaksi."))
+
+
+def _guard_confirmed_qty(lines):
+    if lines.env.cr.dbname!=DB:
+        return
+    _lock_ro_parents(lines.mapped("ro_id"))
+    for ro in lines.mapped("ro_id").filtered(lambda r:r.state=="confirmed"):
+        if not current_clock(lines.env,ro.delivery_date,ro.slot)["ro_admission_allowed"]:
+            raise UserError(_("Cutoff RO sudah ditutup. Koreksi Qty tidak diperbolehkan."))
+
+
 def guard_ro_confirm(records, vals):
     if records.env.cr.dbname != DB or vals.get("state") != "confirmed":
         return
     if {"delivery_date","slot","planning_id","store_warehouse_id"}.intersection(vals):
         raise UserError(_("Jangan ubah jadwal/identitas RO bersamaan dengan Confirm."))
+    _lock_ro_parents(records)
     for rec in records.sorted(key=lambda r:(r.delivery_date,r.slot,r.id)):
         day,slot=rec.delivery_date,rec.slot
         lock_ro_slot(records.env.cr,day,slot)
@@ -41,10 +68,21 @@ def guard_ro_confirm(records, vals):
             raise UserError(_("Jadwal/status RO berubah; refresh sebelum Confirm."))
         if not current_clock(records.env,day,slot)["ro_admission_allowed"]:
             raise UserError(_("Cutoff RO sudah ditutup. Pilih tanggal kirim berikutnya."))
+    if records.env.context.get("_ya_ro_confirm_token") is not _CONFIRM_TOKEN:
+        raise UserError(_("Gunakan tombol Confirm RO; status tidak boleh diubah langsung."))
 
 
 class OrdinaryROCutoff(models.Model):
     _inherit="ya.store.ro"
+
+    def action_confirm(self):
+        if self.env.cr.dbname!=DB:
+            return super().action_confirm()
+        self.ensure_one()
+        with self.env.cr.savepoint():
+            _lock_ro_parents(self)
+            return super(OrdinaryROCutoff,self.with_context(
+                _ya_ro_confirm_token=_CONFIRM_TOKEN)).action_confirm()
 
     @api.model_create_multi
     def create(self,vals_list):
@@ -67,6 +105,15 @@ class OrdinaryROCutoff(models.Model):
 class PackageROCutoff(models.Model):
     _inherit="ya.package.store.ro"
 
+    def action_confirm(self):
+        if self.env.cr.dbname!=DB:
+            return super().action_confirm()
+        self.ensure_one()
+        with self.env.cr.savepoint():
+            _lock_ro_parents(self)
+            return super(PackageROCutoff,self.with_context(
+                _ya_ro_confirm_token=_CONFIRM_TOKEN)).action_confirm()
+
     @api.model_create_multi
     def create(self,vals_list):
         if self.env.cr.dbname!=DB:
@@ -79,4 +126,25 @@ class PackageROCutoff(models.Model):
 
     def write(self,vals):
         guard_ro_confirm(self,vals)
+        return super().write(vals)
+
+
+class OrdinaryROLineCutoff(models.Model):
+    _inherit="ya.store.ro.line"
+
+    def write(self,vals):
+        if self.env.cr.dbname==DB:
+            _guard_confirmed_qty(self)
+        return super().write(vals)
+
+
+class PackageROLineCutoff(models.Model):
+    _inherit="ya.package.store.ro.line"
+
+    def write(self,vals):
+        if self.env.cr.dbname==DB:
+            _guard_confirmed_qty(self)
+            if "ro_id" in vals:
+                raise UserError(_("Jangan pindahkan baris Paket RO. Buat baris baru pada Draft RO."))
+
         return super().write(vals)
