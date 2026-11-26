@@ -61,6 +61,29 @@ class YaFinishedPackingBatch(models.Model):
             "target": "current",
         }
 
+    def _ya_fg_db_allowed(self):
+        self.ensure_one()
+        return self.env.cr.dbname == TEST_DB
+
+    def _ya_fg_validate_native_picking(self,picking,moves):
+        """Default Fase1 native handoff; extension may strengthen reservations."""
+        picking.action_confirm()
+        # The same location is physically shared; native Odoo operation
+        # completes both the dispatch and receipt in one validation.
+        for move in moves:
+            if move.state in ("done", "cancel"):
+                raise UserError(_("Unexpected move state for %s.") % move.product_id.display_name)
+            move.write({"quantity": move.product_uom_qty})
+        result = picking.with_context(
+            skip_immediate=True, skip_backorder=True,
+            cancel_backorder=True,
+        ).button_validate()
+        if isinstance(result, dict) or picking.state != "done":
+            raise UserError(_(
+                "Odoo did not complete the kitchen-to-Packing move. "
+                "Transaction rolled back; no partial batch shipment."
+            ))
+
     def action_ya_fg_move_to_packing(self):
         """Atomically make and validate standard internal movements per kitchen.
 
@@ -69,7 +92,7 @@ class YaFinishedPackingBatch(models.Model):
         A cancelled/unfinished MO is not silently represented as produced.
         """
         self.ensure_one()
-        if self.env.cr.dbname != TEST_DB:
+        if not self._ya_fg_db_allowed():
             raise UserError(_("Finished-goods transfer is test database only."))
         if self.state != "production_ok":
             raise UserError(_("Select a Produksi OK Packing batch."))
@@ -192,20 +215,5 @@ class YaFinishedPackingBatch(models.Model):
                 "location_dest_id": dest.id,
                 "company_id": packing.company_id.id,
             } for product_id, qty in sorted(sku_quantities.items())])
-            picking.action_confirm()
-            # The same location is physically shared; native Odoo operation
-            # completes both the dispatch and receipt in one validation.
-            for move in moves:
-                if move.state in ("done", "cancel"):
-                    raise UserError(_("Unexpected move state for %s.") % move.product_id.display_name)
-                move.write({"quantity": move.product_uom_qty})
-            result = picking.with_context(
-                skip_immediate=True, skip_backorder=True,
-                cancel_backorder=True,
-            ).button_validate()
-            if isinstance(result, dict) or picking.state != "done":
-                raise UserError(_(
-                    "Odoo did not complete the kitchen-to-Packing move. "
-                    "Transaction rolled back; no partial batch shipment."
-                ))
+            self._ya_fg_validate_native_picking(picking,moves)
         return self.action_ya_fg_open_transfers()
