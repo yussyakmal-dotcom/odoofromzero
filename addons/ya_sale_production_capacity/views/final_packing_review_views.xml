@@ -85,6 +85,7 @@
             <field name="reason"/>
             <field name="source_digest"/>
           </group>
+          <field name="detail" nolabel="1" readonly="1"/>
         </sheet>
       </form>
     </field>
