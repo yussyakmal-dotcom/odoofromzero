@@ -16,8 +16,8 @@
         <field name="kitchen_count" string="Dapur"/>
         <field name="mo_count" string="Jumlah MO"/>
         <field name="state"/>
-        <field name="staged_at"/>
-        <field name="released_at"/>
+        <field name="staged_at" options="{'numeric': True}"/>
+        <field name="released_at" options="{'numeric': True}"/>
         <field name="released_by"/>
       </list>
     </field>
@@ -44,9 +44,9 @@
             </group>
             <group>
               <field name="staged_by" readonly="1"/>
-              <field name="staged_at" readonly="1"/>
+              <field name="staged_at" options="{'numeric': True}" readonly="1"/>
               <field name="released_by" readonly="1"/>
-              <field name="released_at" readonly="1"/>
+              <field name="released_at" options="{'numeric': True}" readonly="1"/>
               <field name="production_qty_total" readonly="1"/>
             </group>
           </group>
