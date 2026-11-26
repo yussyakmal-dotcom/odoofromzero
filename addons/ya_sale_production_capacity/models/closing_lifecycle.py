@@ -78,6 +78,8 @@ class ClosingLifecycle(models.Model):
         lock_ro_slot(self.env.cr,day,slot)
         self.env.invalidate_all()
         clock=current_clock(self.env,day,slot)
+        if clock["expired"]:
+            raise UserError(_("Expired - Gagal Produksi. Buat siklus baru."))
         key="ro" if stage=="pp1" else "so"
         row=self._slot_rows(day,slot).filtered(lambda r:r.stage==stage)
         if row.closed_at:
@@ -104,10 +106,16 @@ class ManufacturingClosingGate(models.Model):
             return
         for mo in self:
             batch=mo.sudo().ya_packing_batch_line_id.batch_id
+            if not batch:
+                batch=self.env["ya.sale.mo2.release.line"].sudo().search([("mo_id","=",mo.id)],limit=1).finalization_id.batch_id
             if not batch or not batch.ya_pp1_design_b_snapshot:
                 continue
             lock_ro_slot(self.env.cr,batch.delivery_date,batch.slot)
             self.env.invalidate_all()
+            from .consolidation_cutoff_gate import utc_now
+            from .consolidation_cutoff_rules import WIB
+            if batch.delivery_date < utc_now().astimezone(WIB).date() and mo.state not in ("done","cancel"):
+                raise UserError(_("Expired - Gagal Produksi. MO lama tidak boleh diproduksi."))
             final=self.env["ya.sale.mo2.finalization"].sudo().search([("batch_id","=",batch.id)])
             if len(final)!=1 or not final.ya_pp2_design_b_snapshot:
                 raise UserError(_("PP2 wajib selesai sebelum pelaksanaan produksi MO1."))

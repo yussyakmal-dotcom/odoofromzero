@@ -25,11 +25,29 @@
       </list>
     </field>
   </record>
+  <record id="view_ya_consolidation_timer_queue_search" model="ir.ui.view">
+    <field name="name">ya.consolidation.timer.queue.search</field>
+    <field name="model">ya.consolidation.timer.queue</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="delivery_date"/>
+        <field name="slot"/>
+        <field name="stage"/>
+        <filter name="active_queue" string="Active Queue" domain="[('state','in',['waiting','ready','blocked'])]"/>
+        <separator/>
+        <filter name="released" string="Released" domain="[('state','=','released')]"/>
+        <separator/>
+        <filter name="expired" string="Expired" domain="[('state','=','expired')]"/>
+      </search>
+    </field>
+  </record>
   <record id="action_ya_consolidation_timer_queue" model="ir.actions.act_window">
     <field name="name">Antrean PP1 / PP2</field>
     <field name="res_model">ya.consolidation.timer.queue</field>
     <field name="view_mode">list</field>
     <field name="view_id" ref="view_ya_consolidation_timer_queue_list"/>
+    <field name="search_view_id" ref="view_ya_consolidation_timer_queue_search"/>
+    <field name="context">{'search_default_active_queue': 1}</field>
     <field name="help" type="html">
       <p>Antrean bersumber dari RO / RO Paket / SO Konsolidasi Confirmed.</p>
       <p>Refresh Antrean tidak menutup pesanan atau menerbitkan MO. PP2 muncul setelah Produksi OK 1.</p>

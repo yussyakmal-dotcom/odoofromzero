@@ -1,0 +1,3 @@
+# 27 Nov 2026 — Expired queue (owner decision)
+
+Delivery date is the last production-cycle date (WIB); after it passes unfinished PP1/PP2 are Expired - Gagal Produksi. Do not reopen or change date/slot; new production requires new cycle. Active Queue default excludes Released and Expired; filters retain history, no deletion. Done MOs and physical transfers remain intact. Materials already received remain kitchen buffer. No automatic return or cancellation is implemented. Open MO/transfer reservation cleanup and downstream controls need separate review before claiming full cycle closure. Source v19.0.1.21.3, preflight/runtime/GUI pending. No cron activation, main/8069/RO_SO only.

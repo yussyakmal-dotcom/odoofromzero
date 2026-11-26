@@ -21,7 +21,7 @@ class ConsolidationTimerQueue(models.Model):
     stage=fields.Selection([("pp1","Pre Produksi 1"),("pp2","Pre Produksi 2")],required=True,readonly=True)
     state=fields.Selection([("ready","Siap Review"),("waiting","Open - Menunggu Closing"),
                             ("blocked","Perlu Perhatian"),("released","Produksi OK"),
-                            ("expired","Dispatch Terlewat")],required=True,readonly=True)
+                            ("expired","Expired - Gagal Produksi")],required=True,readonly=True)
     digest=fields.Char(readonly=True)
     sku_count=fields.Integer(readonly=True)
     note=fields.Char(readonly=True)
@@ -101,6 +101,15 @@ class ConsolidationTimerQueue(models.Model):
                 continue
             if stage=="pp2" and not (batch.ya_pp1_design_b_snapshot and batch.state=="production_ok"):
                 continue
+            if clock["expired"]:
+                vals=dict(state="expired",digest=False,sku_count=0,
+                          note="Tanggal kirim terlewati; buat siklus baru.",batch_id=batch.id)
+                if entry:
+                    entry._set_prepared(vals)
+                else:
+                    Queue.create(dict(vals,delivery_date=day,slot=slot,stage=stage,
+                                      prepared_at=fields.Datetime.now()))
+                continue
             vals=dict(state="blocked",digest=False,sku_count=0,note=False,batch_id=batch.id)
             try:
                 if stage=="pp1":
@@ -138,7 +147,7 @@ class ConsolidationTimerQueue(models.Model):
         self.check_access("read")
         # Never consume a cached timer digest for release.
         if self.state not in ("ready","waiting","blocked"):
-            raise UserError(_("Antrean ini sudah selesai atau melewati dispatch."))
+            raise UserError(_("Antrean ini sudah selesai atau Expired."))
         wizard=self.env["ya.consolidation.review.wizard"].create({
             "stage":self.stage,"delivery_date":self.delivery_date,"slot":self.slot})
         return wizard.action_review()

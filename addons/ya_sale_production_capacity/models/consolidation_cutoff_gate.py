@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
-from .consolidation_cutoff_rules import clock_state
+from .consolidation_cutoff_rules import clock_state, WIB
 from .pp1_native_sources import DB
 
 
@@ -27,6 +27,7 @@ def current_clock(env, delivery_date, slot):
             policy=special._policy()
         now=utc_now()
         state=clock_state(day,slot,now,dict(policy,mo2_delay_minutes=0))
+        state['expired'] = day < now.astimezone(WIB).date()
         from .closing_lifecycle import DEFAULT, EPOCH
         rows=env["ya.consolidation.closing"]._slot_rows(day,slot)
         batch=env["ya.packing.batch"].sudo().search([("delivery_date","=",day),("slot","=",slot)])
@@ -48,7 +49,7 @@ def current_clock(env, delivery_date, slot):
             state[stage+"_closing_id"]=row.id or False
             state[key+"_closed"]=closed
             state[key+"_admission_allowed"]=not closed and not state["dispatch_passed"]
-            state[stage+"_clock_ready"]=closed
+            state[stage+"_clock_ready"]=closed and not state["expired"]
         state["pp2_earliest"]=state["so_cutoff"] if state["pp2_mode"]=="scheduled" else None
         state["cutoff_settings_version_id"]=version_id if not special else False
         state["special_cutoff_id"]=special.id or False

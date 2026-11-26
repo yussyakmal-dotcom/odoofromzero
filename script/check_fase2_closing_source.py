@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.21.2"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.21.3"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src
@@ -25,5 +25,10 @@ assert action is not None
 groups=action.find("./field[@name='group_ids']")
 assert groups is not None and "ya_store_ro.group_ya_packing_admin" in groups.attrib["eval"]
 print("QUEUE_SERVER_ACTION_GROUP_PREFLIGHT_PASS")
+assert 'if clock["expired"]:' in queue
+assert "search_default_active_queue" in view
+assert "Expired - Gagal Produksi" in queue
+assert "now.astimezone(WIB).date()" in (root/"models/consolidation_cutoff_gate.py").read_text()
+print("QUEUE_EXPIRY_FILTER_SOURCE_PREFLIGHT_PASS")
 print("FASE2_CLOSING_SOURCE_PREFLIGHT_PASS")
 print("SOURCE_ONLY_NO_DATABASE_NO_DEPLOY")

@@ -50,6 +50,8 @@ class YaConsolidationReviewWizard(models.TransientModel):
         if not self.delivery_date or self.stage not in ("pp1","pp2") or self.slot not in ("S1","S2","S3"):
             raise UserError(_("Pilih tanggal kirim dan slot."))
         lock_ro_slot(self.env.cr, self.delivery_date, self.slot)
+        if current_clock(self.env,self.delivery_date,self.slot)["expired"]:
+            raise UserError(_("Expired - Gagal Produksi. Buat siklus baru."))
         try:
             if self.stage == "pp1":
                 review = read_locked_review(self.env, self.delivery_date, self.slot, self.env.company)
@@ -116,6 +118,8 @@ class YaConsolidationReviewWizard(models.TransientModel):
                     self.reviewed_identity!=identity or not self.digest):
                 raise UserError(_("Refresh review sebelum Produksi OK."))
             clock=current_clock(self.env,day,slot)
+            if clock["expired"]:
+                raise UserError(_("Expired - Gagal Produksi. Buat siklus baru."))
             if self.reviewed_cutoff_key != self._cutoff_key(clock):
                 raise UserError(_("Jadwal cutoff berubah. Refresh review sebelum Produksi OK."))
             if stage=="pp1" and not clock["pp1_clock_ready"]:
