@@ -5,7 +5,7 @@
     <field name="model">ya.consolidation.cutoff.settings</field>
     <field name="arch" type="xml">
       <list string="Cutoff Settings - Riwayat" edit="false" delete="false">
-        <field name="effective_date"/>
+        <field name="effective_date" options="{'numeric': True}"/>
         <field name="ro_days_before"/>
         <field name="ro_time"/>
         <field name="s1_days_before"/>
@@ -16,7 +16,7 @@
         <field name="s3_time"/>
         <field name="mo2_delay_minutes"/>
         <field name="create_uid" string="Dibuat oleh"/>
-        <field name="create_date" string="Waktu perubahan"/>
+        <field name="create_date" options="{'numeric': True}" string="Waktu perubahan"/>
       </list>
     </field>
   </record>
@@ -32,7 +32,7 @@
             S2/S3 yang belum ditetapkan tidak dapat release PP2.
           </div>
           <group>
-            <field name="effective_date"/>
+            <field name="effective_date" options="{'numeric': True}"/>
             <field name="reason"/>
           </group>
           <group string="RO Biasa dan RO Paket — seluruh slot">
@@ -60,7 +60,7 @@
           </group>
           <group string="Audit">
             <field name="create_uid" readonly="1"/>
-            <field name="create_date" readonly="1"/>
+            <field name="create_date" options="{'numeric': True}" readonly="1"/>
           </group>
         </sheet>
       </form>
