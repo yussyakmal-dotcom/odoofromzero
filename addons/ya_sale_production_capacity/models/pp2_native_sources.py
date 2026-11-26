@@ -10,11 +10,12 @@ from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
 from .pp1_native_sources import DB, require, whole
 from .mo2_owner_so_first_rules import plan_so_first_only
 
-def read_pp2_forecast(batch):
+def read_pp2_forecast(batch, *, sales_preview=False):
     batch.ensure_one()
     env = batch.env
     require(env.cr.dbname == DB, "Wrong database")
-    require(env.user.has_group("ya_store_ro.group_ya_packing_admin"),
+    require(env.user.has_group("ya_store_ro.group_ya_packing_admin") or
+            (sales_preview and env.user.has_group("sales_team.group_sale_salesman")),
             "PP2 requires Packing Admin")
     lock_ro_slot(env.cr, batch.delivery_date, batch.slot)
     env.invalidate_all()
