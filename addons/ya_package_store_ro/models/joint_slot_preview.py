@@ -96,12 +96,12 @@ class YaPackageJointSlotPreview(models.TransientModel):
                     raise UserError(_(
                         "SKU %(sku)s has no single eligible kitchen Planning "
                         "route for its Confirmed RO. Check published slot routes."
-                    ) % {"sku": product.default_code or product.display_name})
+                    ) % {"sku": product.with_context(display_default_code=True).display_name})
                 if line.uom_id != candidates[0].uom_id:
                     raise UserError(_(
                         "RO/Planning UoM differs for SKU %s. Verify the "
                         "existing Confirmed RO before joint consolidation."
-                    ) % (product.default_code or product.display_name))
+                    ) % (product.with_context(display_default_code=True).display_name))
                 # Historical RO stores Qty in the published Planning UoM,
                 # while joint kitchen MOs, Paket components and store DOs
                 # all use the product BASE UoM. Convert rather than silently
@@ -112,7 +112,7 @@ class YaPackageJointSlotPreview(models.TransientModel):
                     raise UserError(_(
                         "RO SKU %s converts to a fractional finished unit; "
                         "review source UoM with Packing."
-                    ) % (product.default_code or product.display_name))
+                    ) % (product.with_context(display_default_code=True).display_name))
                 direct_rows.append({
                     "ro_id": ro.id,
                     "product_id": product.id,
@@ -255,7 +255,7 @@ class YaPackageJointSlotPreview(models.TransientModel):
             "RENCANA PER DAPUR / SKU (Paket lebih dulu, kemudian RO toko):",
         ]
         for item in result["kitchen_mo_plans"]:
-            code = self.env["product.product"].browse(item["product_id"]).default_code or item["product_id"]
+            code = self.env["product.product"].browse(item["product_id"]).with_context(display_default_code=True).display_name
             lines.append(
                 "%s / %s | Paket %s | RO toko %s | MO %s | Internal Transfer %s | %s" %
                 (item["kitchen_code"], code, item["package_component_qty"],
@@ -274,7 +274,7 @@ class YaPackageJointSlotPreview(models.TransientModel):
             product = self.env["product.product"].browse(item["product_id"])
             wh = self.env["stock.warehouse"].browse(item["store_id"])
             lines.append("%s | %s | Qty %s" %
-                         (wh.code, product.default_code or product.display_name,
+                         (wh.code, product.with_context(display_default_code=True).display_name,
                           item["qty"]))
 
         lines.append("")
@@ -282,7 +282,7 @@ class YaPackageJointSlotPreview(models.TransientModel):
         for product_id, qty in result["pck_stock_requirements"].items():
             product = self.env["product.product"].browse(product_id)
             lines.append("%s | Qty %s %s" %
-                         (product.default_code or product.display_name,
+                         (product.with_context(display_default_code=True).display_name,
                           qty, product.uom_id.name))
 
         warnings = result["warnings"] + notes
