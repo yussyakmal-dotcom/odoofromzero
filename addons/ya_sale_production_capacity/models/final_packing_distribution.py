@@ -83,7 +83,7 @@ class FinalPackingReviewDistribution(models.Model):
             existing=Distribution.search([("release_id","=",release.id)])
             if existing:
                 return existing._open_deliveries()
-            pp1=batch._ya_pp1_frozen_facts()
+            batch._ya_pp1_frozen_facts()
             final=self.env["ya.sale.mo2.finalization"].search([("batch_id","=",batch.id)])
             if len(final)!=1 or final.id!=data["demand"]["supply"]["finalization_id"]:
                 raise UserError(_("Identitas finalisasi PP2 berubah."))
@@ -128,7 +128,7 @@ class FinalPackingReviewDistribution(models.Model):
                 if not _same(_totals(mo.move_raw_ids,"quantity"),parts[mo.product_id.id]):
                     raise UserError(_("Actual Paket component consumption differs from approved allocation."))
             try:
-                customers,dispatches=_qa_generate_native_deliveries(batch,data["demand"],rows and data["validated"])
+                customers,dispatches=_qa_generate_native_deliveries(batch,data["demand"],data["validated"])
             except (PP1SourceError,ValueError) as exc:
                 raise UserError(str(exc)) from exc
             record=Distribution.with_context(_ya_distribution_token=_TOKEN).create({
@@ -148,6 +148,7 @@ class ApprovedNativeDeliveryPicking(models.Model):
         self.ensure_one()
         if self.env.cr.dbname!=DB:
             return super()._ya_store_delivery_db_allowed()
+        self=self.sudo()  # Read approved identity only; native Validate retains actor ACL.
         dispatch=self if self.ya_store_stage=="dispatch" else self.ya_source_dispatch_id
         if not dispatch:
             return False
@@ -187,7 +188,7 @@ class ApprovedNativeDeliveryPicking(models.Model):
             batch=rel.batch_id
             lock_ro_slot(self.env.cr,batch.delivery_date,batch.slot)
             self.env.invalidate_all()
-            order=picking.move_ids.mapped("sale_line_id.order_id")
+            order=picking.sudo().move_ids.mapped("sale_line_id.order_id")
             if len(order)!=1 or order.company_id!=rel.company_id or picking.company_id!=rel.company_id:
                 raise UserError(_("Customer DO source mismatch."))
             data=rel.review_id.evidence
