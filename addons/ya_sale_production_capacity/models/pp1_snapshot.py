@@ -21,6 +21,8 @@ class PackingBatchDesignB(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        if self.env.cr.dbname == DB and any(not v.get("ya_pp1_design_b_snapshot") for v in vals_list):
+            raise UserError(_("Gunakan Review PP1 / PP2 Fase 2; batch legacy baru diblokir di clone."))
         if any("ya_pp1_design_b_snapshot" in v for v in vals_list):
             if (self.env.cr.dbname != DB
                     or self.env.context.get("_ya_pp1_snapshot_token") is not _TOKEN
@@ -29,6 +31,8 @@ class PackingBatchDesignB(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        if self.env.cr.dbname == DB and vals.get("state") == "production_ok" and any(not b.ya_pp1_design_b_snapshot for b in self):
+            raise UserError(_("Release batch legacy diblokir di clone RO_SO."))
         if "ya_pp1_design_b_snapshot" in vals:
             raise UserError(_("Design B PP1 snapshot is immutable."))
         if any(b.ya_pp1_design_b_snapshot for b in self):
@@ -124,6 +128,12 @@ class PackingBatchDesignB(models.Model):
 
 class PackingBatchLineDesignB(models.Model):
     _inherit = "ya.packing.batch.line"
+
+    @api.model
+    def action_generate_selected_mo(self,*args,**kwargs):
+        if self.env.cr.dbname == DB:
+            raise UserError(_("Gunakan Produksi OK 1 dari Review PP1 / PP2 Fase 2."))
+        return super().action_generate_selected_mo(*args,**kwargs)
 
     def write(self, vals):
         if any(row.batch_id.ya_pp1_design_b_snapshot for row in self):
