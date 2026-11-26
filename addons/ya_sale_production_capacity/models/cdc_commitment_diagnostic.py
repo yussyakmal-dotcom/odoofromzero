@@ -49,7 +49,7 @@ def read_cdc_commitments(env, company, product_ids):
         # Generated YA draft documents are issued obligations, but unrelated
         # draft proposals are not confirmed commitments.
         ya_issued = bool(picking and (picking.ya_mr_batch_id
-                        or picking.ya_mo2_material_release_line_id))
+                        or picking.ya_mo2_material_release_line_id or picking.ya_mr2_finalization_id))
         qty = move.product_uom._compute_quantity(
             move.product_uom_qty, move.product_id.uom_id, round=False)
         require(qty>=0, "Negative CDC outgoing demand")
@@ -60,7 +60,7 @@ def read_cdc_commitments(env, company, product_ids):
             continue
         row = dict(move_id=move.id,picking_id=picking.id or None,
                    product_id=move.product_id.id,qty=qty,state=move.state,
-                   kind="MR2" if picking.ya_mo2_material_release_line_id
+                   kind="MR2" if (picking.ya_mo2_material_release_line_id or picking.ya_mr2_finalization_id)
                         else "MR1" if picking.ya_mr_batch_id else "OTHER")
         outbound_rows.append(row)
         outbound[move.product_id.id] += qty
