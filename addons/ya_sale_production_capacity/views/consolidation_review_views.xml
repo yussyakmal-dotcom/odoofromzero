@@ -23,7 +23,7 @@
           <group>
             <group>
               <field name="stage"/>
-              <field name="delivery_date"/>
+              <field name="delivery_date" options="{'numeric': True}"/>
               <field name="slot"/>
             </group>
             <group>
