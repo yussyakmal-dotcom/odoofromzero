@@ -97,7 +97,7 @@ class SaleOrderCapacityDisplay(models.Model):
                     else "Melebihi Max" if remaining<0 else "Cukup")
             rows.append((product.display_name,product.uom_id.name,maximum,prior,
                 ro.get("original_ro_package_qty",0),ro.get("original_ro_store_qty",0),
-                r["new_qty"],remaining,status))
+                maximum-prior,r["new_qty"],remaining,status))
         result=note("Snapshot kapasitas SO, bukan stok fisik. RO dipisahkan karena SO mendapat prioritas. "
                     "Confirm akan memeriksa ulang data dan cutoff.")
         if not clock["ro_closed"]:
@@ -105,7 +105,7 @@ class SaleOrderCapacityDisplay(models.Model):
         if closed:
             result+=note("Penerimaan SO untuk jadwal ini telah ditutup.","warning")
         result+=table(("SKU / Nama Produk","Unit","Planning Max","SO Confirmed","RO Paket",
-            "RO Toko","SO Ini","Sisa SO","Status"),rows)
+            "RO Toko","Tersedia SO","SO Ini","Sisa Setelah","Status"),rows)
         if preview["package_qty"]:
             result+=note("Paket dihitung berdasarkan kebutuhan komponen dapur; stok komponen PCK belum diverifikasi.")
         return result
