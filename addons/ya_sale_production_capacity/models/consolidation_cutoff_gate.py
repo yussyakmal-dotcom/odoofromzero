@@ -47,6 +47,8 @@ class OrdinaryROCutoff(models.Model):
         if self.env.cr.dbname!=DB:
             return super().create(vals_list)
         # Existing imports must create Draft then use native confirmation.
+        if any(v.get("state","draft")!="draft" for v in vals_list) or self.env.context.get("default_state","draft")!="draft":
+            raise UserError(_("Buat RO dalam Draft; gunakan Confirm."))
         with self.env.cr.savepoint():
             rows=super().create(vals_list)
             if any(r.state!="draft" for r in rows):
