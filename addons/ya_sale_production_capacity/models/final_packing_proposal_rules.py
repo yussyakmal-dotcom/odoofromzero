@@ -63,7 +63,8 @@ def validate_proposal(demand, proposal):
     template = build_proposal_template(demand)
     check(set(proposal) == set(template), "Unexpected proposal fields")
     for k in ("batch_id", "delivery_date", "slot", "source_digest"):
-        check(proposal[k] == template[k], "Stale or changed fixed field: "+k)
+        check(type(proposal[k]) is type(template[k]) and proposal[k] == template[k],
+              "Stale or changed fixed field: "+k)
     check(not demand["so_paket_confirmation_provenance_missing"],
           "SO Paket confirmation provenance missing; review required")
     rows = demand["recipient_rows"]
@@ -73,6 +74,8 @@ def validate_proposal(demand, proposal):
     expected_fields = {"kind","source_id","line_id","recipient_id","product_id","qty_allocated"}
     for r in proposal["rows"]:
         check(set(r)==expected_fields, "Unexpected proposal row fields")
+        check(type(r["kind"]) is str and all(type(r[f]) is int for f in
+              ("source_id","line_id","recipient_id","product_id")), "Invalid row identity type")
         k = key(r)
         check(k in original and k not in proposals, "Unknown or duplicate recipient row")
         proposals[k] = integer(r["qty_allocated"])
@@ -117,8 +120,7 @@ def validate_proposal(demand, proposal):
                 ordinary[ck] += ratio*qty
         check(bool(parts), "Empty component list")
         parts_by_key[k] = parts
-        result.append(dict(template["rows"][0]) if False else
-                      dict(kind=r["kind"],source_id=r["source_id"],line_id=r["line_id"],
+        result.append(dict(kind=r["kind"],source_id=r["source_id"],line_id=r["line_id"],
                            recipient_id=r["recipient_id"],product_id=r["product_id"],
                            qty_requested=requested,qty_allocated=qty,qty_shortage=requested-qty))
     remaining = {}
