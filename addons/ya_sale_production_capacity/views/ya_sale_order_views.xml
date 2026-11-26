@@ -11,6 +11,12 @@
       <!-- YA fields are visible/editable at Draft/Sent quotation but OPTIONAL.
            Only the Confirm gate checks date, slot, Published Planning, capacity.
            After confirmation, keep the YA schedule read-only. -->
+      <xpath expr="//field[@name='order_line']" position="before">
+        <div invisible="not ya_is_capacity_so or state not in ('draft', 'sent')">
+          <separator string="Kapasitas Produksi per SKU"/>
+          <field name="ya_capacity_display" nolabel="1" readonly="1"/>
+        </div>
+      </xpath>
       <xpath expr="//field[@name='payment_term_id']" position="after">
         <field name="ya_is_capacity_so" invisible="1"/>
         <field name="ya_delivery_date" string="YA Tanggal Kirim"
