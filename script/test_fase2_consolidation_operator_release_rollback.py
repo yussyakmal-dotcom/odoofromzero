@@ -126,7 +126,8 @@ try:
         assert w.digest!=digest and w.line_ids.qty_so==2
         response=w.action_release()
     assert response["res_model"]==Batch._name and not w.digest
-    batch=Batch.browse(response["res_id"])
+    batch=Batch.with_user(packing).browse(response["res_id"])
+    assert not batch.env.su and batch.env.uid==packing.id
     assert batch.released_by==packing and batch.ya_pp1_design_b_snapshot["actor_id"]==packing.id
     reject(w.action_release,UserError,"Refresh review")
     print("PP1_OPERATOR_CLOCK_STALE_LEGACY_AND_NATIVE_RELEASE_PASS")
