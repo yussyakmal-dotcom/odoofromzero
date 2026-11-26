@@ -21,8 +21,14 @@ def current_clock(env, delivery_date, slot):
     try:
         day=fields.Date.to_date(delivery_date)
         policy,version_id=env["ya.consolidation.cutoff.settings"]._policy_for_delivery(day)
+        special=env["ya.consolidation.special.cutoff"].sudo().search([
+            ("delivery_date","=",day),("slot","=",slot)],limit=1)
+        if special:
+            policy=special._policy()
         state=clock_state(day,slot,utc_now(),policy)
-        state["cutoff_settings_version_id"]=version_id
+        state["cutoff_settings_version_id"]=version_id if not special else False
+        state["special_cutoff_id"]=special.id or False
+        state["cutoff_source"]="Special Cutoff" if special else "Default Cutoff"
         return state
     except (ValueError,TypeError) as exc:
         raise UserError(str(exc)) from exc
