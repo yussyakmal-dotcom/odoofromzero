@@ -36,7 +36,7 @@
     <field name="model">ya.planning.revision.audit</field>
     <field name="arch" type="xml">
       <list create="false" edit="false" delete="false">
-        <field name="changed_at"/><field name="actor_id"/><field name="delivery_date"/>
+        <field name="changed_at" options="{'numeric': True}"/><field name="actor_id"/><field name="delivery_date" options="{'numeric': True}"/>
         <field name="slot"/><field name="product_id"/><field name="operation"/>
         <field name="old_max"/><field name="new_max"/><field name="ro_qty"/><field name="so_qty"/>
         <field name="ro_shortage_before"/><field name="ro_shortage_after"/><field name="reason"/>
