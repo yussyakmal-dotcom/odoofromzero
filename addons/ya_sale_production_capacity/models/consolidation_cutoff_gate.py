@@ -1,13 +1,13 @@
 """Clone-only admission guard; no timer or operator release.
 
-Initial clock policy uses owner-approved defaults until audited effective-date
-Settings are wired. No guessed SO cutoff for S2/S3.
+Read immutable effective-delivery-date policy versions; approved defaults
+apply before the first saved version. No guessed SO cutoff for S2/S3.
 """
 from datetime import datetime, timezone
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
-from .consolidation_cutoff_rules import DEFAULT_POLICY, clock_state
+from .consolidation_cutoff_rules import clock_state
 from .pp1_native_sources import DB
 
 
@@ -19,7 +19,11 @@ def current_clock(env, delivery_date, slot):
     if env.cr.dbname != DB:
         raise UserError(_("Cutoff Fase 2 hanya untuk clone RO_SO."))
     try:
-        return clock_state(fields.Date.to_date(delivery_date),slot,utc_now(),DEFAULT_POLICY)
+        day=fields.Date.to_date(delivery_date)
+        policy,version_id=env["ya.consolidation.cutoff.settings"]._policy_for_delivery(day)
+        state=clock_state(day,slot,utc_now(),policy)
+        state["cutoff_settings_version_id"]=version_id
+        return state
     except (ValueError,TypeError) as exc:
         raise UserError(str(exc)) from exc
 
