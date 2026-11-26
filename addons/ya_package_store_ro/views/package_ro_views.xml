@@ -6,7 +6,7 @@
     <field name="arch" type="xml">
       <list string="RO Paket Toko" delete="false">
         <field name="name"/>
-        <field name="delivery_date"/>
+        <field name="delivery_date" options="{'numeric': True}"/>
         <field name="slot"/>
         <field name="store_warehouse_id"/>
         <field name="line_count"/>
@@ -33,13 +33,13 @@
         <sheet>
           <group>
             <group>
-              <field name="delivery_date" readonly="state == 'confirmed'"/>
+              <field name="delivery_date" options="{'numeric': True}" readonly="state == 'confirmed'"/>
               <field name="slot" readonly="state == 'confirmed'"/>
               <field name="store_warehouse_id" readonly="state == 'confirmed'"/>
             </group>
             <group>
               <field name="qty_total" readonly="1"/>
-              <field name="confirmed_at" readonly="1"/>
+              <field name="confirmed_at" options="{'numeric': True}" readonly="1"/>
               <field name="confirmed_by" readonly="1"/>
             </group>
           </group>
@@ -59,7 +59,7 @@
                   <field name="qty_after"/>
                   <field name="reason"/>
                   <field name="changed_by"/>
-                  <field name="changed_at"/>
+                  <field name="changed_at" options="{'numeric': True}"/>
                 </list>
               </field>
             </page>
