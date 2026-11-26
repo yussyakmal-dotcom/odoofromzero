@@ -3,6 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 from odoo import fields
 from odoo.addons.ya_sale_production_capacity.models import pp1_native_sources as adapter
+from odoo.addons.ya_sale_production_capacity.models import pp1_review_contract as review
 
 assert env.cr.dbname == adapter.DB
 assert Path(adapter.__file__).resolve().is_relative_to(
@@ -83,6 +84,11 @@ try:
     assert facts["ro_package_kitchen_rows"][0]["ro_id"]==paket.id
     print("NATIVE_RO_AND_PAKET_SOURCE_FORECAST_PASS",before)
 
+    reviewed = review.read_locked_review(env,test_date,'S1',company)
+    assert reviewed['facts']==facts
+    assert review.revalidate_review(env,test_date,'S1',company,reviewed['digest'])==reviewed
+    print('PP1_LOCKED_REVIEW_BASELINE_PASS')
+
     def quote(qty):
         return Sale.with_context(default_ya_is_capacity_so=True,tracking_disable=True,
             mail_create_nosubscribe=True,mail_notify_force_send=False).create({
@@ -96,6 +102,7 @@ try:
     draft=quote(1)
     assert so.state in ("draft","sent")
     assert read()[1]==before
+    assert review.read_locked_review(env,test_date,"S1",company)["digest"]==reviewed["digest"]
     print("DRAFT_SO_NOT_COUNTED_PASS")
     env["ya.sale.capacity.confirm.wizard"].with_context(
         tracking_disable=True,mail_notify_force_send=False).create({
@@ -115,6 +122,21 @@ try:
     assert facts["so_ledger_rows"][0]["qty"]==5
     assert read()[0]==facts
     print("NATIVE_EARLY_SO_FIRST_DISPLACEMENT_PASS",after)
+    try:
+        review.revalidate_review(env,test_date,"S1",company,reviewed["digest"])
+    except adapter.PP1SourceError as exc:
+        assert "PP1 source changed; refresh review" in str(exc), str(exc)
+    else:
+        raise AssertionError("Stale PP1 review incorrectly accepted")
+    print("PP1_STALE_REVIEW_AFTER_SO_CONFIRM_BLOCKED_PASS")
+    refreshed=review.read_locked_review(env,test_date,"S1",company)
+    assert refreshed["digest"]!=reviewed["digest"] and refreshed["facts"]==facts
+    assert review.revalidate_review(env,test_date,"S1",company,refreshed["digest"])==refreshed
+    reordered=dict(facts)
+    for key in review.ROW_KEYS:
+        reordered[key]=list(reversed(facts[key]))
+    assert review.source_digest(reordered)==refreshed["digest"]
+    print("PP1_REFRESHED_REVIEW_AND_CANONICAL_DIGEST_PASS")
     assert ro.line_ids.qty_requested==4 and paket.line_ids.qty_requested==8
     assert draft.state in ("draft","sent")
     assert not Batch.search_count(domain)
@@ -130,4 +152,5 @@ assert not Ledger.search_count(domain)
 assert not Batch.search_count(domain)
 print("FIXTURE_ROLLBACK_VERIFIED_PASS")
 print("FASE2_PP1_NATIVE_SOURCES_ROLLBACK_PASS")
+print("FASE2_PP1_REVIEW_REFRESH_ROLLBACK_PASS")
 print("FORECAST_ONLY_NO_MO1_RELEASE_NO_FINAL_ALLOCATION")
