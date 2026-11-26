@@ -105,6 +105,9 @@
     <field name="model">ya.packing.batch</field>
     <field name="inherit_id" ref="ya_store_ro.view_ya_packing_batch_form"/>
     <field name="arch" type="xml">
+      <xpath expr="//field[@name='allocation_ids']/list/field[@name='reference']" position="after">
+        <field name="product_id" string="Nama Produk" readonly="1" options="{'no_open': True}"/>
+      </xpath>
       <xpath expr="//button[@name='action_open_mos']" position="after">
         <field name="ya_pp1_design_b_snapshot" invisible="1"/>
         <button name="action_ya_final_packing_review" type="object" string="Post Produksi"
