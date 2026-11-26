@@ -41,7 +41,7 @@
             <list create="false" delete="false">
               <field name="package_ro_id" string="RO Paket Sumber"/>
               <field name="store_warehouse_id" string="Toko"/>
-              <field name="product_id" string="SKU Paket"/>
+              <field name="product_id" string="SKU / Nama Paket"/>
               <field name="bom_id" string="BoM Perakitan"/>
               <field name="qty_requested" string="Jumlah Paket"/>
             </list>
