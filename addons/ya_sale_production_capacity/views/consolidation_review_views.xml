@@ -8,11 +8,17 @@
         <header>
           <button name="action_review" type="object" class="btn-primary" string="Hitung / Refresh Konsolidasi"
                   groups="ya_store_ro.group_ya_packing_admin"/>
+          <button name="action_release" type="object" class="btn-primary" string="Produksi OK 1"
+                  groups="ya_store_ro.group_ya_packing_admin" invisible="stage != 'pp1' or not digest"
+                  confirm="Setujui review dan terbitkan MO1? Sistem memeriksa cutoff serta data terbaru." />
+          <button name="action_release" type="object" class="btn-primary" string="Produksi OK 2"
+                  groups="ya_store_ro.group_ya_packing_admin" invisible="stage != 'pp2' or not digest"
+                  confirm="Setujui review dan finalisasi PP2? MO2 hanya untuk kekurangan SO." />
         </header>
         <sheet>
           <div class="alert alert-info" role="alert">
             Preview per tanggal dan slot. Qty merupakan proyeksi, bukan stok fisik.
-            Belum dapat release MO; cutoff dan otorisasi release belum diaktifkan.
+            Produksi OK hanya dapat dijalankan setelah cutoff dan pemeriksaan ulang data.
           </div>
           <group>
             <group>
@@ -23,6 +29,7 @@
             <group>
               <field name="reviewed_identity" string="Hasil Review Untuk" readonly="1"/>
               <field name="digest" invisible="1"/>
+              <field name="cutoff_info" readonly="1" string="Status waktu saat review"/>
             </group>
           </group>
           <field name="line_ids" readonly="1" nolabel="1">
