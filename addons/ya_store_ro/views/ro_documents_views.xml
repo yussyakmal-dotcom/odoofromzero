@@ -46,7 +46,7 @@
               <field name="source_filename" readonly="1"/>
               <field name="line_count" readonly="1"/>
               <field name="qty_total" readonly="1"/>
-              <field name="confirmed_at" readonly="1"/>
+              <field name="confirmed_at" options="{'numeric': True}" readonly="1"/>
               <field name="confirmed_by" readonly="1"/>
               <field name="packing_batch_id" readonly="1"/>
             </group>
@@ -70,7 +70,7 @@
                   <field name="qty_after"/>
                   <field name="reason"/>
                   <field name="changed_by"/>
-                  <field name="changed_at"/>
+                  <field name="changed_at" options="{'numeric': True}"/>
                 </list>
               </field>
             </page>
