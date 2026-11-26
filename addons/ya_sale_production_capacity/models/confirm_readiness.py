@@ -55,6 +55,8 @@ class SaleOrderYACapacityPreview(models.Model):
         direct = defaultdict(int)
         packages = defaultdict(int)
         package_boms = {}
+        package_bom_ids = {}
+        commercial_lines = []
         component_source = {}
         pck_manual_finished = set()
         counted_product_lines = 0
@@ -75,6 +77,7 @@ class SaleOrderYACapacityPreview(models.Model):
                 product.uom_id, "SO SKU %s" % code,
             )
             counted_product_lines += 1
+            commercial_lines.append((line.id,product.id,qty))
             if product.categ_id.complete_name == "All / Produk Jadi / Paket":
                 packages[product.id] += qty
                 if product.id in package_boms:
@@ -91,6 +94,9 @@ class SaleOrderYACapacityPreview(models.Model):
                         "Paket %(sku)s harus mempunyai tepat satu BoM aktif; ditemukan %(count)s."
                     ) % {"sku": code, "count": len(boms)})
                 bom = boms[0]
+                if bom.company_id and bom.company_id != self.company_id:
+                    raise UserError(_("Paket BoM company mismatch."))
+                package_bom_ids[product.id] = bom.id
                 output = bom.product_uom_id._compute_quantity(
                     bom.product_qty, product.uom_id, round=False)
                 if abs(output - 1.0) > 1e-9:
@@ -98,6 +104,9 @@ class SaleOrderYACapacityPreview(models.Model):
                 parts = defaultdict(float)
                 for bom_line in bom.bom_line_ids:
                     component = bom_line.product_id
+                    if (component.categ_id.complete_name == "All / Produk Jadi / Paket"
+                            or (component.company_id and component.company_id != self.company_id)):
+                        raise UserError(_("Nested Paket or component company mismatch."))
                     converted = bom_line.product_uom_id._compute_quantity(
                         bom_line.product_qty, component.uom_id, round=False)
                     if converted <= 0:
@@ -213,7 +222,21 @@ class SaleOrderYACapacityPreview(models.Model):
                 "preflight": preview,
             })
 
+        source_rows = []
+        for line_id,pid,qty in commercial_lines:
+            if pid in package_boms:
+                parts = [dict(product_id=c,source_kind=component_source[c],
+                              qty_per_package=ratio,qty=ratio*qty)
+                         for c,ratio in sorted(package_boms[pid].items())]
+                kind,bom_id="SO_PAKET",package_bom_ids[pid]
+            else:
+                parts=[dict(product_id=pid,source_kind="KITCHEN",qty=qty)]
+                kind,bom_id="SO",None
+            source_rows.append(dict(kind=kind,source_id=self.id,line_id=line_id,
+                recipient_id=self.partner_shipping_id.id,product_id=pid,qty=qty,
+                bom_id=bom_id,components=parts))
         return {
+            "source_rows": sorted(source_rows,key=lambda r:r["line_id"]),
             "capacity": capacity,
             "pck_stock_requirements": result["pck_stock_requirements"],
             "pck_manual_finished_ids": sorted(pck_manual_finished),
