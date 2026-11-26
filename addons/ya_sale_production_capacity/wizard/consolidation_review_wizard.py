@@ -1,5 +1,5 @@
 """Operator preview only; no release, timer or business-document mutation."""
-from odoo import fields, models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.addons.ya_sale_production_capacity.models.pp1_native_sources import DB
 from odoo.addons.ya_sale_production_capacity.models.pp1_review_contract import read_locked_review
@@ -19,11 +19,17 @@ class YaConsolidationReviewWizard(models.TransientModel):
     digest = fields.Char(readonly=True)
     line_ids = fields.One2many("ya.consolidation.review.line", "wizard_id", readonly=True)
 
+    @api.onchange("stage", "delivery_date", "slot")
+    def _onchange_review_identity(self):
+        self.line_ids = [(5,0,0)]
+        self.digest = False
+        self.reviewed_identity = False
+
     def action_review(self):
         self.ensure_one()
         if self.env.cr.dbname != DB or not self.env.user.has_group("ya_store_ro.group_ya_packing_admin"):
             raise UserError(_("Preview Fase 2 hanya untuk Packing Admin di clone RO_SO."))
-        if not self.delivery_date or self.slot not in ("S1","S2","S3"):
+        if not self.delivery_date or self.stage not in ("pp1","pp2") or self.slot not in ("S1","S2","S3"):
             raise UserError(_("Pilih tanggal kirim dan slot."))
         lock_ro_slot(self.env.cr, self.delivery_date, self.slot)
         try:
