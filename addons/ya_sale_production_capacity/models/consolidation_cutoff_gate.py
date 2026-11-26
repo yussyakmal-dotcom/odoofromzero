@@ -61,6 +61,16 @@ class OrdinaryROCutoff(models.Model):
 class PackageROCutoff(models.Model):
     _inherit="ya.package.store.ro"
 
+    @api.model_create_multi
+    def create(self,vals_list):
+        if self.env.cr.dbname!=DB:
+            return super().create(vals_list)
+        with self.env.cr.savepoint():
+            rows=super().create(vals_list)
+            if any(r.state!="draft" for r in rows):
+                raise UserError(_("Buat Paket RO dalam Draft; gunakan Confirm."))
+            return rows
+
     def write(self,vals):
         guard_ro_confirm(self,vals)
         return super().write(vals)
