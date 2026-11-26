@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.21.5"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.21.6"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src
@@ -40,5 +40,9 @@ refresh=next(n for n in queue_class.body if isinstance(n,ast.FunctionDef) and n.
 assert not refresh.decorator_list, "Object button must use recordset dispatch, not api.model"
 assert [a.arg for a in refresh.args.args]==["self"]
 print("QUEUE_REFRESH_RPC_SIGNATURE_PREFLIGHT_PASS")
+display=(root/"models/sales_capacity_display.py").read_text()
+assert 'headers[i]=="Status" and v in ("Melebihi Max","Ditutup")' in display
+assert '"text-danger fw-bold"' in display
+print("SO_STATUS_RED_SOURCE_PREFLIGHT_PASS")
 print("FASE2_CLOSING_SOURCE_PREFLIGHT_PASS")
 print("SOURCE_ONLY_NO_DATABASE_NO_DEPLOY")
