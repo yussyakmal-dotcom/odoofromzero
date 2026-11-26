@@ -623,11 +623,67 @@ try:
     # execution of the Fase1 MR1/FG generators (DB gates remain unchanged).
     mo1_material_fixture_ids=[]
     mo1_fg_fixture_ids=[]
+    seed_move_ids=[]
+    seeded_skus=[]
     for m1 in mos.with_env(env).sorted("id"):
         wh=m1.picking_type_id.warehouse_id
         materials=raw_totals(m1)
         assert materials and all(Product.browse(pid).tracking=="none" for pid in materials)
         if wh!=kitchen:
+            # Read-only preflight on this exact fixture found six empty
+            # CDC/PST materials. Supply only these audited shortages via
+            # native inventory adjustment, inside the SAME rollback.
+            # Never alter available stock, reservations, routes or BoM.
+            audited={"10637":14.0,"10638":14.0,"10741":10.0,
+                     "11453":14.0,"11511":14.0,"11520":14.0}
+            assert wh==pst and {Product.browse(pid).default_code:qty
+                for pid,qty in materials.items()}==audited, "PST fixture BoM differs from audited shortage"
+            Move=env["stock.move"].sudo().with_company(company)
+            for pid,qty in sorted(materials.items()):
+                product=Product.browse(pid)
+                assert product.tracking=="none" and product.is_storable
+                cdc_quants=Quant.search([
+                    ("company_id","=",company.id),("product_id","=",pid),
+                    ("location_id","child_of",cdc.lot_stock_id.id),
+                    ("location_id.usage","=","internal")])
+                kitchen_quants=Quant.search([
+                    ("company_id","=",company.id),("product_id","=",pid),
+                    ("location_id","child_of",wh.lot_stock_id.id),
+                    ("location_id.usage","=","internal")])
+                free=sum(cdc_quants.mapped("quantity"))-sum(cdc_quants.mapped("reserved_quantity"))
+                if free>=qty-1e-7:
+                    continue
+                # Fail closed if the actual inventory differs from the
+                # audited empty state; do not overwrite real balances.
+                assert all(q.quantity==0 and q.reserved_quantity==0
+                           and not (q.lot_id or q.package_id or q.owner_id)
+                           for q in cdc_quants|kitchen_quants), (
+                    "Audited empty stock changed; review before fixture adjustment",product.default_code)
+                assert not Move.search_count([
+                    ("company_id","=",company.id),("product_id","=",pid),
+                    ("location_id","child_of",cdc.lot_stock_id.id),
+                    ("state","not in",["done","cancel"])]), (
+                    "CDC existing claim; stop fixture adjustment",product.default_code)
+                root=cdc_quants.filtered(lambda q:q.location_id==cdc.lot_stock_id)
+                assert len(root)<=1
+                quant=root.with_context(inventory_mode=True)
+                if not quant:
+                    quant=Quant.with_company(company).with_context(inventory_mode=True).create({
+                        "product_id":pid,"location_id":cdc.lot_stock_id.id,
+                        "company_id":company.id})
+                inventory_domain=[("company_id","=",company.id),("product_id","=",pid),
+                    ("location_dest_id","=",cdc.lot_stock_id.id),
+                    ("location_id.usage","=","inventory"),("state","=","done")]
+                before_ids=set(Move.search(inventory_domain).ids)
+                quant.with_context(inventory_mode=True).write({"inventory_quantity":qty})
+                quant.action_apply_inventory()
+                assert abs(stock_at(pid,cdc.lot_stock_id)[0]-qty)<1e-7
+                new_moves=Move.search(inventory_domain).filtered(lambda m:m.id not in before_ids)
+                assert new_moves and abs(sum(m.product_uom._compute_quantity(
+                    m.quantity,product.uom_id,round=False) for m in new_moves)-qty)<1e-7
+                seed_move_ids.extend(new_moves.ids)
+                seeded_skus.append((product.default_code,qty))
+            print("PST_ROLLBACK_ONLY_NATIVE_INVENTORY_FIXTURE_PASS",seeded_skus)
             supply=env["stock.picking"].with_company(company).create({
                 "picking_type_id":cdc.int_type_id.id,"company_id":company.id,
                 "location_id":cdc.lot_stock_id.id,"location_dest_id":wh.lot_stock_id.id,
@@ -744,5 +800,7 @@ assert not env["stock.move"].browse(fg_move_ids).exists()
 assert not env["stock.picking"].browse(prior_pick_id).exists()
 assert not env["stock.move"].browse(prior_move_ids).exists()
 assert not env["stock.picking"].browse(mo1_material_fixture_ids+mo1_fg_fixture_ids).exists()
+assert not env["stock.move"].browse(seed_move_ids).exists()
+print("PST_INVENTORY_FIXTURE_MOVES_ROLLBACK_VERIFIED_PASS")
 print("FASE2_FINAL_PACKING_NATIVE_KITCHEN_SUPPLY_ROLLBACK_PASS")
 print("NO_OPERATIONAL_RELEASE_NO_LEGACY_ALLOCATION_NO_COMMIT")
