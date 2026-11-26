@@ -35,7 +35,7 @@
           <field name="line_ids" readonly="1" nolabel="1">
             <list create="false" edit="false" delete="false">
               <field name="kitchen_id" string="Dapur"/>
-              <field name="product_id" string="SKU"/>
+              <field name="product_id" string="SKU / Nama Produk"/>
               <field name="qty_so" string="SO (Komponen)"/>
               <field name="qty_ro_paket" string="RO Paket (Komponen)"/>
               <field name="qty_ro" string="RO Biasa"/>
