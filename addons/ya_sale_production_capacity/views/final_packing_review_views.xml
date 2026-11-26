@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_final_packing_review_wizard" model="ir.ui.view">
+    <field name="name">ya.final.packing.review.wizard.form</field>
+    <field name="model">ya.final.packing.review.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Post Produksi / Final Packing Allocation">
+        <header>
+          <button name="action_refresh" type="object" string="Refresh Stok dan Demand"
+                  confirm="Refresh akan menghapus usulan Qty saat ini."/>
+          <button name="action_save_review" type="object" string="Simpan Review" class="btn-primary"
+                  confirm="Simpan hasil review saja? Belum membuat reservasi, MO Paket atau DO."/>
+        </header>
+        <sheet>
+          <div class="alert alert-info" role="alert">
+            SO wajib penuh. Isi Qty RO Paket dan RO biasa secara eksplisit; -1 berarti belum diisi.
+            Nol berarti tidak dialokasikan. Surplus tidak dibagikan otomatis.
+            Hasil review bukan persetujuan release atau hak atas stok.
+          </div>
+          <group>
+            <field name="batch_id"/>
+            <field name="reason"/>
+            <field name="result"/>
+          </group>
+          <notebook>
+            <page string="Alokasi per Penerima">
+              <field name="line_ids" nolabel="1">
+                <list editable="bottom" create="false" delete="false" decoration-danger="qty_allocated &lt; 0">
+                  <field name="kind"/>
+                  <field name="source_label" string="Dokumen"/>
+                  <field name="recipient_label" string="Penerima"/>
+                  <field name="product_id"/>
+                  <field name="qty_requested" string="Demand"/>
+                  <field name="qty_allocated" string="Usulan Qty" readonly="kind in ('SO','SO_PAKET')"/>
+                  <field name="qty_shortage" string="Kurang"/>
+                </list>
+              </field>
+            </page>
+            <page string="Stok Fisik PCK">
+              <field name="supply_ids" nolabel="1">
+                <list create="false" edit="false" delete="false">
+                  <field name="source_kind"/>
+                  <field name="product_id"/>
+                  <field name="received" string="Hasil MO1 + MO2"/>
+                  <field name="physical"/>
+                  <field name="reserved"/>
+                  <field name="free"/>
+                  <field name="upper_bound" string="Batas Maksimum Review"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="view_ya_final_packing_review_list" model="ir.ui.view">
+    <field name="name">ya.final.packing.review.list</field>
+    <field name="model">ya.final.packing.review</field>
+    <field name="arch" type="xml">
+      <list create="false" edit="false" delete="false">
+        <field name="batch_id"/>
+        <field name="create_uid"/>
+        <field name="create_date"/>
+        <field name="shortage_total"/>
+        <field name="warning_count"/>
+        <field name="reason"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_ya_final_packing_review_form" model="ir.ui.view">
+    <field name="name">ya.final.packing.review.form</field>
+    <field name="model">ya.final.packing.review</field>
+    <field name="arch" type="xml">
+      <form create="false" edit="false" delete="false" duplicate="false">
+        <sheet>
+          <div class="alert alert-info" role="alert">Riwayat review, bukan release operasional.</div>
+          <group>
+            <field name="batch_id"/>
+            <field name="company_id"/>
+            <field name="create_uid"/>
+            <field name="create_date"/>
+            <field name="shortage_total"/>
+            <field name="warning_count"/>
+            <field name="reason"/>
+            <field name="source_digest"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="view_ya_packing_batch_final_review" model="ir.ui.view">
+    <field name="name">ya.packing.batch.final.review</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="inherit_id" ref="ya_store_ro.view_ya_packing_batch_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//button[@name='action_open_mos']" position="after">
+        <field name="ya_pp1_design_b_snapshot" invisible="1"/>
+        <button name="action_ya_final_packing_review" type="object" string="Post Produksi"
+                groups="ya_store_ro.group_ya_packing_admin"
+                invisible="not ya_pp1_design_b_snapshot or state != 'production_ok'"/>
+        <button name="action_ya_final_packing_review_history" type="object" string="Riwayat Review Alokasi"
+                groups="ya_store_ro.group_ya_packing_admin" invisible="not ya_pp1_design_b_snapshot"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
