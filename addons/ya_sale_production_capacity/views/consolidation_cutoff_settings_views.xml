@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_cutoff_settings_list" model="ir.ui.view">
+    <field name="name">ya.consolidation.cutoff.settings.list</field>
+    <field name="model">ya.consolidation.cutoff.settings</field>
+    <field name="arch" type="xml">
+      <list string="Cutoff Settings - Riwayat" edit="false" delete="false">
+        <field name="effective_date"/>
+        <field name="ro_days_before"/>
+        <field name="ro_time"/>
+        <field name="s1_days_before"/>
+        <field name="s1_time"/>
+        <field name="s2_enabled"/>
+        <field name="s2_time"/>
+        <field name="s3_enabled"/>
+        <field name="s3_time"/>
+        <field name="mo2_delay_minutes"/>
+        <field name="create_uid" string="Dibuat oleh"/>
+        <field name="create_date" string="Waktu perubahan"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_ya_cutoff_settings_form" model="ir.ui.view">
+    <field name="name">ya.consolidation.cutoff.settings.form</field>
+    <field name="model">ya.consolidation.cutoff.settings</field>
+    <field name="arch" type="xml">
+      <form string="Cutoff Settings" edit="false" delete="false" duplicate="false">
+        <sheet>
+          <div class="alert alert-info" role="alert">
+            Semua jam WIB (HH:MM). Versi tersimpan tidak dapat diubah atau dihapus.
+            Berlaku berdasarkan tanggal kirim, sebelum cutoff lama maupun baru.
+            S2/S3 yang belum ditetapkan tidak dapat release PP2.
+          </div>
+          <group>
+            <field name="effective_date"/>
+            <field name="reason"/>
+          </group>
+          <group string="RO Biasa dan RO Paket — seluruh slot">
+            <field name="ro_days_before"/>
+            <field name="ro_time"/>
+          </group>
+          <group string="SO Konsolidasi">
+            <group string="S1">
+              <field name="s1_days_before"/>
+              <field name="s1_time"/>
+            </group>
+            <group string="S2">
+              <field name="s2_enabled"/>
+              <field name="s2_days_before" invisible="not s2_enabled"/>
+              <field name="s2_time" invisible="not s2_enabled" required="s2_enabled"/>
+            </group>
+            <group string="S3">
+              <field name="s3_enabled"/>
+              <field name="s3_days_before" invisible="not s3_enabled"/>
+              <field name="s3_time" invisible="not s3_enabled" required="s3_enabled"/>
+            </group>
+            <group string="Produksi OK 2">
+              <field name="mo2_delay_minutes"/>
+            </group>
+          </group>
+          <group string="Audit">
+            <field name="create_uid" readonly="1"/>
+            <field name="create_date" readonly="1"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_cutoff_settings" model="ir.actions.act_window">
+    <field name="name">Cutoff Settings</field>
+    <field name="res_model">ya.consolidation.cutoff.settings</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p>Default: RO H-2 08:00, SO S1 H-1 15:00, jeda MO2 30 menit. SO S2/S3 belum ditetapkan.</p>
+      <p>Buat versi baru hanya jika diperlukan perubahan untuk tanggal kirim mendatang.</p>
+    </field>
+  </record>
+  <menuitem id="menu_ya_cutoff_settings" name="Cutoff Settings"
+            parent="ya_workflow_navigation.menu_ya_before_production"
+            action="action_ya_cutoff_settings" sequence="56" groups="base.group_system"/>
+</odoo>
