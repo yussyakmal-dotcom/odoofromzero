@@ -1,4 +1,5 @@
 """Clone operator review and clock-gated manual release. No timer."""
+from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.addons.ya_sale_production_capacity.models.pp1_native_sources import DB
@@ -67,9 +68,9 @@ class YaConsolidationReviewWizard(models.TransientModel):
         ready = clock["pp1_clock_ready"] if self.stage=="pp1" else clock["pp2_clock_ready"]
         info = (_("Boleh release setelah review.") if ready else
                 _("Belum boleh release / dispatch sudah lewat."))
-        info += " " + (deadline.strftime("%Y-%m-%d %H:%M WIB") if deadline else _("Cutoff SO belum ditetapkan."))
+        info += " " + ((format_ymondd(deadline)+deadline.strftime(" %H:%M WIB")) if deadline else _("Cutoff SO belum ditetapkan."))
         self.write(dict(line_ids=[(5,0,0)]+rows,digest=review["digest"],cutoff_info=info,
-                        reviewed_identity="%s / %s / %s"%(self.stage.upper(),self.delivery_date,self.slot)))
+                        reviewed_identity="%s / %s / %s"%(self.stage.upper(),format_ymondd(self.delivery_date),self.slot)))
         return dict(type="ir.actions.act_window",name=_("Review Konsolidasi Fase 2"),
                     res_model=self._name,res_id=self.id,view_mode="form",target="current",
                     views=[(self.env.ref("ya_sale_production_capacity.view_ya_consolidation_review_wizard").id,"form")])
@@ -86,7 +87,7 @@ class YaConsolidationReviewWizard(models.TransientModel):
             lock_ro_slot(self.env.cr,day,slot)
             self.env.cr.execute("SELECT id FROM ya_consolidation_review_wizard WHERE id=%s FOR UPDATE",[self.id])
             self.invalidate_recordset()
-            identity="%s / %s / %s"%(stage.upper(),day,slot)
+            identity="%s / %s / %s"%(stage.upper(),format_ymondd(day),slot)
             if (self.delivery_date!=day or self.slot!=slot or self.stage!=stage or
                     self.reviewed_identity!=identity or not self.digest):
                 raise UserError(_("Refresh review sebelum Produksi OK."))
