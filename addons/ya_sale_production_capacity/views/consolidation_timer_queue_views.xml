@@ -7,13 +7,13 @@
       <list create="false" edit="false" delete="false"
             decoration-danger="state == 'blocked' or state == 'expired'"
             decoration-success="state == 'ready'">
-        <field name="delivery_date"/>
+        <field name="delivery_date" options="{'numeric': True}"/>
         <field name="slot"/>
         <field name="stage"/>
         <field name="state"/>
         <field name="sku_count" string="SKU Review"/>
         <field name="note"/>
-        <field name="prepared_at"/>
+        <field name="prepared_at" options="{'numeric': True}"/>
         <field name="batch_id" optional="show"/>
         <button name="action_open_review" type="object" string="Buka Review"
                 invisible="state in ('released','expired')"
