@@ -28,3 +28,5 @@ from . import final_packing_review
 from . import final_packing_release
 
 from . import final_packing_distribution
+
+from . import sales_impact_preview
