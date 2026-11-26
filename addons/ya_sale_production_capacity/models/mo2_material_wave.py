@@ -91,7 +91,7 @@ class YaMo2MaterialReleaseLine(models.Model):
                 or mo.state != "confirmed"
                 or batch.ya_store_delivery_ids
                 or batch.ya_package_assembly_mo_ids
-                or (batch.ya_fg_transfer_ids and not batch.ya_pp1_design_b_snapshot)):
+                or batch.ya_fg_transfer_ids):
             raise UserError(_(
                 "MO2 and frozen Packing batch not ready for CDC transfer. "
                 "Reject MOs in progress/cancelled/done and advanced Packing."
