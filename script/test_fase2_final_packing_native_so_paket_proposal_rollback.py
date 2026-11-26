@@ -235,7 +235,8 @@ try:
     from odoo.exceptions import UserError
     assert "ya_pp1_design_b_snapshot" in Batch._fields
     assert env["ir.module.module"].search([
-        ("name","=","ya_sale_production_capacity")],limit=1).installed_version == "19.0.1.4.0"
+        ("name","=","ya_sale_production_capacity")],limit=1).installed_version == "19.0.1.5.0"
+    assert "ya_confirmed_demand_snapshot" in Sale._fields, "SO demand snapshot schema missing"
     def rejected(fn, expected):
         try:
             with env.cr.savepoint():
