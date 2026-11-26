@@ -26,3 +26,5 @@ from . import finished_packing_integration
 from . import final_packing_review
 
 from . import final_packing_release
+
+from . import final_packing_distribution
