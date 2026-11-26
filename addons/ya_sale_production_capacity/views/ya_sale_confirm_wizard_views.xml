@@ -7,8 +7,7 @@
       <form string="Konfirmasi Custom Sales Order — Jadwal Kirim">
         <group>
           <field name="order_id" readonly="1"/>
-          <field name="delivery_date" required="1"/>
-          <field name="delivery_date_label" readonly="1"/>
+          <field name="delivery_date" options="{'numeric': True}" required="1"/>
           <field name="slot" required="1"/>
         </group>
         <field name="impact_digest" invisible="1"/>
