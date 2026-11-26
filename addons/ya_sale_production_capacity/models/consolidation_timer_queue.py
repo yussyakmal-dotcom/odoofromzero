@@ -55,8 +55,9 @@ class ConsolidationTimerQueue(models.Model):
             raise UserError(_("User Scheduled Action harus Packing Admin."))
         self._refresh_demand_queue()
 
-    @api.model
     def action_refresh_queue(self):
+        # List object buttons pass record IDs; server actions call an empty recordset.
+        # Both entrypoints refresh the same global queue, irrespective of selection.
         if self.env.cr.dbname!=DB or not self.env.user.has_group(GROUP):
             raise UserError(_("Hanya Packing Admin di clone RO_SO."))
         self._refresh_demand_queue()
