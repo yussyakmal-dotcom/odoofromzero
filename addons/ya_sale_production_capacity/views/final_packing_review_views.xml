@@ -73,8 +73,15 @@
     <field name="model">ya.final.packing.review</field>
     <field name="arch" type="xml">
       <form create="false" edit="false" delete="false" duplicate="false">
+        <header>
+          <button name="action_release_paket" type="object" string="Release Final / MO Paket" class="btn-primary"
+                  invisible="release_ids" groups="ya_store_ro.group_ya_packing_admin"
+                  confirm="Kunci alokasi ini dan terbitkan MO Paket dengan reservasi native jika diperlukan? DO belum dibuat."/>
+          <button name="action_open_released_paket" type="object" string="Lihat MO Paket" invisible="not release_ids"/>
+        </header>
         <sheet>
-          <div class="alert alert-info" role="alert">Riwayat review, bukan release operasional.</div>
+          <field name="release_ids" invisible="1"/>
+          <div class="alert alert-info" role="alert">Release mengunci alokasi dan mereservasi komponen Paket. Stok DO langsung belum direservasi; penerbitan DO adalah tahap berikutnya.</div>
           <group>
             <field name="batch_id"/>
             <field name="company_id"/>
