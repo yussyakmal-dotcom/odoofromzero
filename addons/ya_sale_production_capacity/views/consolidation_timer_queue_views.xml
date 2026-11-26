@@ -38,6 +38,7 @@
   <record id="action_ya_consolidation_queue_refresh" model="ir.actions.server">
     <field name="name">Buka Antrean PP1 / PP2</field>
     <field name="model_id" ref="model_ya_consolidation_timer_queue"/>
+    <field name="group_ids" eval="[(6, 0, [ref('ya_store_ro.group_ya_packing_admin')])]"/>
     <field name="state">code</field>
     <field name="code">action = model.action_refresh_queue()</field>
   </record>
