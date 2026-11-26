@@ -61,7 +61,7 @@
       <list create="false" edit="false" delete="false">
         <field name="batch_id"/>
         <field name="create_uid"/>
-        <field name="create_date"/>
+        <field name="create_date" options="{'numeric': True}"/>
         <field name="shortage_total"/>
         <field name="warning_count"/>
         <field name="reason"/>
@@ -89,7 +89,7 @@
             <field name="batch_id"/>
             <field name="company_id"/>
             <field name="create_uid"/>
-            <field name="create_date"/>
+            <field name="create_date" options="{'numeric': True}"/>
             <field name="shortage_total"/>
             <field name="warning_count"/>
             <field name="reason"/>
