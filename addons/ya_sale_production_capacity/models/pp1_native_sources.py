@@ -148,9 +148,15 @@ def read_pp1_sources(env, delivery_date, slot, company):
                                original_ro_store_qty=ro_qty[pid],bom_output=output,published_max=maximum)
         result.append(dict(product_id=pid, sku=product.default_code, planning_line_id=line.id,
                            planning_id=line.planning_id.id, bom_id=bom.id, bom_output=output,
+                           kitchen_route=dict(picking_type_id=pt.id, warehouse_id=pt.warehouse_id.id,
+                               source_id=pt.default_location_src_id.id, destination_id=pt.default_location_dest_id.id),
+                           kitchen_bom_components=sorted([dict(id=p.id, product_id=p.product_id.id,
+                               uom_id=p.product_uom_id.id, qty=p.product_qty) for p in bom.bom_line_ids],
+                               key=lambda p:p["id"]),
                            published_max=maximum, **calculation))
     return dict(delivery_date=str(delivery),slot=slot,company_id=company.id,
                 published_plan_ids=plans.ids, batch_id=batches.id if batches else None,
+                ordinary_ro_ids=sorted(ordinary.ids), package_ro_ids=sorted(packages.ids),
                 ordinary_ro_rows=ro_rows, ro_package_kitchen_rows=pkg_rows,
                 ro_package_pck_rows=pck_rows, so_ledger_rows=so_rows, sku_forecasts=result,
                 ro_cutoff_not_verified=True, confirmed_so_ledger_not_reexpanded=True,
