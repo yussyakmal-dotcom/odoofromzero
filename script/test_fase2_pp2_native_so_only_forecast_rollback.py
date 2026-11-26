@@ -248,6 +248,17 @@ try:
     print("PP1_DUPLICATE_RELEASE_AND_SNAPSHOT_TAMPER_BLOCKED_PASS")
     print("PP1_LEGACY_MO2_BLOCKED_PASS")
 
+    # Record immutable SKU/batch-line/MO links and native quantities.
+    # Odoo mapped() recordsets need not preserve order after cache invalidation.
+    def mo1_identity():
+        return sorted((row.id, row.product_id.id, row.mo_id.id,
+                       row.qty_production, row.mo_id.product_qty,
+                       row.mo_id.state, row.mo_id.ya_packing_batch_line_id.id)
+                      for row in batch.line_ids)
+    baseline_mo1_identity = mo1_identity()
+    assert len(baseline_mo1_identity)==2
+    assert len(set(mos.ids))==2
+
     # Late SO remains a native commercial confirmation; it must not modify
     # the immutable early-SO snapshot or recreate any MO1.
     late=quote(1,other.product_id)
@@ -291,7 +302,12 @@ try:
     assert p["11999"]["forecast_ro_store_shortage"]==3
     print("PP2_INCREMENT_ONLY_FOR_SO_BATCH_CROSSING_PASS",p["10042"])
     assert batch._ya_pp1_frozen_facts()==frozen
-    assert batch.line_ids.mapped("mo_id").ids==mos.ids
+    current_mo1_identity = mo1_identity()
+    print("PP2_MO1_IDENTITY_BEFORE:",baseline_mo1_identity)
+    print("PP2_MO1_IDENTITY_AFTER:",current_mo1_identity)
+    assert current_mo1_identity==baseline_mo1_identity, "MO1 link, qty or state actually changed"
+    assert len(batch.line_ids)==2
+    assert set(batch.line_ids.mapped("mo_id").ids)==set(mos.ids), "MO1 ID set changed"
     assert not crossing.picking_ids
     assert not env["ya.sale.mo2.finalization"].search_count([("batch_id","=",batch.id)])
     print("PP2_FORECAST_NO_MO2_NO_DO_NO_PP1_MUTATION_PASS")
