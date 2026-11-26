@@ -170,9 +170,9 @@ class YaPackingPreview(models.TransientModel):
             requested = sum(requests.values())
             shortage = sum(a['shortage'] for a in allocations.values())
             if capacity_status == 'blocked':
-                blocked.append('%s / %s' % (plan.kitchen_code, source.reference))
+                blocked.append('%s / %s' % (plan.kitchen_code, source.product_id.with_context(display_default_code=True).display_name))
             elif capacity_status == 'prorated':
-                prorated.append('%s / %s' % (plan.kitchen_code, source.reference))
+                prorated.append('%s / %s' % (plan.kitchen_code, source.product_id.with_context(display_default_code=True).display_name))
             allocated_total = sum(a['allocated'] for a in allocations.values())
             unallocated = produced - allocated_total
             if unallocated < 0:
