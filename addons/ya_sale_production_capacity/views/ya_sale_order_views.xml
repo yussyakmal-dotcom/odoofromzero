@@ -11,6 +11,22 @@
       <!-- YA fields are visible/editable at Draft/Sent quotation but OPTIONAL.
            Only the Confirm gate checks date, slot, Published Planning, capacity.
            After confirmation, keep the YA schedule read-only. -->
+      <!-- Use the user's full Odoo language date format, not the short locale display. -->
+      <xpath expr="//field[@name='validity_date']" position="attributes">
+        <attribute name="options">{'numeric': True}</attribute>
+      </xpath>
+      <xpath expr="(//field[@name='date_order'])[1]" position="attributes">
+        <attribute name="options">{'numeric': True}</attribute>
+      </xpath>
+      <xpath expr="(//field[@name='date_order'])[2]" position="attributes">
+        <attribute name="options">{'numeric': True}</attribute>
+      </xpath>
+      <xpath expr="//field[@name='commitment_date']" position="attributes">
+        <attribute name="options">{'numeric': True}</attribute>
+      </xpath>
+      <xpath expr="//field[@name='expected_date']" position="attributes">
+        <attribute name="options">{'numeric': True}</attribute>
+      </xpath>
       <xpath expr="//field[@name='order_line']" position="before">
         <div invisible="not ya_is_capacity_so or state not in ('draft', 'sent')">
           <separator string="Kapasitas Produksi per SKU"/>
@@ -19,10 +35,8 @@
       </xpath>
       <xpath expr="//field[@name='payment_term_id']" position="after">
         <field name="ya_is_capacity_so" invisible="1"/>
-        <field name="ya_delivery_date" string="YA Tanggal Kirim"
+        <field name="ya_delivery_date" string="YA Tanggal Kirim" options="{'numeric': True}"
                readonly="state not in ('draft', 'sent')"/>
-        <field name="ya_delivery_date_label" string="Format YYYY-Mon-DD"
-               readonly="1" invisible="not ya_delivery_date"/>
         <field name="ya_slot" string="YA Slot Kirim"
                readonly="state not in ('draft', 'sent')"/>
       </xpath>
@@ -37,7 +51,7 @@
             decoration-muted="state == 'cancel'">
         <field name="name"/>
         <field name="partner_id"/>
-        <field name="ya_delivery_date_label" string="YA Tanggal Kirim"/>
+        <field name="ya_delivery_date" string="YA Tanggal Kirim" options="{'numeric': True}"/>
         <field name="ya_slot" string="Slot"/>
         <field name="state"/>
         <field name="amount_total" sum="Total"/>
