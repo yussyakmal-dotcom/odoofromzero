@@ -873,6 +873,51 @@ try:
     assert not (so|so2|late|crossing).mapped("picking_ids")
     assert batch._ya_pp1_frozen_facts()==frozen and final._ya_pp2_frozen_facts()==current_review["facts"]
     print("FINAL_PACKING_NO_ALLOCATION_NO_DO_AFTER_PROPOSAL_PASS")
+    # Relevant integration extension: actual historic batch1 receipt and
+    # new batch receipt coexist in the same root. Verify the conservative
+    # review against real native move lines, not reconstructed balances.
+    from odoo.addons.ya_sale_production_capacity.models.pck_native_claim_review import (
+        read_claim_protected_packing_demand)
+    protected=read_claim_protected_packing_demand(batch)
+    cr={r["product_id"]:r for r in protected["pck_claim_review"]["rows"]}
+    old_id=other.product_id.id
+    assert Decimal(cr[old_id]["physical"])==750
+    assert Decimal(cr[old_id]["reserved"])==50
+    assert Decimal(cr[old_id]["other_protection"])==200
+    assert Decimal(cr[old_id]["preview_cap"])==500
+    assert Decimal(cr[component.id]["preview_cap"])==14
+    assert all(Decimal(cr[p.id]["preview_cap"])==10 for p in pck_parts)
+    prior_proposal=proposal(protected,8,1)
+    assert not validate_proposal(protected,prior_proposal)["operational_allocation_allowed"]
+    print("PCK_NATIVE_TWO_BATCH_RECEIPTS_AND_RECONCILED_CLAIM_PREVIEW_PASS",cr[old_id])
+    # Competing native reservation QA only, not an actual dispatch/DO or
+    # a Design B allocation. No stock is posted, and no legacy move edited.
+    competing=env["stock.picking"].with_company(company).create({
+        "picking_type_id":pck.int_type_id.id,"company_id":company.id,
+        "location_id":pck.lot_stock_id.id,"location_dest_id":cdc.lot_stock_id.id,
+        "origin":"ROLLBACK ONLY / competing PCK reservation fixture"})
+    cm=env["stock.move"].with_company(company).create({
+        "picking_id":competing.id,"company_id":company.id,
+        "product_id":old_id,"product_uom":other.product_id.uom_id.id,
+        "product_uom_qty":300,
+        "location_id":pck.lot_stock_id.id,"location_dest_id":cdc.lot_stock_id.id})
+    competing.action_confirm()
+    competing.action_assign()
+    assert cm.state=="assigned" and abs(cm.quantity-300)<1e-7
+    assert stock_at(old_id,pck.lot_stock_id)==(750.0,350.0)
+    reduced=read_claim_protected_packing_demand(batch)
+    cr2=next(r for r in reduced["pck_claim_review"]["rows"] if r["product_id"]==old_id)
+    assert Decimal(cr2["global_free"])==400 and Decimal(cr2["other_protection"])==200
+    assert Decimal(cr2["preview_cap"])==200
+    reject_proposal(reduced,prior_proposal,"Stale or changed fixed field: source_digest")
+    reject_proposal(reduced,proposal(reduced,8,1),"Insufficient full component stock")
+    print("PCK_NATIVE_COMPETING_RESERVATION_REDUCES_CAP_AND_BLOCKS_SO_PASS",cr2)
+    competing_id=competing.id
+    competing_move_id=cm.id
+    assert not batch.allocation_ids and not batch.ya_store_delivery_ids and not batch.ya_package_assembly_mo_ids
+    assert not (so|so2|late|crossing).mapped("picking_ids")
+    assert batch._ya_pp1_frozen_facts()==frozen and final._ya_pp2_frozen_facts()==current_review["facts"]
+
 
     fg_id=fg.id
     fg_move_ids=fg.move_ids.ids
@@ -926,5 +971,8 @@ assert not env["stock.move"].browse(seed_move_ids).exists()
 print("PST_INVENTORY_FIXTURE_MOVES_ROLLBACK_VERIFIED_PASS")
 assert not env["stock.move"].browse(pck_seed_ids).exists()
 print("PCK_INVENTORY_FIXTURE_ROLLBACK_VERIFIED_PASS")
-print("FASE2_FINAL_PACKING_NATIVE_SO_PAKET_PROPOSAL_ROLLBACK_PASS")
+assert not env["stock.picking"].browse(competing_id).exists()
+assert not env["stock.move"].browse(competing_move_id).exists()
+print("PCK_NATIVE_COMPETING_RESERVATION_ROLLBACK_VERIFIED_PASS")
+print("FASE2_FINAL_PACKING_NATIVE_PCK_CLAIM_PROTECTION_ROLLBACK_PASS")
 print("NO_OPERATIONAL_RELEASE_NO_LEGACY_ALLOCATION_NO_COMMIT")
