@@ -9,6 +9,8 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError
 from .pp1_native_sources import DB, read_pp1_sources, require
 from .consolidation_cutoff_gate import current_clock
+from .pp1_design_b_rules import plan_pp1
+from .mo2_owner_so_first_rules import plan_so_first_only
 
 
 def note(text, kind="info"):
@@ -87,25 +89,73 @@ class SaleOrderCapacityDisplay(models.Model):
             facts=read_pp1_sources(self.env,day,slot,self.company_id)
         base={r["product_id"]:r for r in facts["sku_forecasts"]}
         rows=[]
+        allocation_rows=[]
         for r in preview["capacity"]:
             product=self.env["product.product"].browse(r["product_id"])
             prior=used[r["planning_line_id"]]
             maximum=r["published_max"]
-            remaining=maximum-prior-r["new_qty"]
+            draft=r["new_qty"]
+            remaining=maximum-prior-draft
             ro=base.get(product.id,{})
-            status=("Ditutup" if closed else "Max/BoM tidak valid" if maximum%r["bom_output"]
-                    else "Melebihi Max" if remaining<0 else "Cukup")
-            rows.append((product.display_name,product.uom_id.name,maximum,prior,
-                ro.get("original_ro_package_qty",0),ro.get("original_ro_store_qty",0),
-                maximum-prior,r["new_qty"],remaining,status))
-        result=note("Snapshot kapasitas SO, bukan stok fisik. RO dipisahkan karena SO mendapat prioritas. "
-                    "Confirm akan memeriksa ulang data dan cutoff.")
+            pkg=ro.get("original_ro_package_qty",0)
+            store=ro.get("original_ro_store_qty",0)
+            common=dict(original_ro_package_qty=pkg,original_ro_store_qty=store,
+                        published_max=maximum)
+            # Reuse the existing SO-first forecast; never subtract raw RO
+            # from the available SO quantity or add RO twice.
+            if batch:
+                qty1=ro.get("forecast_mo1_qty",0)
+                native=batch.line_ids.filtered(lambda line:line.product_id==product)
+                require(len(native)==int(qty1>0),"MO1 tidak sesuai snapshot; perlu rekonsiliasi.")
+                if native:
+                    mo=native.mo_id
+                    require(mo and mo.state not in ("draft","cancel") and mo.product_id==product
+                            and abs(mo.product_uom_id._compute_quantity(
+                                mo.product_qty,product.uom_id,round=False)-qty1)<1e-9,
+                            "MO1 berubah atau dibatalkan; perlu rekonsiliasi.")
+                def forecast(so):
+                    return plan_so_first_only(confirmed_so_qty=so,existing_mo1_output=qty1,
+                        existing_mo2_output=0,kitchen_bom_output=r["bom_output"],**common)
+                output_key="forecast_total_output"
+                surplus_key="theoretical_extra_not_automatically_allocated"
+            else:
+                def forecast(so):
+                    return plan_pp1(confirmed_so_qty=so,bom_output=r["bom_output"],**common)
+                output_key="forecast_mo1_qty"
+                surplus_key="forecast_unallocated_surplus"
+            before=forecast(prior)
+            out=before[output_key]
+            pkg_before=before["forecast_ro_package_covered"]
+            store_before=before["forecast_ro_store_covered"]
+            surplus=before[surplus_key]
+            available=maximum-prior
+            require(available==maximum-out+pkg_before+store_before+surplus,
+                    "Komponen kapasitas tidak seimbang.")
+            # An invalid/closed draft must not show a fabricated after-allocation.
+            after=forecast(prior+draft) if not closed and remaining>=0 else None
+            status=("Ditutup" if closed else "Melebihi Max" if remaining<0 else
+                    "Tanpa tambah produksi" if after[output_key]==out else "Tambah produksi")
+            label=product.display_name+" ("+product.uom_id.name+")"
+            rows.append((label,maximum,prior,store_before,
+                         0 if closed else available,draft,remaining if not closed else "—",status))
+            def transition(key):
+                return "%s → %s"%(before[key],after[key]) if after is not None else "%s → —"%before[key]
+            allocation_rows.append((label,transition(output_key),maximum-out,
+                pkg,transition("forecast_ro_package_covered"),store,
+                transition("forecast_ro_store_covered"),transition(surplus_key)))
+        result=note("SO dapat mengambil sisa jatah RO tanpa menambah produksi. "
+                    "Tersedia SO = sisa kapasitas produksi + sisa jatah RO Paket + sisa jatah RO Toko + surplus. "
+                    "Angka adalah proyeksi per SKU, bukan stok fisik.")
         if not clock["ro_closed"]:
             result+=note("RO belum ditutup; permintaan masih dapat bertambah.")
         if closed:
-            result+=note("Penerimaan SO untuk jadwal ini telah ditutup.","warning")
-        result+=table(("SKU / Nama Produk","Unit","Planning Max","SO Confirmed","RO Paket",
-            "RO Toko","Tersedia SO","SO Ini","Sisa Setelah","Status"),rows)
+            result+=note("Penerimaan SO untuk jadwal ini telah ditutup. Jatah dan produksi di bawah adalah proyeksi historis, bukan stok yang bisa dijual.","warning")
+        result+=table(("SKU / Nama Produk","Planning Max","SO Confirmed","Sisa Jatah RO Toko",
+            "Tersedia SO","SO Ini","Sisa SO Setelah","Status"),rows)
+        result+=Markup("<h5>Rincian Kapasitas dan Jatah RO</h5>")
+        result+=table(("SKU / Nama Produk","Produksi sebelum → sesudah","Sisa Kapasitas Produksi",
+            "Permintaan RO Paket","Jatah RO Paket sebelum → sesudah","Permintaan RO Toko",
+            "Jatah RO Toko sebelum → sesudah","Surplus sebelum → sesudah"),allocation_rows)
         if preview["package_qty"]:
             result+=note("Paket dihitung berdasarkan kebutuhan komponen dapur; stok komponen PCK belum diverifikasi.")
         return result
