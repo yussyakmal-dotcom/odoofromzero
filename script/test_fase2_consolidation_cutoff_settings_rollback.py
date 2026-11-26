@@ -61,21 +61,21 @@ try:
     assert policy["mo2_delay_minutes"]==45 and policy["so"]["S2"] is None and policy["so"]["S3"] is None
     assert Settings._policy_for_delivery(day+timedelta(days=1))==(policy,vid)
     with patch.object(gate,"utc_now",return_value=before_old["ro_cutoff"]):
-        state=gate.current_clock(operator.env,older,"S1")
+        state=gate.current_clock(Settings.with_user(operator).env,older,"S1")
         assert state["ro_closed"] and not state["cutoff_settings_version_id"]
     with patch.object(gate,"utc_now",return_value=old["ro_cutoff"]):
-        state=gate.current_clock(operator.env,day,"S1")
+        state=gate.current_clock(Settings.with_user(operator).env,day,"S1")
         assert state["ro_admission_allowed"] and state["cutoff_settings_version_id"]==vid
     new=schedule(day,"S1",policy)
     with patch.object(gate,"utc_now",return_value=new["ro_cutoff"]):
-        assert not gate.current_clock(operator.env,day,"S1")["ro_admission_allowed"]
+        assert not gate.current_clock(Settings.with_user(operator).env,day,"S1")["ro_admission_allowed"]
     with patch.object(gate,"utc_now",return_value=new["so_cutoff"]):
-        state=gate.current_clock(operator.env,day,"S1")
+        state=gate.current_clock(Settings.with_user(operator).env,day,"S1")
         assert not state["so_admission_allowed"] and not state["pp2_clock_ready"]
     with patch.object(gate,"utc_now",return_value=new["pp2_earliest"]):
-        assert gate.current_clock(operator.env,day,"S1")["pp2_clock_ready"]
-        assert not gate.current_clock(operator.env,day,"S2")["pp2_clock_ready"]
-        assert not gate.current_clock(operator.env,day,"S3")["pp2_clock_ready"]
+        assert gate.current_clock(Settings.with_user(operator).env,day,"S1")["pp2_clock_ready"]
+        assert not gate.current_clock(Settings.with_user(operator).env,day,"S2")["pp2_clock_ready"]
+        assert not gate.current_clock(Settings.with_user(operator).env,day,"S3")["pp2_clock_ready"]
     print("CUTOFF_SETTINGS_EFFECTIVE_DATE_NO_REOPEN_AND_NATIVE_CLOCK_PASS")
     reject(lambda:version.sudo().write({"ro_time":"11:00"}),UserError,"tidak dapat diubah")
     reject(lambda:version.sudo().unlink(),UserError,"tidak boleh dihapus")
