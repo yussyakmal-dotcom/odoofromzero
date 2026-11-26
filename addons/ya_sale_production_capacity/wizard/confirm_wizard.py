@@ -2,6 +2,8 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
+from odoo.addons.ya_sale_production_capacity.models.sales_capacity_display import table, note
+from markupsafe import Markup
 
 
 class YaSaleCapacityConfirmWizard(models.TransientModel):
@@ -27,6 +29,41 @@ class YaSaleCapacityConfirmWizard(models.TransientModel):
     impact_digest=fields.Char(readonly=True)
     impact_payload=fields.Json(readonly=True)
     impact_summary=fields.Text(readonly=True)
+    impact_table=fields.Html(compute='_compute_impact_table',readonly=True,store=False)
+
+    @api.depends('impact_payload')
+    def _compute_impact_table(self):
+        for wizard in self:
+            data=wizard.impact_payload
+            if not data:
+                wizard.impact_table=note('Klik Simulasi Dampak untuk memeriksa kapasitas sebelum Confirm.')
+                continue
+            rows=data['lines']
+            names={p.id:p.display_name for p in self.env['product.product'].browse([r['product_id'] for r in rows])}
+            def pair(r,a,b):
+                return '%s → %s'%(r[a],r[b])
+            result=note('Sebelum Produksi OK 1: proyeksi MO1.' if data['stage']=='pp1' else
+                        'Setelah Produksi OK 1: MO1 tetap, MO2 hanya untuk kebutuhan SO.')
+            if not data['ro_closed']:
+                result+=note('RO belum ditutup; permintaan masih dapat bertambah.','warning')
+            result+=note('Proyeksi kapasitas, bukan stok fisik atau jaminan ketersediaan Paket.')
+            result+=Markup('<h5>Kapasitas SO</h5>')+table(
+                ('SKU / Nama Produk','BoM','Max','SO Confirmed','SO Ini','SO Setelah','Sisa SO'),
+                [(names[r['product_id']],r['bom_output'],r['published_max'],r['so_before'],r['new_qty'],r['so_after'],r['remaining_capacity']) for r in rows])
+            result+=Markup('<h5>Dampak Produksi dan Surplus</h5>')+table(
+                ('SKU / Nama Produk','Produksi sebelum → sesudah','Tambahan Produksi','MO1 Native','MO2 sebelum → sesudah','Surplus sebelum → sesudah','Surplus baru','Surplus terserap'),
+                [(names[r['product_id']],pair(r,'output_before','output_after'),r['additional_output'],r['mo1'],pair(r,'mo2_before','mo2_after'),pair(r,'surplus_before','surplus_after'),r['new_surplus'],r['absorbed_surplus']) for r in rows])
+            result+=Markup('<h5>Dampak Permintaan RO</h5>')+table(
+                ('SKU / Nama Produk','RO Paket','Kurang Paket sebelum → sesudah','RO Toko','Kurang Toko sebelum → sesudah'),
+                [(names[r['product_id']],r['ro_package'],pair(r,'ro_package_short_before','ro_package_short_after'),r['ro_store'],pair(r,'ro_store_short_before','ro_store_short_after')) for r in rows])
+            if any(r['new_surplus'] or r['ro_package_short_after']>r['ro_package_short_before'] or r['ro_store_short_after']>r['ro_store_short_before'] for r in rows):
+                result+=note('Tinjau tambahan surplus atau kekurangan RO sebelum Confirm.','warning')
+            if data['pck_requirements']:
+                result+=Markup('<h5>Komponen Paket di PCK</h5>')+table(('SKU / Nama Produk','Kebutuhan'),
+                    [(self.env['product.product'].browse(pid).display_name,qty) for pid,qty in data['pck_requirements']])
+                result+=note('Stok komponen PCK belum diverifikasi.','warning')
+            wizard.impact_table=result
+
 
     @api.onchange("delivery_date","slot")
     def _onchange_impact_schedule(self):
