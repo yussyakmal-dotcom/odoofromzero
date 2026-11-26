@@ -22,6 +22,8 @@ def table(headers, rows):
     body=Markup("").join(Markup("<tr>{}</tr>").format(Markup("").join(
         Markup('<td class="{}">{}</td>').format(
             "text-danger fw-bold" if headers[i]=="Status" and v in ("Melebihi Max","Ditutup")
+            else "text-success fw-bold" if headers[i]=="Status" and v=="Tanpa tambah produksi"
+            else "text-warning fw-bold" if headers[i]=="Status" and v=="Tambah produksi"
             else "text-end" if isinstance(v,(int,float)) else "",v)
         for i,v in enumerate(row))) for row in rows)
     return Markup('<div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-2"><thead><tr>{}</tr></thead><tbody>{}</tbody></table></div>').format(head,body)
