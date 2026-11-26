@@ -106,11 +106,6 @@ class ConsolidationTimerQueue(models.Model):
                     entry._set_prepared(dict(state="released",digest=False,sku_count=0,
                                              note="Produksi OK",batch_id=batch.id))
                 continue
-            if clock["dispatch_passed"]:
-                if entry:
-                    entry._set_prepared(dict(state="expired",digest=False,sku_count=0,
-                                             note="Dispatch terlewat",batch_id=batch.id))
-                continue
             if stage=="pp1" and not clock["ro_closed"]:
                 continue
             if stage=="pp2" and not clock["so_closed"]:
@@ -128,9 +123,9 @@ class ConsolidationTimerQueue(models.Model):
                     if not batch.ya_pp1_design_b_snapshot or batch.state!="production_ok":
                         raise UserError(_("Menunggu Produksi OK 1."))
                     review=batch._ya_read_pp2_design_b_review()
-                vals.update(state="ready" if stage=="pp1" or clock["pp2_clock_ready"] else "waiting",
+                vals.update(state="ready",
                             digest=review["digest"],sku_count=len(review["facts"]["sku_forecasts"]),
-                            note="Hitung ulang saat operator membuka review.")
+                            note=("WARNING: Dispatch terlewat. " if clock["dispatch_passed"] else "")+"Hitung ulang saat operator membuka review.")
             except (PP1SourceError,UserError,ValueError) as exc:
                 vals["note"]=str(exc)[:500]
             if entry:

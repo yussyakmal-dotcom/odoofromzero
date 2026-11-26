@@ -31,6 +31,18 @@ class YaConsolidationReviewWizard(models.TransientModel):
         self.cutoff_info = False
         self.reviewed_cutoff_key = False
 
+    closing_mode = fields.Selection([("scheduled","Scheduled Closing"),("manual","Manual Closing")], default="manual")
+
+    def action_set_closing_mode(self):
+        self.ensure_one()
+        self.env["ya.consolidation.closing"]._set_mode(self.delivery_date,self.slot,self.stage,self.closing_mode)
+        return self.action_review()
+
+    def action_close(self):
+        self.ensure_one()
+        self.env["ya.consolidation.closing"]._close(self.delivery_date,self.slot,self.stage)
+        return self.action_review()
+
     def action_review(self):
         self.ensure_one()
         if self.env.cr.dbname != DB or not self.env.user.has_group("ya_store_ro.group_ya_packing_admin"):
@@ -68,9 +80,13 @@ class YaConsolidationReviewWizard(models.TransientModel):
         clock = current_clock(self.env,self.delivery_date,self.slot)
         deadline = clock["ro_cutoff"] if self.stage=="pp1" else clock["pp2_earliest"]
         ready = clock["pp1_clock_ready"] if self.stage=="pp1" else clock["pp2_clock_ready"]
-        info = (_("Boleh release setelah review.") if ready else
-                _("Belum boleh release / dispatch sudah lewat."))
-        info += " " + ((format_ymondd(deadline)+deadline.strftime(" %H:%M WIB")) if deadline else _("Cutoff SO belum ditetapkan."))
+        mode=clock[self.stage+"_mode"]
+        info=("Scheduled Closing" if mode=="scheduled" else "Manual Closing")+" — "
+        info += _("Closed; siap review.") if ready else _("Open; belum Closing.")
+        if mode=="scheduled" and deadline:
+            info += " "+format_ymondd(deadline)+deadline.strftime(" %H:%M WIB")
+        if clock["dispatch_passed"]:
+            info += " | "+_("WARNING: Dispatch terlewat.")
         info = clock["cutoff_source"] + " — " + info
         self.write(dict(line_ids=[(5,0,0)]+rows,digest=review["digest"],cutoff_info=info,
                         reviewed_cutoff_key=self._cutoff_key(clock),
@@ -81,7 +97,7 @@ class YaConsolidationReviewWizard(models.TransientModel):
 
     @api.model
     def _cutoff_key(self, clock):
-        return "%s:%s" % (clock["cutoff_source"], clock["special_cutoff_id"] or clock["cutoff_settings_version_id"] or 0)
+        return "%s:%s:%s:%s:%s:%s" % (clock["cutoff_source"], clock["special_cutoff_id"] or clock["cutoff_settings_version_id"] or 0,clock["pp1_mode"],clock["pp2_mode"],clock["ro_closed"],clock["so_closed"])
 
     def action_release(self):
         self.ensure_one()
@@ -103,9 +119,10 @@ class YaConsolidationReviewWizard(models.TransientModel):
             if self.reviewed_cutoff_key != self._cutoff_key(clock):
                 raise UserError(_("Jadwal cutoff berubah. Refresh review sebelum Produksi OK."))
             if stage=="pp1" and not clock["pp1_clock_ready"]:
-                raise UserError(_("Produksi OK 1 hanya setelah cutoff RO dan sebelum dispatch."))
+                raise UserError(_("Produksi OK 1 membutuhkan Closing RO."))
             if stage=="pp2" and not clock["pp2_clock_ready"]:
-                raise UserError(_("Produksi OK 2 membutuhkan cutoff SO terkonfigurasi, jeda MO2 terpenuhi dan sebelum dispatch."))
+                raise UserError(_("Produksi OK 2 membutuhkan Closing SO."))
+            self.env["ya.consolidation.closing"]._close(day,slot,stage)
             Batch=self.env["ya.packing.batch"]
             # Core independently rechecks the source digest, under slot lock.
             if stage=="pp1":

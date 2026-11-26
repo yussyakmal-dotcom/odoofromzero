@@ -25,7 +25,31 @@ def current_clock(env, delivery_date, slot):
             ("delivery_date","=",day),("slot","=",slot)],limit=1)
         if special:
             policy=special._policy()
-        state=clock_state(day,slot,utc_now(),policy)
+        now=utc_now()
+        state=clock_state(day,slot,now,dict(policy,mo2_delay_minutes=0))
+        from .closing_lifecycle import DEFAULT, EPOCH
+        rows=env["ya.consolidation.closing"]._slot_rows(day,slot)
+        batch=env["ya.packing.batch"].sudo().search([("delivery_date","=",day),("slot","=",slot)])
+        final=env["ya.sale.mo2.finalization"].sudo().search([("batch_id","in",batch.ids)])
+        epoch=env["ir.config_parameter"].sudo().get_param(EPOCH)
+        if not epoch:
+            raise UserError(_("Closing belum diinisialisasi; upgrade modul diperlukan."))
+        epoch=fields.Datetime.to_datetime(epoch).replace(tzinfo=timezone.utc)
+        for stage,key in (("pp1","ro"),("pp2","so")):
+            row=rows.filtered(lambda r:r.stage==stage)
+            deadline=state[key+"_cutoff"]
+            mode=row.mode or DEFAULT[stage]
+            # Preserve historic closed SO and RO, including pre-migration deadlines.
+            old_closed=bool(deadline and deadline<=epoch)
+            native_closed=bool(batch) if stage=="pp1" else bool(final)
+            closed=bool(row.closed_at or native_closed or old_closed or
+                        (mode=="scheduled" and deadline and now>=deadline))
+            state[stage+"_mode"]=mode
+            state[stage+"_closing_id"]=row.id or False
+            state[key+"_closed"]=closed
+            state[key+"_admission_allowed"]=not closed and not state["dispatch_passed"]
+            state[stage+"_clock_ready"]=closed
+        state["pp2_earliest"]=state["so_cutoff"] if state["pp2_mode"]=="scheduled" else None
         state["cutoff_settings_version_id"]=version_id if not special else False
         state["special_cutoff_id"]=special.id or False
         state["cutoff_source"]="Special Cutoff" if special else "Default Cutoff"

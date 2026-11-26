@@ -32,3 +32,5 @@ from . import final_packing_distribution
 from . import sales_impact_preview
 
 from . import sales_capacity_display
+
+from . import closing_lifecycle

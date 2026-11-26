@@ -39,7 +39,7 @@ class ConsolidationCutoffSettings(models.Model):
     s3_enabled=fields.Boolean(string="Cutoff S3 sudah ditetapkan")
     s3_days_before=fields.Integer(string="S3 H-",default=1)
     s3_time=fields.Char(string="SO S3 cutoff WIB")
-    mo2_delay_minutes=fields.Integer(string="Jeda release MO2 (menit)",required=True,default=30)
+    mo2_delay_minutes=fields.Integer(string="Jeda release MO2 (menit)",required=True,default=0)
     _unique_effective_date=models.Constraint("UNIQUE(effective_date)","Tanggal mulai versi cutoff harus unik.")
 
     def init(self):
@@ -125,7 +125,7 @@ class ConsolidationSpecialCutoff(models.Model):
     ro_time = fields.Char(string="Jam Cutoff RO (WIB)", required=True, default="08:00")
     so_cutoff_date = fields.Date(string="Tanggal Cutoff SO", required=True)
     so_time = fields.Char(string="Jam Cutoff SO (WIB)", required=True, default="15:00")
-    mo2_delay_minutes = fields.Integer(string="Jeda PP2 (menit)", required=True, default=30)
+    mo2_delay_minutes = fields.Integer(string="Jeda PP2 (menit)", required=True, default=0)
     reason = fields.Text(string="Alasan Special Cutoff", required=True)
     pp2_earliest_label = fields.Char(string="Produksi OK 2 paling awal (WIB)",
                                      compute="_compute_pp2_earliest")
@@ -156,7 +156,7 @@ class ConsolidationSpecialCutoff(models.Model):
     def _compute_pp2_earliest(self):
         for row in self:
             try:
-                deadline = schedule(row.delivery_date, row.slot, row._policy())["pp2_earliest"]
+                deadline = schedule(row.delivery_date, row.slot, dict(row._policy(),mo2_delay_minutes=0))["pp2_earliest"]
                 row.pp2_earliest_label = format_ymondd(deadline)+deadline.strftime(" %H:%M")
             except (ValueError, TypeError, OverflowError):
                 row.pp2_earliest_label = False

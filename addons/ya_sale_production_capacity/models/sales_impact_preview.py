@@ -87,7 +87,7 @@ class SaleOrderImpact(models.Model):
             raise UserError(str(exc)) from exc
         payload=dict(order_id=self.id,company_id=self.company_id.id,day=str(day),slot=slot,
             stage=stage,ro_closed=clock["ro_closed"],policy_version=clock["cutoff_settings_version_id"],
-            special_cutoff_id=clock["special_cutoff_id"],
+            special_cutoff_id=clock["special_cutoff_id"],closing_mode=clock["pp2_mode"],so_closed=clock["so_closed"],
             source_digest=baseline_digest,source_rows=booking["source_rows"],lines=lines,
             pck_requirements=sorted(booking["pck_stock_requirements"].items()))
         return dict(payload=payload,digest=digest(payload))

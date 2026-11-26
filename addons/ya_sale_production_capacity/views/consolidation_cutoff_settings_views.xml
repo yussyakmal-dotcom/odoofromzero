@@ -14,7 +14,7 @@
         <field name="s2_time"/>
         <field name="s3_enabled"/>
         <field name="s3_time"/>
-        <field name="mo2_delay_minutes"/>
+        <field name="mo2_delay_minutes" invisible="1"/>
         <field name="create_uid" string="Dibuat oleh"/>
         <field name="create_date" options="{'numeric': True}" string="Waktu perubahan"/>
       </list>
@@ -55,7 +55,7 @@
               <field name="s3_time" invisible="not s3_enabled" required="s3_enabled"/>
             </group>
             <group string="Produksi OK 2">
-              <field name="mo2_delay_minutes"/>
+              <field name="mo2_delay_minutes" invisible="1"/>
             </group>
           </group>
           <group string="Audit">
@@ -89,7 +89,7 @@
         <field name="ro_time"/>
         <field name="so_cutoff_date" options="{'numeric': True}"/>
         <field name="so_time"/>
-        <field name="mo2_delay_minutes"/>
+        <field name="mo2_delay_minutes" invisible="1"/>
         <field name="pp2_earliest_label"/>
         <field name="reason"/>
       </list>
@@ -118,7 +118,7 @@
             <group string="Cutoff Sales Order">
               <field name="so_cutoff_date" options="{'numeric': True}"/>
               <field name="so_time" placeholder="15:00"/>
-              <field name="mo2_delay_minutes"/>
+              <field name="mo2_delay_minutes" invisible="1"/>
               <field name="pp2_earliest_label" readonly="1"/>
             </group>
           </group>

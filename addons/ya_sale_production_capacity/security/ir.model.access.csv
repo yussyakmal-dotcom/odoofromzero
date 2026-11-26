@@ -17,3 +17,6 @@ access_ya_final_packing_supply_packing,ya.final.packing.supply.packing,model_ya_
 access_ya_final_packing_release_packing,ya.final.packing.release.packing,model_ya_final_packing_release,ya_store_ro.group_ya_packing_admin,1,0,1,0
 access_ya_final_packing_distribution_packing,ya.final.packing.distribution.packing,model_ya_final_packing_distribution,ya_store_ro.group_ya_packing_admin,1,0,1,0
 access_ya_special_cutoff_system,ya.consolidation.special.cutoff.system,model_ya_consolidation_special_cutoff,base.group_system,1,0,1,0
+
+access_ya_closing_packing,ya.closing.packing,model_ya_consolidation_closing,ya_store_ro.group_ya_packing_admin,1,0,0,0
+access_ya_closing_system,ya.closing.system,model_ya_consolidation_closing,base.group_system,1,0,0,0
