@@ -27,6 +27,8 @@ class FinalPackingReviewWizard(models.TransientModel):
         self.batch_id.check_access("read")
         lock_ro_slot(self.env.cr,self.batch_id.delivery_date,self.batch_id.slot)
         self.env.invalidate_all()
+        if self.env["ya.final.packing.release"].sudo().search_count([("batch_id","=",self.batch_id.id)]):
+            raise UserError(_("Final Packing sudah release; buka Riwayat Review Alokasi."))
 
     def _read(self):
         try:
