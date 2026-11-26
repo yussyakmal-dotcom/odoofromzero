@@ -20,6 +20,7 @@ class YaConsolidationReviewWizard(models.TransientModel):
     reviewed_identity = fields.Char(readonly=True)
     digest = fields.Char(readonly=True)
     cutoff_info = fields.Char(readonly=True)
+    reviewed_cutoff_key = fields.Char(readonly=True)
     line_ids = fields.One2many("ya.consolidation.review.line", "wizard_id", readonly=True)
 
     @api.onchange("stage", "delivery_date", "slot")
@@ -28,6 +29,7 @@ class YaConsolidationReviewWizard(models.TransientModel):
         self.digest = False
         self.reviewed_identity = False
         self.cutoff_info = False
+        self.reviewed_cutoff_key = False
 
     def action_review(self):
         self.ensure_one()
@@ -69,11 +71,17 @@ class YaConsolidationReviewWizard(models.TransientModel):
         info = (_("Boleh release setelah review.") if ready else
                 _("Belum boleh release / dispatch sudah lewat."))
         info += " " + ((format_ymondd(deadline)+deadline.strftime(" %H:%M WIB")) if deadline else _("Cutoff SO belum ditetapkan."))
+        info = clock["cutoff_source"] + " — " + info
         self.write(dict(line_ids=[(5,0,0)]+rows,digest=review["digest"],cutoff_info=info,
+                        reviewed_cutoff_key=self._cutoff_key(clock),
                         reviewed_identity="%s / %s / %s"%(self.stage.upper(),format_ymondd(self.delivery_date),self.slot)))
         return dict(type="ir.actions.act_window",name=_("Review Konsolidasi Fase 2"),
                     res_model=self._name,res_id=self.id,view_mode="form",target="current",
                     views=[(self.env.ref("ya_sale_production_capacity.view_ya_consolidation_review_wizard").id,"form")])
+
+    @api.model
+    def _cutoff_key(self, clock):
+        return "%s:%s" % (clock["cutoff_source"], clock["special_cutoff_id"] or clock["cutoff_settings_version_id"] or 0)
 
     def action_release(self):
         self.ensure_one()
@@ -92,6 +100,8 @@ class YaConsolidationReviewWizard(models.TransientModel):
                     self.reviewed_identity!=identity or not self.digest):
                 raise UserError(_("Refresh review sebelum Produksi OK."))
             clock=current_clock(self.env,day,slot)
+            if self.reviewed_cutoff_key != self._cutoff_key(clock):
+                raise UserError(_("Jadwal cutoff berubah. Refresh review sebelum Produksi OK."))
             if stage=="pp1" and not clock["pp1_clock_ready"]:
                 raise UserError(_("Produksi OK 1 hanya setelah cutoff RO dan sebelum dispatch."))
             if stage=="pp2" and not clock["pp2_clock_ready"]:
