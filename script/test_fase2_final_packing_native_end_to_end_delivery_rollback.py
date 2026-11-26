@@ -987,10 +987,21 @@ try:
         return sum(Quant.search([("product_id","=",pid),("location_id","=",loc.id),
             ("lot_id","=",False),("owner_id","=",False),("package_id","=",False)]).mapped("quantity"))
     def validate_full(p):
-        assert p.state=="assigned"
+        assert p.state=="assigned",(p.id,p.name,p.state)
         assert all(abs(m.quantity-m.product_uom_qty)<1e-7 for m in p.move_ids)
-        p.with_context(skip_immediate=True,skip_backorder=True,cancel_backorder=True).button_validate()
-        assert p.state=="done" and all(m.state=="done" for m in p.move_ids)
+        # Native assignment alone is a reservation, not confirmation that
+        # goods were picked. In QA we explicitly perform the operator's
+        # full-pick step only after verifying exact reserved quantity.
+        p.move_ids.write({"picked":True})
+        p.move_ids.mapped("move_line_ids").write({"picked":True})
+        response=p.with_context(skip_immediate=True,skip_backorder=True,cancel_backorder=True).button_validate()
+        print("NATIVE_VALIDATE_RESPONSE",dict(picking=p.name,id=p.id,
+            stage=p.ya_store_stage,state=p.state,
+            response=response,
+            moves=[(m.id,m.product_id.default_code,m.state,m.product_uom_qty,
+                    m.quantity,m.picked) for m in p.move_ids]))
+        assert p.state=="done" and all(m.state=="done" for m in p.move_ids), (
+            "Native Validate did not reach Done; inspect response above",p.id,p.state,response)
     for order in so|so2|late|crossing:
         picking=order_dos[order.id]
         quantities=demand_map(picking)
