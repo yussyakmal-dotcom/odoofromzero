@@ -172,9 +172,13 @@ class YaMaterialRequirementWizard(models.TransientModel):
             'target': 'current',
         }
 
+    def _ya_mr_calculate_db_allowed(self):
+        """Extension point: default behavior remains Fase1 test DB only."""
+        return self.env.cr.dbname == TEST_DB
+
     def action_calculate(self):
         self.ensure_one()
-        if self.env.cr.dbname != TEST_DB:
+        if not self._ya_mr_calculate_db_allowed():
             raise UserError(_(
                 'Material Requirement pilot runs on test DB %s only.'
             ) % TEST_DB)
@@ -195,6 +199,8 @@ class YaMaterialRequirementWizard(models.TransientModel):
                 'Found %s. No stock transfers generated.'
             ) % (self.delivery_date, self.slot, len(batches)))
         batch = batches[0]
+        if not batch._ya_mr_batch_db_allowed():
+            raise UserError(_('Material Requirement batch is not authorized in this database.'))
         links = batch.line_ids
         if not links or any(not link.mo_id for link in links):
             raise UserError(_('Packing batch is missing released MO links.'))
