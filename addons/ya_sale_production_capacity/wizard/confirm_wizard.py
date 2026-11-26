@@ -48,14 +48,14 @@ class YaSaleCapacityConfirmWizard(models.TransientModel):
                 result+=note('RO belum ditutup; permintaan masih dapat bertambah.','warning')
             result+=note('Proyeksi kapasitas, bukan stok fisik atau jaminan ketersediaan Paket.')
             result+=Markup('<h5>Kapasitas SO</h5>')+table(
-                ('SKU / Nama Produk','BoM','Max','SO Confirmed','SO Ini','SO Setelah','Sisa SO'),
-                [(names[r['product_id']],r['bom_output'],r['published_max'],r['so_before'],r['new_qty'],r['so_after'],r['remaining_capacity']) for r in rows])
+                ('SKU / Nama Produk','BoM','Max','SO Confirmed','Sisa Jatah RO Toko','Tersedia SO','SO Ini','Sisa SO Setelah'),
+                [(names[r['product_id']],r['bom_output'],r['published_max'],r['so_before'],r['ro_store']-r['ro_store_short_before'],r['published_max']-r['so_before'],r['new_qty'],r['remaining_capacity']) for r in rows])
             result+=Markup('<h5>Dampak Produksi dan Surplus</h5>')+table(
                 ('SKU / Nama Produk','Produksi sebelum → sesudah','Tambahan Produksi','MO1 Native','MO2 sebelum → sesudah','Surplus sebelum → sesudah','Surplus baru','Surplus terserap'),
                 [(names[r['product_id']],pair(r,'output_before','output_after'),r['additional_output'],r['mo1'],pair(r,'mo2_before','mo2_after'),pair(r,'surplus_before','surplus_after'),r['new_surplus'],r['absorbed_surplus']) for r in rows])
             result+=Markup('<h5>Dampak Permintaan RO</h5>')+table(
-                ('SKU / Nama Produk','RO Paket','Kurang Paket sebelum → sesudah','RO Toko','Kurang Toko sebelum → sesudah'),
-                [(names[r['product_id']],r['ro_package'],pair(r,'ro_package_short_before','ro_package_short_after'),r['ro_store'],pair(r,'ro_store_short_before','ro_store_short_after')) for r in rows])
+                ('SKU / Nama Produk','Permintaan RO Paket','Jatah RO Paket sebelum → sesudah','Permintaan RO Toko','Jatah RO Toko sebelum → sesudah'),
+                [(names[r['product_id']],r['ro_package'],'%s → %s'%(r['ro_package']-r['ro_package_short_before'],r['ro_package']-r['ro_package_short_after']),r['ro_store'],'%s → %s'%(r['ro_store']-r['ro_store_short_before'],r['ro_store']-r['ro_store_short_after'])) for r in rows])
             if any(r['new_surplus'] or r['ro_package_short_after']>r['ro_package_short_before'] or r['ro_store_short_after']>r['ro_store_short_before'] for r in rows):
                 result+=note('Tinjau tambahan surplus atau kekurangan RO sebelum Confirm.','warning')
             if data['pck_requirements']:
