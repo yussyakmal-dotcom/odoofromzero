@@ -5,8 +5,6 @@ capacity ledger and confirms the native commercial SO without early delivery.
 Physical MO2/Packing allocation/real PCK delivery are separate next phases.
 """
 from collections import defaultdict
-from datetime import datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 from odoo import fields, models, _
 from odoo.exceptions import UserError
@@ -14,6 +12,7 @@ from odoo.exceptions import UserError
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
 
 from .confirm_capacity_math import CapacityDecisionError, check_so_capacity
+from .consolidation_cutoff_gate import current_clock
 
 CLONE_DB = "erp-yussyakmal-mrp-test-RO_SO"
 
@@ -36,26 +35,6 @@ class SaleOrderYACapacityBooking(models.Model):
         if slot not in ("S1", "S2", "S3") or not delivery_date:
             raise UserError(_("Tanggal dan Slot Kirim YA wajib sebelum Confirm."))
         delivery = fields.Date.to_date(delivery_date)
-        now_wib = datetime.now(ZoneInfo("Asia/Jakarta"))
-        slot_clock = {"S1": time(5), "S2": time(9), "S3": time(11)}
-        dispatch_at = datetime.combine(
-            delivery, slot_clock[slot], tzinfo=ZoneInfo("Asia/Jakarta"))
-        if now_wib >= dispatch_at:
-            raise UserError(_("Waktu keberangkatan slot sudah berlalu. "
-                              "Pilih jadwal kirim yang masih berlaku."))
-        if slot == "S1":
-            # Agreed SOP: S1 final SO cutoff is 15:00 WIB on D-1.
-            s1_cutoff = datetime.combine(
-                delivery - timedelta(days=1), time(15),
-                tzinfo=ZoneInfo("Asia/Jakarta"))
-            if now_wib > s1_cutoff:
-                raise UserError(_(
-                    "Cut-off SO slot S1 adalah H-1 pukul 15.00 WIB. "
-                    "Pilih tanggal pengiriman berikutnya."
-                ))
-        # S2/S3 cutoffs remain a pending owner decision. Never invent them;
-        # dispatch time and Packing-stage locks still prevent stale booking.
-
         lock_ro_slot(self.env.cr, delivery_date, slot)
         # Protect against two workers simultaneously confirming the SAME SO.
         self.env.cr.execute(
@@ -63,6 +42,14 @@ class SaleOrderYACapacityBooking(models.Model):
         self.invalidate_recordset(["state", "ya_delivery_date", "ya_slot"])
         if self.state not in ("draft", "sent"):
             raise UserError(_("Quotation YA already confirmed elsewhere."))
+
+        # Check wall clock AFTER both transaction locks, including a
+        # delayed worker that entered before cutoff but obtained lock later.
+        clock = current_clock(self.env,delivery,slot)
+        if clock["dispatch_passed"]:
+            raise UserError(_("Waktu keberangkatan slot sudah berlalu."))
+        if not clock["so_admission_allowed"]:
+            raise UserError(_("Cutoff SO sudah ditutup. Pilih tanggal kirim berikutnya."))
 
         preview = self._ya_prepare_capacity_confirm_readonly(
             delivery_date, slot)
@@ -115,6 +102,9 @@ class SaleOrderYACapacityBooking(models.Model):
         ])
         if len(batch) > 1:
             raise UserError(_("More than one Packing batch exists for the slot."))
+        if batch and batch.ya_pp1_design_b_snapshot and self.env["ya.sale.mo2.finalization"].sudo().search_count([
+                ("batch_id", "=", batch.id)]):
+            raise UserError(_("PP2 already finalized; SO booking is closed."))
         if batch and (
                 batch.ya_store_delivery_ids or
                 batch.ya_package_assembly_mo_ids or
@@ -184,6 +174,7 @@ class SaleOrderYACapacityBooking(models.Model):
                 "calculation": calculated,
             })
         return {
+            "source_rows": preview["source_rows"],
             "reservation_rows": booking_rows,
             "capacity_checks": demand_checks,
             "package_qty": preview["package_qty"],
@@ -211,7 +202,8 @@ class SaleOrderYACapacityBooking(models.Model):
         # proposal generated earlier is never trusted after another booking.
         fresh = self._ya_prepare_locked_booking(
             rows[0]["delivery_date"], rows[0]["slot"])
-        if fresh["reservation_rows"] != rows:
+        if (fresh["reservation_rows"] != rows or
+                fresh["source_rows"] != booking["source_rows"]):
             raise UserError(_("YA SO demand or reserved capacity changed. "
                               "Recalculate Confirm before booking."))
         return self.env["ya.sale.capacity.reservation"].sudo().with_context(
@@ -245,6 +237,7 @@ class SaleOrderYACapacityBooking(models.Model):
 
         # sale_stock must not create a DO from the normal Sales warehouse.
         # Packing will later issue the actual PCK -> Customer delivery.
+        self._ya_freeze_confirmed_demand(booking, created)
         self._ya_native_confirm_without_early_delivery()
 
         if (self.state not in ("sale", "done") or self.picking_ids or

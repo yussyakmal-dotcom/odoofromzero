@@ -319,7 +319,7 @@ class YaCdcStockPickingValidation(models.Model):
         """Use native Odoo validation for every transfer, with YA-only guards."""
         direct = self.filtered(lambda p: p.ya_mr_batch_id)
         if direct:
-            if self.env.cr.dbname != TEST_DB or len(self) != 1:
+            if len(self) != 1 or not all(p.ya_mr_batch_id.sudo()._ya_mr_batch_db_allowed() for p in direct):
                 raise UserError(_(
                     'Validate direct YA CDC transfers individually on MRP test DB only.'
                 ))
@@ -355,7 +355,7 @@ class YaCdcStockPickingValidation(models.Model):
         """No backorder on YA CDC only; ordinary pickings are untouched."""
         direct = self.filtered(lambda p: p.ya_mr_batch_id)
         if direct:
-            if self.env.cr.dbname != TEST_DB or len(direct) != len(self):
+            if len(direct) != len(self) or not all(p.ya_mr_batch_id.sudo()._ya_mr_batch_db_allowed() for p in direct):
                 raise UserError(_(
                     'YA CDC direct transfer must complete separately on test DB.'
                 ))

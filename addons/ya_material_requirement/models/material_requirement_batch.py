@@ -134,9 +134,14 @@ class YaPackingBatchMaterialRequirement(models.Model):
                 ).strftime('%Y-%b-%d %H:%M') if newest else ''
             )
 
+    def _ya_mr_batch_db_allowed(self):
+        """Extension point: default behavior remains Fase1 test DB only."""
+        self.ensure_one()
+        return self.env.cr.dbname == TEST_DB
+
     def _mr_guard(self):
         self.ensure_one()
-        if self.env.cr.dbname != TEST_DB:
+        if not self._ya_mr_batch_db_allowed():
             raise UserError(_('CDC Material Requirement is test DB only.'))
         if not (self.env.user.has_group('mrp.group_mrp_manager') or
                 self.env.user.has_group('ya_store_ro.group_ya_packing_admin')):

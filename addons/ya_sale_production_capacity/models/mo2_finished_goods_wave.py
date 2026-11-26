@@ -101,7 +101,7 @@ class YaMo2FinishedGoodsRelease(models.Model):
         # All MO2 native CDC material demand must be delivered before the
         # additional finished output enters Packing. Do not silently treat
         # an unvalidated or partial material transfer as fulfilled.
-        materials = self.ya_mo2_material_picking_ids
+        materials = self._ya_mr2_pickings()
         if len(materials) != 1 or materials.state != "done":
             raise UserError(_("Complete the native MO2 CDC transfer first."))
         for raw in materials.move_ids:

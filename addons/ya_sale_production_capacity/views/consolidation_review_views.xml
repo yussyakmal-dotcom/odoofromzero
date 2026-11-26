@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_consolidation_review_wizard" model="ir.ui.view">
+    <field name="name">ya.consolidation.review.wizard.form</field>
+    <field name="model">ya.consolidation.review.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Review Konsolidasi Fase 2" delete="false">
+        <header>
+          <button name="action_review" type="object" class="btn-primary" string="Hitung / Refresh Konsolidasi"
+                  groups="ya_store_ro.group_ya_packing_admin"/>
+          <button name="action_release" type="object" class="btn-primary" string="Produksi OK 1"
+                  groups="ya_store_ro.group_ya_packing_admin" invisible="stage != 'pp1' or not digest"
+                  confirm="Setujui review dan terbitkan MO1? Sistem memeriksa cutoff serta data terbaru." />
+          <button name="action_release" type="object" class="btn-primary" string="Produksi OK 2"
+                  groups="ya_store_ro.group_ya_packing_admin" invisible="stage != 'pp2' or not digest"
+                  confirm="Setujui review dan finalisasi PP2? MO2 hanya untuk kekurangan SO." />
+        </header>
+        <sheet>
+          <div class="alert alert-info" role="alert">
+            Preview per tanggal dan slot. Qty merupakan proyeksi, bukan stok fisik.
+            Produksi OK hanya dapat dijalankan setelah cutoff dan pemeriksaan ulang data.
+          </div>
+          <group>
+            <group>
+              <field name="stage"/>
+              <field name="delivery_date"/>
+              <field name="slot"/>
+            </group>
+            <group>
+              <field name="reviewed_identity" string="Hasil Review Untuk" readonly="1"/>
+              <field name="digest" invisible="1"/>
+              <field name="cutoff_info" readonly="1" string="Status waktu saat review"/>
+            </group>
+          </group>
+          <field name="line_ids" readonly="1" nolabel="1">
+            <list create="false" edit="false" delete="false">
+              <field name="kitchen_id" string="Dapur"/>
+              <field name="product_id" string="SKU"/>
+              <field name="qty_so" string="SO (Komponen)"/>
+              <field name="qty_ro_paket" string="RO Paket (Komponen)"/>
+              <field name="qty_ro" string="RO Biasa"/>
+              <field name="bom_output" string="BoM"/>
+              <field name="published_max" string="Max"/>
+              <field name="qty_mo1" string="MO1"/>
+              <field name="qty_mo2" string="MO2"/>
+              <field name="shortage_ro_paket" string="Kurang RO Paket" decoration-danger="shortage_ro_paket &gt; 0"/>
+              <field name="shortage_ro" string="Kurang RO" decoration-danger="shortage_ro &gt; 0"/>
+              <field name="surplus" string="Sisa"/>
+            </list>
+          </field>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_consolidation_review_wizard" model="ir.actions.act_window">
+    <field name="name">Review PP1 / PP2 (Fase 2)</field>
+    <field name="res_model">ya.consolidation.review.wizard</field>
+    <field name="view_mode">form</field>
+    <field name="view_id" ref="view_ya_consolidation_review_wizard"/>
+    <field name="target">current</field>
+  </record>
+  <menuitem id="menu_ya_consolidation_review_wizard" name="Review PP1 / PP2 (Fase 2)"
+            parent="ya_workflow_navigation.menu_ya_before_production"
+            action="action_ya_consolidation_review_wizard" sequence="55"
+            groups="ya_store_ro.group_ya_packing_admin"/>
+</odoo>

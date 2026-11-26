@@ -177,6 +177,8 @@ class YaPackingBatchMo2Release(models.Model):
             raise UserError(_("MO2 restricted to the RO_SO clone."))
         if not self.env.user.has_group("ya_store_ro.group_ya_packing_admin"):
             raise UserError(_("Only YA Packing Admin can release MO2."))
+        if self.ya_pp1_design_b_snapshot:
+            raise UserError(_("Design B requires SO-only PP2; legacy MO2 release blocked."))
         if self.state != "production_ok":
             raise UserError(_("Release MO1 through Produksi OK before MO2."))
         if self.slot != "S1":

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_mr2_existing_material_form" model="ir.ui.view">
+    <field name="name">ya.packing.batch.material.requirement.mr2</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="inherit_id" ref="ya_material_requirement.view_ya_material_batch_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//button[@name='action_mr_generate_native_transfers']" position="attributes">
+        <attribute name="string">Buat Internal Transfer MR1</attribute>
+      </xpath>
+      <xpath expr="//button[@name='action_mr_open_native_transfers']" position="after">
+        <field name="ya_pp1_design_b_snapshot" invisible="1"/>
+        <button name="action_mr2_generate_native_transfers" type="object" string="Buat / Buka MR2"
+                groups="stock.group_stock_manager" invisible="not ya_pp1_design_b_snapshot"
+                confirm="Buat Internal Transfer per dapur untuk MO2 saja? Dokumen MR1 tidak berubah."/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

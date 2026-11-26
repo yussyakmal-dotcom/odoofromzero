@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+  <!-- Explicit activation only after QA and choosing a real Packing Admin. -->
+  <record id="ir_cron_ya_prepare_consolidation" model="ir.cron">
+    <field name="name">YA Fase 2 - Persiapan Konsolidasi PP1 / PP2</field>
+    <field name="model_id" ref="model_ya_consolidation_timer_queue"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_prepare_consolidation()</field>
+    <field name="interval_number">5</field>
+    <field name="interval_type">minutes</field>
+    <field name="active" eval="False"/>
+  </record>
+</odoo>

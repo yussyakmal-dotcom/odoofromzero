@@ -24,25 +24,61 @@ class YaSaleCapacityConfirmWizard(models.TransientModel):
         for wizard in self:
             wizard.delivery_date_label = format_ymondd(wizard.delivery_date)
 
+    impact_digest=fields.Char(readonly=True)
+    impact_payload=fields.Json(readonly=True)
+    impact_summary=fields.Text(readonly=True)
+
+    @api.onchange("delivery_date","slot")
+    def _onchange_impact_schedule(self):
+        self.impact_digest=False
+        self.impact_payload=False
+        self.impact_summary=False
+
+    def _read_impact(self):
+        self.ensure_one()
+        self.check_access("write")
+        if not self.delivery_date or not self.slot:
+            raise ValidationError(_("YA Tanggal Kirim dan YA Slot Kirim wajib diisi."))
+        return self.order_id._ya_read_sales_impact(self.delivery_date,self.slot)
+
+    def action_review_impact(self):
+        self.ensure_one()
+        result=self._read_impact()
+        data=result["payload"]
+        lines=["Sebelum Produksi OK 1: proyeksi MO1" if data["stage"]=="pp1" else
+               "Setelah Produksi OK 1: MO1 tetap; MO2 hanya untuk kebutuhan SO."]
+        if not data["ro_closed"]:
+            lines.append("PERHATIAN: RO belum ditutup. Demand RO yang diketahui masih bisa bertambah.")
+        lines.append("Proyeksi kapasitas, bukan stok fisik atau jaminan ketersediaan Paket.")
+        for r in data["lines"]:
+            product=self.env["product.product"].browse(r["product_id"])
+            lines.extend(["",product.display_name,
+                "SO terkonfirmasi: %s → %s (draft +%s)"%(r["so_before"],r["so_after"],r["new_qty"]),
+                "BoM %s | Max %s | Sisa kapasitas SO %s"%(r["bom_output"],r["published_max"],r["remaining_capacity"]),
+                "Produksi total: %s → %s (tambahan %s)"%(r["output_before"],r["output_after"],r["additional_output"]),
+                "MO1 native %s | Proyeksi MO2 %s → %s"%(r["mo1"],r["mo2_before"],r["mo2_after"]),
+                "Surplus: %s → %s (baru %s, terserap %s)"%(r["surplus_before"],r["surplus_after"],r["new_surplus"],r["absorbed_surplus"]),
+                "RO Paket komponen %s | kurang %s → %s"%(r["ro_package"],r["ro_package_short_before"],r["ro_package_short_after"]),
+                "RO biasa %s | kurang %s → %s"%(r["ro_store"],r["ro_store_short_before"],r["ro_store_short_after"])])
+            if r["new_surplus"] or r["ro_package_short_after"]>r["ro_package_short_before"] or r["ro_store_short_after"]>r["ro_store_short_before"]:
+                lines.append("PERHATIAN: tinjau surplus / dampak RO sebelum Confirm.")
+        for pid,qty in data["pck_requirements"]:
+            lines.append("Komponen Paket PCK: %s | kebutuhan %s (stok belum diverifikasi)"%(
+                self.env["product.product"].browse(pid).display_name,qty))
+        self.write({"impact_digest":result["digest"],"impact_payload":data,"impact_summary":"\n".join(lines)})
+        return dict(type="ir.actions.act_window",name=_("Simulasi Dampak Sales Order"),
+                    res_model=self._name,res_id=self.id,view_mode="form",
+                    views=[(self.env.ref("ya_sale_production_capacity.view_ya_sale_capacity_confirm_wizard_form").id,"form")],
+                    target="new")
+
     def action_check_and_confirm(self):
         self.ensure_one()
-        order = self.order_id
-        if not order.exists() or not order.ya_is_capacity_so or order.state not in ('draft', 'sent'):
-            raise UserError(_('Hanya penawaran Custom SO YA Draft/Sent yang dapat dikonfirmasi.'))
-        if not self.delivery_date or not self.slot:
-            raise ValidationError(_('YA Tanggal Kirim dan YA Slot Kirim wajib diisi.'))
-        planning = self.env['ya.production.planning'].search_count([
-            ('delivery_date', '=', self.delivery_date),
-            ('slot', '=', self.slot),
-            ('state', '=', 'published'),
-        ])
-        if not planning:
-            raise ValidationError(_(
-                'Tidak ada Published Planning untuk %(date)s / %(slot)s.'
-            ) % {'date': format_ymondd(self.delivery_date), 'slot': self.slot})
-        # ALL capacity calculations, existing SO ledger reads, and native
-        # confirmation run under the same slot transaction lock. Any error
-        # rolls back schedule, protected capacity, and SO state together.
-        return order._ya_confirm_with_protected_capacity(
-            self.delivery_date, self.slot
-        )
+        with self.env.cr.savepoint():
+            if not self.impact_digest:
+                raise UserError(_("Jalankan Simulasi Dampak terlebih dahulu."))
+            fresh=self._read_impact()
+            if fresh["digest"]!=self.impact_digest:
+                raise UserError(_("Data berubah. Jalankan ulang Simulasi Dampak sebelum Confirm."))
+            # The same transaction holds slot/order locks across preview and
+            # the existing atomic native Confirm. No warning is a hard gate.
+            return self.order_id._ya_confirm_with_protected_capacity(self.delivery_date,self.slot)
