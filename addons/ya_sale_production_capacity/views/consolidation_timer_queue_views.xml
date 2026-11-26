@@ -7,6 +7,10 @@
       <list create="false" edit="false" delete="false"
             decoration-danger="state == 'blocked' or state == 'expired'"
             decoration-success="state == 'ready'">
+        <header>
+          <button name="action_refresh_queue" type="object" string="Refresh Antrean" display="always"
+                  groups="ya_store_ro.group_ya_packing_admin"/>
+        </header>
         <field name="delivery_date" options="{'numeric': True}"/>
         <field name="slot"/>
         <field name="stage"/>
@@ -27,12 +31,18 @@
     <field name="view_mode">list</field>
     <field name="view_id" ref="view_ya_consolidation_timer_queue_list"/>
     <field name="help" type="html">
-      <p>Timer menyiapkan review. Operator tetap menyetujui Produksi OK.</p>
-      <p>PP2 untuk slot dengan cutoff SO yang belum ditetapkan tidak dibuat otomatis.</p>
+      <p>Antrean bersumber dari RO / RO Paket / SO Konsolidasi Confirmed.</p>
+      <p>Refresh Antrean tidak menutup pesanan atau menerbitkan MO. PP2 muncul setelah Produksi OK 1.</p>
     </field>
+  </record>
+  <record id="action_ya_consolidation_queue_refresh" model="ir.actions.server">
+    <field name="name">Buka Antrean PP1 / PP2</field>
+    <field name="model_id" ref="model_ya_consolidation_timer_queue"/>
+    <field name="state">code</field>
+    <field name="code">action = model.action_refresh_queue()</field>
   </record>
   <menuitem id="menu_ya_consolidation_timer_queue" name="Antrean PP1 / PP2"
             parent="ya_workflow_navigation.menu_ya_before_production"
-            action="action_ya_consolidation_timer_queue" sequence="54"
+            action="action_ya_consolidation_queue_refresh" sequence="54"
             groups="ya_store_ro.group_ya_packing_admin"/>
 </odoo>
