@@ -10,7 +10,7 @@
                   string="Upload Baru" display="always"
                   groups="mrp.group_mrp_manager" class="btn-primary"/>
         </header>
-        <field name="delivery_date"/>
+        <field name="delivery_date" options="{'numeric': True}"/>
         <field name="slot"/>
         <field name="kitchen_code"/>
         <field name="workcenter_id"/>
@@ -32,7 +32,7 @@
         <sheet>
           <group>
             <group>
-              <field name="delivery_date" readonly="1"/>
+              <field name="delivery_date" options="{'numeric': True}" readonly="1"/>
               <field name="slot" readonly="1"/>
               <field name="kitchen_code" readonly="1"/>
               <field name="workcenter_id" readonly="1"/>
@@ -40,7 +40,7 @@
             <group>
               <field name="upload_filename" readonly="1"/>
               <field name="line_count" readonly="1"/>
-              <field name="published_at" readonly="1"/>
+              <field name="published_at" options="{'numeric': True}" readonly="1"/>
               <field name="published_by" readonly="1"/>
             </group>
           </group>
@@ -69,7 +69,7 @@
     <field name="model">ya.production.planning</field>
     <field name="arch" type="xml">
       <search string="Production Planning">
-        <field name="delivery_date"/>
+        <field name="delivery_date" options="{'numeric': True}"/>
         <field name="kitchen_code"/>
         <field name="workcenter_id"/>
         <filter name="filter_draft" string="Draft" domain="[('state','=','draft')]"/>
