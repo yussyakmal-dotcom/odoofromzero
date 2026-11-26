@@ -187,6 +187,7 @@ class SaleOrderYACapacityBooking(models.Model):
                 "calculation": calculated,
             })
         return {
+            "source_rows": preview["source_rows"],
             "reservation_rows": booking_rows,
             "capacity_checks": demand_checks,
             "package_qty": preview["package_qty"],
@@ -214,7 +215,8 @@ class SaleOrderYACapacityBooking(models.Model):
         # proposal generated earlier is never trusted after another booking.
         fresh = self._ya_prepare_locked_booking(
             rows[0]["delivery_date"], rows[0]["slot"])
-        if fresh["reservation_rows"] != rows:
+        if (fresh["reservation_rows"] != rows or
+                fresh["source_rows"] != booking["source_rows"]):
             raise UserError(_("YA SO demand or reserved capacity changed. "
                               "Recalculate Confirm before booking."))
         return self.env["ya.sale.capacity.reservation"].sudo().with_context(
@@ -248,6 +250,7 @@ class SaleOrderYACapacityBooking(models.Model):
 
         # sale_stock must not create a DO from the normal Sales warehouse.
         # Packing will later issue the actual PCK -> Customer delivery.
+        self._ya_freeze_confirmed_demand(booking, created)
         self._ya_native_confirm_without_early_delivery()
 
         if (self.state not in ("sale", "done") or self.picking_ids or
