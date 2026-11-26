@@ -80,7 +80,11 @@ class ConsolidationTimerQueue(models.Model):
         keys.update((r.ya_delivery_date,r.ya_slot) for r in orders)
         keys.update((r.delivery_date,r.slot) for r in self.sudo().search([
             ("delivery_date","<",today),("state","in",["ready","waiting","blocked"])]))
-        for day,slot in sorted(keys):
+        for day,slot in sorted((d,s) for d,s in keys if d and s in ("S1","S2","S3")):
+            # Do not lock every future Published slot merely because a
+            # plan exists. Recheck the clock again under the slot mutex.
+            if not current_clock(self.env,day,slot)["ro_closed"]:
+                continue
             with self.env.cr.savepoint():
                 self._prepare_slot(day,slot)
 
