@@ -93,6 +93,7 @@ def sql_delivery_stock(cr):
          tuple((pkg_store.lot_stock_id|ro_store.lot_stock_id).ids)))
     return {tuple(r[:6]):(float(r[6]),float(r[7])) for r in cr.fetchall()}
 persisted_delivery=sql_delivery_stock(env.cr)
+original_delivery_email=company.sudo().stock_move_email_validation
 try:
     creator = Users.with_context(no_reset_password=True,tracking_disable=True,
         mail_create_nosubscribe=True,mail_notify_force_send=False).create({
@@ -982,6 +983,13 @@ try:
     do_ids=(customer_dos|store_dos).ids
     do_move_ids=(customer_dos|store_dos).mapped("move_ids").ids
     print("NATIVE_DO_DUPLICATE_BLOCKED_NO_SNAPSHOT_MUTATION_PASS")
+    # QA must never send actual customer notifications: skip_sms is the
+    # native stock_sms context, and disable delivery email only within
+    # this uncommitted rollback transaction. No permanent Settings change.
+    if company.sudo().stock_move_email_validation:
+        company.sudo().with_context(tracking_disable=True).write({"stock_move_email_validation":False})
+    assert not company.sudo().stock_move_email_validation
+    print("QA_DELIVERY_NOTIFICATIONS_SUPPRESSED_NO_COMMIT")
     # Standard native customer DO: preserve original SO line delivery accounting.
     def physical_at(pid,loc):
         return sum(Quant.search([("product_id","=",pid),("location_id","=",loc.id),
@@ -994,7 +1002,8 @@ try:
         # full-pick step only after verifying exact reserved quantity.
         p.move_ids.write({"picked":True})
         p.move_ids.mapped("move_line_ids").write({"picked":True})
-        response=p.with_context(skip_immediate=True,skip_backorder=True,cancel_backorder=True).button_validate()
+        response=p.with_context(skip_immediate=True,skip_backorder=True,cancel_backorder=True,
+                                skip_sms=True,mail_notify_force_send=False).button_validate()
         print("NATIVE_VALIDATE_RESPONSE",dict(picking=p.name,id=p.id,
             stage=p.ya_store_stage,state=p.state,
             response=response,
@@ -1088,6 +1097,8 @@ finally:
     # Run even on a failed native assignment/validation.
     with env.registry.cursor() as check_cr:
         check_cr.execute("SET TRANSACTION READ ONLY")
+        check_cr.execute("SELECT stock_move_email_validation FROM res_company WHERE id=%s",[company.id])
+        assert bool(check_cr.fetchone()[0])==bool(original_delivery_email),"ROLLBACK EMAIL SETTING MISMATCH"
         observed=sql_stock(check_cr)
         delivery_observed=sql_delivery_stock(check_cr)
         assert set(delivery_observed)==set(persisted_delivery),"ROLLBACK DELIVERY QUANT KEY MISMATCH"
