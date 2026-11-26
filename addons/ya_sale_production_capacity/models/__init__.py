@@ -16,3 +16,5 @@ from . import so_demand_snapshot
 from . import consolidation_cutoff_gate
 
 from . import consolidation_cutoff_settings
+
+from . import consolidation_timer_queue
