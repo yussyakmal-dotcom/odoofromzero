@@ -262,7 +262,8 @@ try:
             with env.cr.savepoint():
                 fn()
         except UserError as exc:
-            assert expected in str(exc), str(exc)
+            messages=expected if isinstance(expected,tuple) else (expected,)
+            assert any(message in str(exc) for message in messages), str(exc)
         else:
             raise AssertionError("Unexpected acceptance: "+expected)
 
@@ -1010,7 +1011,19 @@ try:
             rival.action_confirm()
             rival.action_assign()
             assert rival.state=="assigned"
-            rejected(latest.action_generate_final_deliveries,"Native delivery not fully reserved")
+            # Odoo may show Assigned at picking level although an individual
+            # move lacks reservation. Both exact bridge guards are valid.
+            assert stock_at(component.id,pck.lot_stock_id)==(4.0,4.0)
+            env.flush_all()
+            rival_stock=sql_stock(env.cr)
+            rival_counts=tuple(env[m].sudo().search_count([]) for m in
+                ("stock.picking","stock.move","stock.move.line"))
+            rejected(latest.action_generate_final_deliveries,(
+                "Native delivery not fully reserved","Native dispatch reservation incomplete"))
+            env.flush_all()
+            assert sql_stock(env.cr)==rival_stock
+            assert tuple(env[m].sudo().search_count([]) for m in
+                ("stock.picking","stock.move","stock.move.line"))==rival_counts
             assert not Distribution.search_count([("release_id","=",approved.id)])
             assert not (so|so2|late|crossing).mapped("picking_ids")
             assert not batch.ya_store_delivery_ids
