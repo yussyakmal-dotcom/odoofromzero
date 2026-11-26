@@ -1,6 +1,6 @@
 {
     'name': 'YA Sales Order - Production Capacity',
-    'version': '19.0.1.15.0',
+    'version': '19.0.1.16.0',
     'category': 'Manufacturing',
     'summary': 'Separate YA production SO entry from standard Odoo Sales Orders',
     'depends': ['sale_stock', 'ya_workflow_navigation', 'ya_package_store_ro'],
