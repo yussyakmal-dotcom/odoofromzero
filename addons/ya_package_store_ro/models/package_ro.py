@@ -4,6 +4,7 @@ Separate from existing kitchen-scoped ya.store.ro: no fake Planning.
 Future integration must include these confirmed requests in the immutable
 same-date/slot Pre Produksi snapshot before any package assembly/DO.
 """
+from odoo.addons.ya_store_ro.models.date_labels import format_ymondd
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
@@ -48,7 +49,7 @@ class YaPackageStoreRO(models.Model):
     def _compute_name(self):
         for record in self:
             record.name = "RO Paket %s %s %s" % (
-                record.delivery_date or "-",
+                format_ymondd(record.delivery_date) or "-",
                 record.slot or "-",
                 record.store_warehouse_id.code or "-",
             )
