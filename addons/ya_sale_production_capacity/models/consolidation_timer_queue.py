@@ -87,17 +87,38 @@ class ConsolidationTimerQueue(models.Model):
         self.env.invalidate_all()
         clock=current_clock(self.env,day,slot)
         Queue=self.sudo().with_context(_ya_timer_token=_TOKEN)
-        Batch=self.env["ya.packing.batch"]
+        Batch=self.env["ya.packing.batch"].sudo()
         batch=Batch.search([("delivery_date","=",day),("slot","=",slot)])
         final=self.env["ya.sale.mo2.finalization"].sudo().search([("batch_id","in",batch.ids)])
+        if len(batch)>1:
+            # Do not guess which batch is authoritative.
+            for entry in Queue.search([("delivery_date","=",day),("slot","=",slot)]):
+                entry._set_prepared(dict(state="blocked",digest=False,sku_count=0,
+                                         note="Batch ganda; rekonsiliasi diperlukan.",batch_id=False))
+            return
         for stage in ("pp1","pp2"):
             key=[("delivery_date","=",day),("slot","=",slot),("stage","=",stage)]
             entry=Queue.search(key)
             completed=bool(batch.ya_pp1_design_b_snapshot and batch.state=="production_ok") if stage=="pp1" else bool(final.ya_pp2_design_b_snapshot)
             if completed:
+                vals=dict(state="released",digest=False,sku_count=0,
+                          note="Produksi OK",batch_id=batch.id)
                 if entry:
-                    entry._set_prepared(dict(state="released",digest=False,sku_count=0,
-                                             note="Produksi OK",batch_id=batch.id))
+                    entry._set_prepared(vals)
+                else:
+                    Queue.create(dict(vals,delivery_date=day,slot=slot,stage=stage,
+                                      prepared_at=fields.Datetime.now()))
+                continue
+            if batch and not batch.ya_pp1_design_b_snapshot and batch.state=="production_ok" and stage=="pp1":
+                # Legacy production is already released, not a new Design B PP1.
+                # Preserve its history; never fabricate a Design B snapshot.
+                vals=dict(state="released",digest=False,sku_count=0,
+                          note="PP1 legacy sudah release; bukan siklus Design B.",batch_id=batch.id)
+                if entry:
+                    entry._set_prepared(vals)
+                else:
+                    Queue.create(dict(vals,delivery_date=day,slot=slot,stage=stage,
+                                      prepared_at=fields.Datetime.now()))
                 continue
             if stage=="pp2" and not (batch.ya_pp1_design_b_snapshot and batch.state=="production_ok"):
                 continue
@@ -145,9 +166,11 @@ class ConsolidationTimerQueue(models.Model):
         if self.env.cr.dbname!=DB or not self.env.user.has_group(GROUP):
             raise UserError(_("Hanya Packing Admin di clone RO_SO."))
         self.check_access("read")
-        # Never consume a cached timer digest for release.
-        if self.state not in ("ready","waiting","blocked"):
-            raise UserError(_("Antrean ini sudah selesai atau Expired."))
+        # Reconcile live status under the same slot fence before navigating.
+        self._prepare_slot(self.delivery_date,self.slot)
+        self.invalidate_recordset()
+        if self.state not in ("ready","waiting"):
+            return self.env.ref("ya_sale_production_capacity.action_ya_consolidation_timer_queue").read()[0]
         wizard=self.env["ya.consolidation.review.wizard"].create({
             "stage":self.stage,"delivery_date":self.delivery_date,"slot":self.slot})
         return wizard.action_review()

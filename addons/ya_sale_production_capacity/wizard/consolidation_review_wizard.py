@@ -52,6 +52,12 @@ class YaConsolidationReviewWizard(models.TransientModel):
         lock_ro_slot(self.env.cr, self.delivery_date, self.slot)
         if current_clock(self.env,self.delivery_date,self.slot)["expired"]:
             raise UserError(_("Expired - Gagal Produksi. Buat siklus baru."))
+        self.env.invalidate_all()
+        if self.stage == "pp1":
+            existing=self.env["ya.packing.batch"].sudo().search([
+                ("delivery_date","=",self.delivery_date),("slot","=",self.slot)])
+            if existing and (len(existing)!=1 or existing.state=="production_ok"):
+                return self.env["ya.consolidation.timer.queue"].action_refresh_queue()
         try:
             if self.stage == "pp1":
                 review = read_locked_review(self.env, self.delivery_date, self.slot, self.env.company)
@@ -136,6 +142,7 @@ class YaConsolidationReviewWizard(models.TransientModel):
                 if len(batch)!=1 or not batch.ya_pp1_design_b_snapshot:
                     raise UserError(_("PP2 membutuhkan PP1 Design B yang sudah Produksi OK."))
                 batch._ya_release_pp2_design_b_core(self.digest)
+            self.env["ya.consolidation.timer.queue"]._prepare_slot(day,slot)
             self.write({"digest":False,"cutoff_info":_("Produksi OK berhasil.")})
             return dict(type="ir.actions.act_window",name=_("Produksi OK"),
                         res_model="ya.packing.batch",res_id=batch.id,

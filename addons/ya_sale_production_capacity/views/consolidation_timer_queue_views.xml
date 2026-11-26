@@ -20,7 +20,7 @@
         <field name="prepared_at" options="{'numeric': True}"/>
         <field name="batch_id" optional="show"/>
         <button name="action_open_review" type="object" string="Buka Review"
-                invisible="state in ('released','expired')"
+                invisible="state not in ('ready','waiting')"
                 groups="ya_store_ro.group_ya_packing_admin"/>
       </list>
     </field>
