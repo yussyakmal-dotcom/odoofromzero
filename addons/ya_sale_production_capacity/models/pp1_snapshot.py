@@ -120,7 +120,7 @@ class PackingBatchDesignB(models.Model):
                 _ya_pp1_snapshot_token=_TOKEN).write({
                     "state":"production_ok","released_by":self.env.uid,
                     "released_at":fields.Datetime.now()})
-            return batch
+            return batch.with_env(self.env)
 
 class PackingBatchLineDesignB(models.Model):
     _inherit = "ya.packing.batch.line"
