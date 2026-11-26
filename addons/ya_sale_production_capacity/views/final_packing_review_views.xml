@@ -78,10 +78,13 @@
                   invisible="release_ids" groups="ya_store_ro.group_ya_packing_admin"
                   confirm="Kunci alokasi ini dan terbitkan MO Paket dengan reservasi native jika diperlukan? DO belum dibuat."/>
           <button name="action_open_released_paket" type="object" string="Lihat MO Paket" invisible="not release_ids"/>
+          <button name="action_generate_final_deliveries" type="object" string="Buat / Buka DO Pelanggan dan Toko"
+                  invisible="not release_ids" groups="ya_store_ro.group_ya_packing_admin"
+                  confirm="Terbitkan DO sesuai alokasi final dengan reservasi native penuh? Barang belum dikirim sebelum Validate."/>
         </header>
         <sheet>
           <field name="release_ids" invisible="1"/>
-          <div class="alert alert-info" role="alert">Release mengunci alokasi dan mereservasi komponen Paket. Stok DO langsung belum direservasi; penerbitan DO adalah tahap berikutnya.</div>
+          <div class="alert alert-info" role="alert">Release mengunci alokasi dan mereservasi komponen Paket. Gunakan Buat / Buka DO setelah MO Paket Done; DO wajib mendapat reservasi native sebelum diterbitkan.</div>
           <group>
             <field name="batch_id"/>
             <field name="company_id"/>
