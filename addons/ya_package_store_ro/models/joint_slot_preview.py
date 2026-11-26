@@ -285,7 +285,21 @@ class YaPackageJointSlotPreview(models.TransientModel):
                          (product.with_context(display_default_code=True).display_name,
                           qty, product.uom_id.name))
 
-        warnings = result["warnings"] + notes
+        warnings = []
+        for warning in result["warnings"]:
+            # Pure planner warnings identify products by numeric record ID.
+            # Convert only known product warning prefixes for operator display.
+            for prefix in ("Paket ", "Kitchen SKU "):
+                if warning.startswith(prefix):
+                    tail = warning[len(prefix):]
+                    raw_id = tail.split(" ", 1)[0].rstrip(":")
+                    if raw_id.isdigit():
+                        product = self.env["product.product"].browse(int(raw_id)).exists()
+                        if product:
+                            warning = prefix + product.with_context(display_default_code=True).display_name + tail[len(raw_id):]
+                    break
+            warnings.append(warning)
+        warnings += notes
         self.write({
             "ordinary_ro_count": len(ordinary),
             "package_ro_count": len(packages),
