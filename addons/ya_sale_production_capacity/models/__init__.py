@@ -10,3 +10,5 @@ from . import planning_revision
 from . import pp1_snapshot
 
 from . import pp2_release_core
+
+from . import so_demand_snapshot
