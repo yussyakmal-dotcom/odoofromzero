@@ -3,3 +3,5 @@ from . import quotation_discount_wizard
 from . import planning_revision_wizard
 
 from . import consolidation_review_wizard
+
+from . import final_packing_review_wizard
