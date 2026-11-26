@@ -130,6 +130,8 @@ def native_pck_claim_review(batch,demand):
         rows=[dict(batch_id=bid,**c) for bid,c in sorted(claims[pid].items())]
         result=review_claims(physical[pid],reserved[pid],rows,batch.id)
         own=claims[pid][batch.id]
+        require(not (own["open_demand"] or own["reserved"] or own["done_out"]),
+                "Current batch already has PCK outbound claims; reconcile before review")
         if pid in kitchen:
             src=kitchen[pid]
             require(own["received"]==Decimal(str(src["mo1_mo2_received_qty"])),
@@ -161,3 +163,19 @@ def native_pck_claim_review(batch,demand):
                 operational_allocation_allowed=False,
                 unissued_claims_pending=True,shared_stock_lock_pending=True,
                 surplus_policy_pending=True)
+
+
+def read_claim_protected_packing_demand(batch):
+    """New review path, not replacing existing operator or allocation core."""
+    from .final_packing_demand import read_final_packing_demand
+    demand=read_final_packing_demand(batch)
+    review=native_pck_claim_review(batch,demand)
+    caps={r["product_id"]:Decimal(r["preview_cap"]) for r in review["rows"]}
+    for row in demand["supply"]["rows"]:
+        cap=caps[row["product_id"]]
+        require(cap==cap.to_integral_value(),"Fractional finished-goods preview cap")
+        row["claim_preview_cap"]=int(cap)
+    for row in demand["pck_component_rows"]:
+        row["claim_preview_cap"]=float(caps[row["product_id"]])
+    demand["pck_claim_review"]=review
+    return demand
