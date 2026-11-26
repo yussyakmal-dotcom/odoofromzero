@@ -115,6 +115,9 @@ class SaleOrderYACapacityBooking(models.Model):
         ])
         if len(batch) > 1:
             raise UserError(_("More than one Packing batch exists for the slot."))
+        if batch and batch.ya_pp1_design_b_snapshot and self.env["ya.sale.mo2.finalization"].sudo().search_count([
+                ("batch_id", "=", batch.id)]):
+            raise UserError(_("PP2 already finalized; SO booking is closed."))
         if batch and (
                 batch.ya_store_delivery_ids or
                 batch.ya_package_assembly_mo_ids or
