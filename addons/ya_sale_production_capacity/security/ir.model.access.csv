@@ -14,3 +14,4 @@ access_ya_final_packing_review_packing,ya.final.packing.review.packing,model_ya_
 access_ya_final_packing_wizard_packing,ya.final.packing.wizard.packing,model_ya_final_packing_review_wizard,ya_store_ro.group_ya_packing_admin,1,1,1,1
 access_ya_final_packing_line_packing,ya.final.packing.line.packing,model_ya_final_packing_review_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
 access_ya_final_packing_supply_packing,ya.final.packing.supply.packing,model_ya_final_packing_supply_line,ya_store_ro.group_ya_packing_admin,1,1,1,1
+access_ya_final_packing_release_packing,ya.final.packing.release.packing,model_ya_final_packing_release,ya_store_ro.group_ya_packing_admin,1,0,1,0
