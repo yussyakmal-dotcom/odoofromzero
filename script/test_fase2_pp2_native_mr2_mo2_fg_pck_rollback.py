@@ -467,6 +467,52 @@ try:
     assert set(expected)==set(stock_bom.bom_line_ids.mapped("product_id").ids)
     for k,v in current_stock.items():
         assert abs(v[0]-persisted_stock[k][0])<1e-7, ("physical changed before test",k)
+    # The earlier fixture created both MO1 and MO2 but supplied only MO2.
+    # Odoo may reserve that delivery for earlier MO1. Fulfill the existing
+    # MO1 raw obligation first via native internal transfer in this rollback
+    # fixture, not by unreserving MO1 or injecting inventory. The Fase1
+    # MR1 generator/validation entrypoints are DB-gated; this plain native
+    # picking is QA supply, NOT proof of the Design B MR1 bridge.
+    prior_mos=mos.with_env(env).filtered(
+        lambda m:m.picking_type_id.warehouse_id==kitchen)
+    prior=raw_totals(prior_mos)
+    assert len(prior_mos)==1 and set(prior)==set(expected)
+    assert all(qty>0 for qty in prior.values())
+    prior_pick=env["stock.picking"].with_company(company).create({
+        "picking_type_id":cdc.int_type_id.id,"company_id":company.id,
+        "location_id":cdc.lot_stock_id.id,"location_dest_id":kitchen.lot_stock_id.id,
+        "origin":"ROLLBACK ONLY / prior MO1 material fulfillment fixture",
+    })
+    env["stock.move"].with_company(company).create([{
+        "picking_id":prior_pick.id,"product_id":pid,
+        "product_uom":Product.browse(pid).uom_id.id,
+        "product_uom_qty":qty,"company_id":company.id,
+        "location_id":cdc.lot_stock_id.id,"location_dest_id":kitchen.lot_stock_id.id,
+    } for pid,qty in sorted(prior.items())])
+    prior_pick.action_confirm()
+    prior_pick.action_assign()
+    for m in prior_pick.move_ids:
+        assert m.state=="assigned" and abs(m.quantity-m.product_uom_qty)<1e-7, (
+            "CDC insufficient for earlier MO1 obligation",m.product_id.default_code,m.state,
+            m.quantity,m.product_uom_qty)
+        m.write({"quantity":m.product_uom_qty})
+    result=prior_pick.with_context(skip_immediate=True,skip_backorder=True,
+        cancel_backorder=True).button_validate()
+    assert prior_pick.state=="done" and all(m.state=="done" for m in prior_pick.move_ids),str(result)
+    for pid,qty in prior.items():
+        assert abs(stock_at(pid,cdc.lot_stock_id)[0]-current_stock[(pid,cdc.lot_stock_id.id)][0]+qty)<1e-7
+        assert abs(stock_at(pid,kitchen.lot_stock_id)[0]-current_stock[(pid,kitchen.lot_stock_id.id)][0]-qty)<1e-7
+        assert stock_at(pid,cdc.lot_stock_id)[0]>=-1e-7
+    prior_mos.action_assign()
+    assert all(m.state=="assigned" for m in prior_mos.move_raw_ids), (
+        "Earlier MO1 still not fully assigned; inspect prior commitments",
+        [(m.product_id.default_code,m.state,m.quantity,m.product_uom_qty)
+         for m in prior_mos.move_raw_ids if m.state!="assigned"])
+    print("DESIGN_B_PRIOR_MO1_NATIVE_SUPPLY_AND_RESERVATION_PASS",prior_mos.ids)
+    prior_pick_id=prior_pick.id
+    prior_move_ids=prior_pick.move_ids.ids
+    # Use post-MO1-supply stock as the baseline for the separate MO2 deltas.
+    current_stock={k:stock_at(k[0],env["stock.location"].browse(k[1])) for k in stock_pairs}
     real_cdc=transfer.with_env(env)
     real_cdc.action_confirm()
     real_cdc.action_assign()
@@ -490,7 +536,20 @@ try:
     real_mo2=native.with_env(env)
     real_mo2.action_assign()
     for m in real_mo2.move_raw_ids:
+        if m.state!="assigned":
+            pid=m.product_id.id
+            others=env["stock.move"].sudo().search([
+                ("product_id","=",pid),("company_id","=",company.id),
+                ("location_id","child_of",kitchen.lot_stock_id.id),
+                ("state","not in",["draft","done","cancel"]),
+            ])
+            print("MO2_RESERVATION_DIAGNOSTIC:",m.product_id.default_code,
+                  "kitchen_physical_reserved",stock_at(pid,kitchen.lot_stock_id),
+                  "open_moves",[(o.id,o.raw_material_production_id.id,o.state,
+                      o.product_uom_qty,o.quantity,o.product_uom.id) for o in others])
         assert m.state=="assigned", ("MO2 raw not fully reserved; review prior MO commitments",m.product_id.default_code,m.state)
+        assert abs(m.quantity-m.product_uom_qty)<1e-7, (
+            "MO2 assigned qty differs from raw demand",m.product_id.default_code,m.quantity,m.product_uom_qty)
     real_mo2.write({"qty_producing":float(row.qty_mo2)})
     real_mo2._set_qty_producing()
     consumed=defaultdict(float)
@@ -558,6 +617,14 @@ try:
 finally:
     env.cr.rollback()
     print("EXPLICIT_ROLLBACK_EXECUTED")
+    # Run even on a failed native assignment/validation.
+    with env.registry.cursor() as check_cr:
+        check_cr.execute("SET TRANSACTION READ ONLY")
+        observed=sql_stock(check_cr)
+        for key,values in persisted_stock.items():
+            assert all(abs(x-y)<1e-7 for x,y in zip(values,observed[key])), (
+                "ROLLBACK STOCK MISMATCH",key,values,observed[key])
+    print("DESIGN_B_NATIVE_STOCK_AND_RESERVATION_ROLLBACK_VERIFIED_PASS")
 env.invalidate_all(flush=False)
 for model, ident in zip((Plan,RO,Package.sudo(),Sale,Sale,Users),ids):
     assert not model.browse(ident).exists(), model._name
@@ -579,11 +646,7 @@ assert not env["stock.move"].browse(move_ids).exists()
 print("MR2_NATIVE_CDC_DOCUMENT_ROLLBACK_VERIFIED_PASS")
 assert not env["stock.picking"].browse(fg_id).exists()
 assert not env["stock.move"].browse(fg_move_ids).exists()
-with env.registry.cursor() as check_cr:
-    check_cr.execute("SET TRANSACTION READ ONLY")
-    observed=sql_stock(check_cr)
-    for key,values in persisted_stock.items():
-        assert all(abs(x-y)<1e-7 for x,y in zip(values,observed[key])), ("ROLLBACK STOCK MISMATCH",key,values,observed[key])
-print("DESIGN_B_NATIVE_STOCK_AND_RESERVATION_ROLLBACK_VERIFIED_PASS")
+assert not env["stock.picking"].browse(prior_pick_id).exists()
+assert not env["stock.move"].browse(prior_move_ids).exists()
 print("FASE2_PP2_NATIVE_MR2_MO2_FG_PCK_ROLLBACK_PASS")
 print("NO_OPERATIONAL_RELEASE_NO_LEGACY_ALLOCATION_NO_COMMIT")
