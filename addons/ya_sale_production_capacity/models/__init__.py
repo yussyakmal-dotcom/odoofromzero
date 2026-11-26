@@ -20,3 +20,5 @@ from . import consolidation_cutoff_settings
 from . import consolidation_timer_queue
 
 from . import mo1_material_integration
+
+from . import finished_packing_integration
