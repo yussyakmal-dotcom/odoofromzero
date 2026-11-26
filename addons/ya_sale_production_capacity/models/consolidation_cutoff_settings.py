@@ -40,6 +40,19 @@ class ConsolidationCutoffSettings(models.Model):
     mo2_delay_minutes=fields.Integer(string="Jeda release MO2 (menit)",required=True,default=30)
     _unique_effective_date=models.Constraint("UNIQUE(effective_date)","Tanggal mulai versi cutoff harus unik.")
 
+    def init(self):
+        # Technical synchronization only; no ORM/RPC model or stock ledger.
+        # Upgrade on the isolated clone before the new lock is used.
+        if self.env.cr.dbname == DB:
+            self.env.cr.execute("""
+                CREATE TABLE IF NOT EXISTS ya_consolidation_slot_fence (
+                    delivery_date date NOT NULL,
+                    slot varchar NOT NULL CHECK (slot IN ('S1','S2','S3')),
+                    revision bigint NOT NULL CHECK (revision > 0),
+                    PRIMARY KEY (delivery_date, slot)
+                )
+            """)
+
     def _policy(self):
         self.ensure_one()
         return dict(ro_days_before=self.ro_days_before,ro_minute=_minute(self.ro_time),
