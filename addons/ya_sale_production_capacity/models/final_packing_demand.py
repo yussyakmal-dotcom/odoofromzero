@@ -1,8 +1,7 @@
 """Clone-only read-only recipient demand review, not an allocation engine.
 
-SO Paket expansion uses current BoM and reconciles kitchen totals to the
-immutable PP2 ledger. Historical SO Paket BoM/PCK provenance was not
-captured at Confirm, so such rows remain explicitly unverified for release.
+SO Paket expansion compares the current BoM with the immutable SO Confirm
+snapshot when available. Legacy Paket rows without provenance are flagged.
 RO Paket compares the full current expansion to frozen PP1 component rows.
 No cross-slot entitlement, package assembly, reservation or DO creation.
 """
@@ -136,7 +135,8 @@ def read_final_packing_demand(batch):
             if p.categ_id.complete_name==pkg_category:
                 bom_id,parts=components(p,qty)
                 kind="SO_PAKET"
-                so_pkg_unverified.append(line.id)
+                if not order.ya_confirmed_demand_snapshot:
+                    so_pkg_unverified.append(line.id)
             else:
                 require(len(routes[p.id])==1,"SO direct route missing/ambiguous")
                 bom_id=None
@@ -149,6 +149,9 @@ def read_final_packing_demand(batch):
                 recipient_id=order.partner_shipping_id.id,product_id=p.id,qty=qty,
                 bom_id=bom_id,components=parts))
         require(count>0,"Confirmed SO without commercial demand")
+        if order.ya_confirmed_demand_snapshot:
+            order._ya_verified_confirmed_demand([r for r in recipient_rows
+                if r["kind"] in ("SO","SO_PAKET") and r["source_id"]==order.id])
     require(dict(so_totals)==dict(expected),"SO current expanded demand differs from frozen ledger")
     totals=defaultdict(float)
     for row in recipient_rows:
