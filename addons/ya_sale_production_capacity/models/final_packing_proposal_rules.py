@@ -86,12 +86,16 @@ def validate_proposal(demand, proposal):
         k = ("KITCHEN", r["product_id"])
         check(k not in available, "Duplicate kitchen supply")
         available[k] = number(r["slot_supply_upper_bound"])
+        if "claim_preview_cap" in r:
+            available[k] = min(available[k],number(r["claim_preview_cap"]))
     for r in demand["pck_component_rows"]:
         k = ("PCK", r["product_id"])
         check(k not in available and ("KITCHEN", r["product_id"]) not in available,
               "Duplicate/ambiguous component supply")
         # Tracked stock cannot be claimed by this untracked-stock preview.
         available[k] = number(r["free"]) if r["tracking"]=="none" else Decimal(0)
+        if "claim_preview_cap" in r:
+            available[k] = min(available[k],number(r["claim_preview_cap"]))
 
     total = defaultdict(Decimal)
     ordinary = defaultdict(Decimal)
