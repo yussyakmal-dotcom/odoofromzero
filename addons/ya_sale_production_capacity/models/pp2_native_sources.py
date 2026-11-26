@@ -87,12 +87,12 @@ def read_pp2_forecast(batch):
         maximum = whole(line.uom_id._compute_quantity(line.max_capacity,product.uom_id,round=False),pid)
         baseline = old.get(pid)
         qty1 = 0
+        route=dict(picking_type_id=pt.id,warehouse_id=pt.warehouse_id.id,
+                   source_id=pt.default_location_src_id.id,destination_id=pt.default_location_dest_id.id)
+        components=sorted([dict(id=p.id,product_id=p.product_id.id,
+            uom_id=p.product_uom_id.id,qty=p.product_qty) for p in bom.bom_line_ids],
+            key=lambda p:p["id"])
         if baseline:
-            route=dict(picking_type_id=pt.id,warehouse_id=pt.warehouse_id.id,
-                       source_id=pt.default_location_src_id.id,destination_id=pt.default_location_dest_id.id)
-            components=sorted([dict(id=p.id,product_id=p.product_id.id,
-                uom_id=p.product_uom_id.id,qty=p.product_qty) for p in bom.bom_line_ids],
-                key=lambda p:p["id"])
             require(baseline["planning_line_id"]==line.id and baseline["bom_id"]==bom.id
                     and baseline["bom_output"]==output and baseline["published_max"]==maximum
                     and baseline["kitchen_route"]==route
@@ -122,6 +122,7 @@ def read_pp2_forecast(batch):
             original_ro_package_qty=baseline["original_ro_package_qty"] if baseline else 0,
             original_ro_store_qty=baseline["original_ro_store_qty"] if baseline else 0)
         result.append(dict(product_id=pid,sku=product.default_code,planning_line_id=line.id,
+                           bom_id=bom.id, kitchen_route=route, kitchen_bom_components=components,
                            early_so_qty=early[pid],late_so_qty=so[pid]-early[pid],
                            mo1_id=row.mo_id.id if row else None,**calculation))
     return dict(batch_id=batch.id,delivery_date=str(batch.delivery_date),slot=batch.slot,
