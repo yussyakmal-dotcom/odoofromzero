@@ -7,7 +7,7 @@
       <form string="Upload Production Capacity XLSX">
         <group>
           <group>
-            <field name="delivery_date" readonly="state == 'preview'"/>
+            <field name="delivery_date" options="{'numeric': True}" readonly="state == 'preview'"/>
             <field name="slot" readonly="state == 'preview'"/>
             <field name="file" filename="filename" readonly="state == 'preview'"/>
             <field name="filename" invisible="1"/>
