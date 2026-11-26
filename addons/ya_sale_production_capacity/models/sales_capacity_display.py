@@ -146,6 +146,8 @@ class SaleOrderCapacityDisplay(models.Model):
         result=note("SO dapat mengambil sisa jatah RO tanpa menambah produksi. "
                     "Tersedia SO = sisa kapasitas produksi + sisa jatah RO Paket + sisa jatah RO Toko + surplus. "
                     "Angka adalah proyeksi per SKU, bukan stok fisik.")
+        if clock["special_cutoff_id"]:
+            result+=note("Special Cutoff berlaku untuk tanggal dan slot ini.")
         if not clock["ro_closed"]:
             result+=note("RO belum ditutup; permintaan masih dapat bertambah.")
         if closed:
