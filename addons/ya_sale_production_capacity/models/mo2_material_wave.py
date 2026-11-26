@@ -71,6 +71,11 @@ class YaMo2MaterialReleaseLine(models.Model):
             (self.id,),
         )
         self.invalidate_recordset(["ya_mo2_material_picking_ids"])
+        if batch.ya_pp1_design_b_snapshot:
+            session._ya_pp2_frozen_facts()
+            if (mo.product_uom_id._compute_quantity(mo.product_qty, product.uom_id, round=False)
+                    != self.qty_mo2 or mo.bom_id != self.planning_line_id._capacity_bom()):
+                raise UserError(_("Design B MO2 output/BoM changed after release."))
         existing = self.ya_mo2_material_picking_ids
         if existing:
             if len(existing) != 1:
@@ -86,7 +91,7 @@ class YaMo2MaterialReleaseLine(models.Model):
                 or mo.state != "confirmed"
                 or batch.ya_store_delivery_ids
                 or batch.ya_package_assembly_mo_ids
-                or batch.ya_fg_transfer_ids):
+                or (batch.ya_fg_transfer_ids and not batch.ya_pp1_design_b_snapshot)):
             raise UserError(_(
                 "MO2 and frozen Packing batch not ready for CDC transfer. "
                 "Reject MOs in progress/cancelled/done and advanced Packing."
