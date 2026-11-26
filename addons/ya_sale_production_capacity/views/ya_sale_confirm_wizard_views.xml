@@ -12,7 +12,7 @@
           <field name="slot" required="1"/>
         </group>
         <field name="impact_digest" invisible="1"/>
-        <field name="impact_summary" nolabel="1" readonly="1"/>
+        <field name="impact_table" nolabel="1" readonly="1"/>
         <footer>
           <button name="action_review_impact" type="object" string="Simulasi Dampak"/>
           <button name="action_check_and_confirm" type="object"
