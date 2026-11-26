@@ -106,6 +106,7 @@ class YaProductionPlanning(models.Model):
 class YaProductionPlanningLine(models.Model):
     _name = 'ya.production.planning.line'
     _description = 'YA Production Capacity Planning Line'
+    _rec_name = 'product_id'
     _order = 'id'
 
     planning_id = fields.Many2one('ya.production.planning', required=True,
