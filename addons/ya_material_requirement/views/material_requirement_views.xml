@@ -15,7 +15,7 @@
           </div>
           <group>
             <group>
-              <field name="delivery_date"/>
+              <field name="delivery_date" options="{'numeric': True}"/>
               <field name="slot"/>
               <field name="state" invisible="1"/>
               <field name="batch_id" readonly="1" invisible="state != 'preview'"/>
