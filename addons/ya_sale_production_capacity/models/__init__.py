@@ -37,3 +37,5 @@ from . import closing_lifecycle
 
 from . import mr_stage_policy
 from . import mr_stage_display
+
+from . import mr_stage_register

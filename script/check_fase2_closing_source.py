@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.0"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.1"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src
@@ -66,5 +66,11 @@ assert "UNIQUE(batch_id,stage)" in policy and "pg_advisory_xact_lock" in policy
 assert "decision.facts" in (root/"models/mo2_finished_goods_wave.py").read_text()
 assert "ya_full_width_source" in (root/"views/mr_picking_report.xml").read_text()
 print("MR_STAGE_MODE_ISSUE_SOURCE_PREFLIGHT_PASS")
+register=(root/"models/mr_stage_register.py").read_text()
+assert "_auto = False" in register and "UNION ALL" in register
+assert "ya_sale_mo2_release_line" in register and "EXISTS" in register
+assert 'self.batch_id._ya_mr_open_stage(self.stage)' in register
+assert "action_ya_mr_stage_menu" in (root/"views/mr_stage_register_views.xml").read_text()
+print("MR_STAGE_REGISTER_SOURCE_PREFLIGHT_PASS")
 print("FASE2_CLOSING_SOURCE_PREFLIGHT_PASS")
 print("SOURCE_ONLY_NO_DATABASE_NO_DEPLOY")

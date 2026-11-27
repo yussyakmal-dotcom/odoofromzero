@@ -1,6 +1,6 @@
 {
     'name': 'YA Sales Order - Production Capacity',
-    'version': '19.0.1.22.0',
+    'version': '19.0.1.22.1',
     'category': 'Manufacturing',
     'summary': 'Separate YA production SO entry from standard Odoo Sales Orders',
     'depends': ['sale_stock', 'ya_workflow_navigation', 'ya_package_store_ro'],
@@ -15,6 +15,7 @@
         'views/consolidation_timer_queue_views.xml',
         'views/mo2_material_views.xml',
         'views/mr_picking_report.xml',
+        'views/mr_stage_register_views.xml',
         'views/final_packing_review_views.xml',
         'data/consolidation_timer_cron.xml',
     ],

@@ -23,3 +23,6 @@ access_ya_closing_system,ya.closing.system,model_ya_consolidation_closing,base.g
 
 access_ya_mr_stage_wizard_packing,ya.mr.stage.wizard.packing,model_ya_mr_stage_wizard,ya_store_ro.group_ya_packing_admin,1,1,1,1
 access_ya_mr_stage_wizard_mrp,ya.mr.stage.wizard.mrp,model_ya_mr_stage_wizard,mrp.group_mrp_manager,1,1,1,1
+
+access_ya_mr_stage_register_packing,ya.mr.stage.register.packing,model_ya_mr_stage_register,ya_store_ro.group_ya_packing_admin,1,0,0,0
+access_ya_mr_stage_register_mrp,ya.mr.stage.register.mrp,model_ya_mr_stage_register,mrp.group_mrp_manager,1,0,0,0

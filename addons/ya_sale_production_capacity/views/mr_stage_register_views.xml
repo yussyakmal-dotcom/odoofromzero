@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="rule_ya_mr_stage_company" model="ir.rule">
+    <field name="name">MR stage company</field>
+    <field name="model_id" ref="model_ya_mr_stage_register"/>
+    <field name="domain_force">[('company_id','=',company_id)]</field>
+  </record>
+  <record id="view_ya_mr_stage_register_list" model="ir.ui.view">
+    <field name="name">ya.mr.stage.register.list</field>
+    <field name="model">ya.mr.stage.register</field>
+    <field name="arch" type="xml">
+      <list create="false" edit="false" delete="false" default_order="delivery_date desc,slot,stage">
+        <field name="name" string="Material Requirement"/>
+        <field name="delivery_date_label" string="Tanggal Kirim (YYYY-Mon-DD)"/>
+        <field name="slot"/>
+        <field name="stage" string="Tahap"/>
+        <field name="mo_count" string="Jumlah MO"/>
+        <field name="kitchen_count" string="Jumlah Dapur"/>
+        <field name="mode_label" string="Metode"/>
+        <field name="transfer_count" string="Internal Transfer"/>
+        <field name="status" widget="badge" decoration-success="status in ('done','zero')" decoration-warning="status == 'pending'" decoration-danger="status == 'review'"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_ya_mr_stage_register_form" model="ir.ui.view">
+    <field name="name">ya.mr.stage.register.form</field>
+    <field name="model">ya.mr.stage.register</field>
+    <field name="arch" type="xml">
+      <form string="Material Requirement" create="false" edit="false" delete="false">
+        <header>
+          <button name="action_prepare" type="object" string="Siapkan Material Requirement"
+                  class="btn-primary" groups="stock.group_stock_manager" invisible="status != 'pending'"/>
+          <button name="action_open_transfers" type="object" string="Buka Internal Transfer" invisible="transfer_count == 0"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="name" string="Material Requirement"/>
+              <field name="delivery_date_label" string="Tanggal Kirim"/>
+              <field name="slot"/>
+              <field name="stage"/>
+            </group>
+            <group>
+              <field name="mode_label" string="Metode"/>
+              <field name="status"/>
+              <field name="mo_count" string="Jumlah MO"/>
+              <field name="kitchen_count" string="Jumlah Dapur"/>
+              <field name="transfer_count" string="Internal Transfer"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="Rencana Produksi"><field name="plan_html" nolabel="1"/></page>
+            <page string="Kebutuhan Bahan"><field name="material_html" nolabel="1"/></page>
+            <page string="Keputusan Transfer"><field name="decision_html" nolabel="1"/></page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_mr_stage_register" model="ir.actions.act_window">
+    <field name="name">Material Requirement</field>
+    <field name="res_model">ya.mr.stage.register</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="view_ya_mr_stage_register_list"/>
+  </record>
+  <record id="action_ya_mr_stage_menu" model="ir.actions.server">
+    <field name="name">Material Requirement</field>
+    <field name="model_id" ref="model_ya_mr_stage_register"/>
+    <field name="state">code</field>
+    <field name="code">action = model.action_open_register()</field>
+    <field name="group_ids" eval="[(6,0,[ref('mrp.group_mrp_manager'),ref('ya_store_ro.group_ya_packing_admin')])]"/>
+  </record>
+  <record id="ya_material_requirement.menu_ya_material_requirement" model="ir.ui.menu">
+    <field name="action" ref="action_ya_mr_stage_menu"/>
+  </record>
+</odoo>
