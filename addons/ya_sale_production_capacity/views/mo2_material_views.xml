@@ -64,7 +64,7 @@
     <field name="name">ya.mr.stage.wizard.form</field>
     <field name="model">ya.mr.stage.wizard</field>
     <field name="arch" type="xml">
-      <form string="Siapkan Material Requirement" create="false" delete="false">
+      <form string="Siapkan Material Requirement" create="false" edit="true" delete="false">
         <header>
           <button name="action_preview" type="object" string="Hitung / Refresh" class="btn-primary"/>
           <button name="action_issue" type="object" string="Terbitkan Material Requirement" class="btn-primary"
@@ -76,11 +76,11 @@
             <group>
               <field name="batch_id"/>
               <field name="stage"/>
-              <field name="delivery_date"/>
+              <field name="delivery_date" string="Tgl Kirim"/>
               <field name="slot"/>
             </group>
             <group>
-              <field name="mode" string="Metode Requirement"/>
+              <field name="mode" string="Metode Requirement" widget="radio" readonly="0"/>
               <field name="digest" invisible="1"/>
             </group>
           </group>

@@ -11,7 +11,7 @@
     <field name="arch" type="xml">
       <list create="false" edit="false" delete="false" default_order="delivery_date desc,slot,stage">
         <field name="name" string="Material Requirement"/>
-        <field name="delivery_date_label" string="Tanggal Kirim (YYYY-Mon-DD)"/>
+        <field name="delivery_date_label" string="Tgl Kirim"/>
         <field name="slot"/>
         <field name="stage" string="Tahap"/>
         <field name="mo_count" string="Jumlah MO"/>
@@ -28,7 +28,7 @@
     <field name="arch" type="xml">
       <form string="Material Requirement" create="false" edit="false" delete="false">
         <header>
-          <button name="action_prepare" type="object" string="Siapkan Material Requirement"
+          <button name="action_prepare" type="object" string="Pilih Metode / Siapkan MR"
                   class="btn-primary" groups="stock.group_stock_manager" invisible="status != 'pending'"/>
           <button name="action_open_transfers" type="object" string="Buka Internal Transfer" invisible="transfer_count == 0"/>
         </header>
@@ -36,7 +36,7 @@
           <group>
             <group>
               <field name="name" string="Material Requirement"/>
-              <field name="delivery_date_label" string="Tanggal Kirim"/>
+              <field name="delivery_date_label" string="Tgl Kirim"/>
               <field name="slot"/>
               <field name="stage"/>
             </group>
@@ -48,6 +48,7 @@
               <field name="transfer_count" string="Internal Transfer"/>
             </group>
           </group>
+          <div class="alert alert-info" role="alert" invisible="status != 'pending'">Metode di atas adalah default. Klik Pilih Metode / Siapkan MR untuk memilih Full atau Shortage sebelum menerbitkan.</div>
           <notebook>
             <page string="Rencana Produksi"><field name="plan_html" nolabel="1"/></page>
             <page string="Kebutuhan Bahan"><field name="material_html" nolabel="1"/></page>

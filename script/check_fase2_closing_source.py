@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.1"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.2"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src
@@ -72,5 +72,11 @@ assert "ya_sale_mo2_release_line" in register and "EXISTS" in register
 assert 'self.batch_id._ya_mr_open_stage(self.stage)' in register
 assert "action_ya_mr_stage_menu" in (root/"views/mr_stage_register_views.xml").read_text()
 print("MR_STAGE_REGISTER_SOURCE_PREFLIGHT_PASS")
+register_view=(root/"views/mr_stage_register_views.xml").read_text()
+assert 'string="Tgl Kirim"' in register_view
+assert 'Tanggal Kirim (YYYY-Mon-DD)' not in register_view
+assert 'widget="radio" readonly="0"' in mr_view
+assert 'return wiz._reopen()' in policy
+print("MR_METHOD_SELECTOR_SOURCE_PREFLIGHT_PASS")
 print("FASE2_CLOSING_SOURCE_PREFLIGHT_PASS")
 print("SOURCE_ONLY_NO_DATABASE_NO_DEPLOY")

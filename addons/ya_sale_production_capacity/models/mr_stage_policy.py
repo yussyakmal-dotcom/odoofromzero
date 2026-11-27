@@ -138,7 +138,7 @@ class PackingBatchMRPolicy(models.Model):
         self._ya_mr_stage_guard(stage)
         wiz=self.env["ya.mr.stage.wizard"].create({
             "batch_id":self.id,"stage":stage,"mode":DEFAULT_MODE[stage]})
-        return wiz.action_preview()
+        return wiz._reopen()
 
     def _ya_mr_stage_facts(self,stage,mode):
         self.ensure_one()

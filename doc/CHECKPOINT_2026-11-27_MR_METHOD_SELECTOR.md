@@ -1,0 +1,2 @@
+# MR method selector and short date heading
+MR register header Tgl Kirim, date value unchanged. Register is read-only; choose method in editable stage wizard. Open selector before calculation (default Shortage MR2, Full MR1); explicit radio choices, Hitung / Refresh then Terbitkan. This also avoids a default shortage calculation error blocking access to Full. Existing issued decisions remain immutable. No quantity algorithm or transaction changes. Source only, GUI verification pending. Version 19.0.1.22.2.
