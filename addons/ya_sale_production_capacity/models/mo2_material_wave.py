@@ -11,6 +11,7 @@ from odoo.exceptions import UserError
 from odoo.tools import float_compare
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
 from .pp1_native_sources import DB as CLONE_DB
+from .mr_stage_rules import ISSUE_TOKEN
 
 _TOKEN=object()
 
@@ -196,6 +197,15 @@ class YaMo2MaterialReleaseLine(models.Model):
                     products[mat.id]=mat
         if not requirements:
             raise UserError(_("No positive MO2 material demand."))
+        decision=batch._ya_mr_decision_for_issue("mr2")
+        rows=[r for r in decision.facts["rows"] if r["warehouse_id"]==kitchen.id]
+        gross={r["product_id"]:r["gross"] for r in rows}
+        if decision.facts["final_id"]!=session.id or set(gross)!=set(requirements) or any(
+                abs(gross[p]-q)>1e-7 for p,q in requirements.items()):
+            raise UserError(_("Kebutuhan MO2 berubah. Periksa review MR2."))
+        requirements={r["product_id"]:r["transfer"] for r in rows if r["transfer"]>0}
+        if not requirements:
+            return Picking.browse()
         origin_prefix="YA-MR2-%s-CDC-%s"%(session.id,kitchen.code)
         origin="%s / %s / %s / MR2"%(origin_prefix,batch.delivery_date.strftime("%Y-%b-%d"),batch.slot)
         if Picking.search_count(["|",("origin","=",origin_prefix),("origin","=like",origin_prefix+" / %")]):
@@ -203,10 +213,12 @@ class YaMo2MaterialReleaseLine(models.Model):
         picking=Picking.with_context(_ya_mr2_token=_TOKEN).create({
             "ya_mr2_finalization_id":session.id,"ya_mr2_kitchen_id":kitchen.id,
             "ya_mr2_issued_demand":{"line_ids":sorted(lines.ids),
+                                    "decision_id":decision.id,"mode":decision.mode,
                                     "demand":{str(p):q for p,q in requirements.items()}},
             "picking_type_id":operation.id,"company_id":company.id,
             "location_id":source.id,"location_dest_id":kitchen.lot_stock_id.id,
-            "origin":origin,"note":"MR2 | Full MO2 raw demand only. CDC → Dapur. No buffer deduction."})
+            "origin":origin,"note":"MR2 | %s Requirement | CDC ke Dapur | Tanggal kirim %s | Slot %s. Demand sesuai keputusan MR2 yang terbit."%(
+                decision.mode.title(),batch.delivery_date.strftime("%Y-%b-%d"),batch.slot)})
         moves=self.env["stock.move"].with_company(company).create([
             {"picking_id":picking.id,"product_id":pid,"product_uom":products[pid].uom_id.id,
              "product_uom_qty":qty,"location_id":source.id,"location_dest_id":kitchen.lot_stock_id.id,
@@ -250,6 +262,9 @@ class PackingBatchMR2(models.Model):
         self.ensure_one()
         if self.env.cr.dbname!=CLONE_DB or not self.env.user.has_group("stock.group_stock_manager"):
             raise UserError(_("Inventory Administrator required in RO_SO."))
+        if self.env.context.get("_ya_mr_issue_token") is not ISSUE_TOKEN:
+            return self._ya_mr_open_stage("mr2")
+        self._ya_mr_decision_for_issue("mr2")
         with self.env.cr.savepoint():
             lock_ro_slot(self.env.cr,self.delivery_date,self.slot)
             self.env.invalidate_all()

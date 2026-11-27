@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.21.8"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.0"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src
@@ -50,9 +50,21 @@ print("SO_STATUS_GREEN_YELLOW_SOURCE_PREFLIGHT_PASS")
 mr_view=(root/"views/mo2_material_views.xml").read_text()
 assert "MR1 - Rencana Produksi" in mr_view and "MR2 - Rencana Produksi" in mr_view
 assert "MR2 - Kebutuhan Bahan" in mr_view
-assert "Shortage belum tersedia" in mr_view
+assert "Siapkan MR2" in mr_view and "Terbitkan Material Requirement" in mr_view
 assert "MR1" in (root/"models/mo1_material_integration.py").read_text()
 assert "Pengurangan RO Paket" in (root/"views/consolidation_review_views.xml").read_text()
 print("MR_STAGE_DISPLAY_ORIGIN_SOURCE_PREFLIGHT_PASS")
+mr_base=Path("addons/ya_material_requirement")
+for p in mr_base.rglob("*.py"):
+    ast.parse(p.read_text(),filename=str(p))
+assert ast.literal_eval((mr_base/"__manifest__.py").read_text())["version"]=="19.0.6.1.1"
+direct=(mr_base/"models/material_requirement_direct_transfer.py").read_text()
+assert "return line.required_qty" in direct
+assert direct.count("self._mr_native_demand_qty(line)")==3
+policy=(root/"models/mr_stage_policy.py").read_text()
+assert "UNIQUE(batch_id,stage)" in policy and "pg_advisory_xact_lock" in policy
+assert "decision.facts" in (root/"models/mo2_finished_goods_wave.py").read_text()
+assert "ya_full_width_source" in (root/"views/mr_picking_report.xml").read_text()
+print("MR_STAGE_MODE_ISSUE_SOURCE_PREFLIGHT_PASS")
 print("FASE2_CLOSING_SOURCE_PREFLIGHT_PASS")
 print("SOURCE_ONLY_NO_DATABASE_NO_DEPLOY")

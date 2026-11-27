@@ -8,6 +8,7 @@ from odoo import api, models, _
 from odoo.exceptions import UserError
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
 from .pp1_native_sources import DB
+from .mr_stage_rules import ISSUE_TOKEN
 
 
 class PackingBatchMo1Material(models.Model):
@@ -31,9 +32,24 @@ class PackingBatchMo1Material(models.Model):
 
     def action_mr_generate_native_transfers(self):
         if self.env.cr.dbname==DB:
+            self.ensure_one()
+            if self.env.context.get("_ya_mr_issue_token") is not ISSUE_TOKEN:
+                return self._ya_mr_open_stage("mr1")
+            self._ya_mr_decision_for_issue("mr1")
             with self.env.cr.savepoint():
                 return super().action_mr_generate_native_transfers()
         return super().action_mr_generate_native_transfers()
+
+    def _mr_native_demand_qty(self, line):
+        if self.env.cr.dbname != DB:
+            return super()._mr_native_demand_qty(line)
+        decision = self._ya_mr_decision_for_issue("mr1")
+        rows = [r for r in decision.facts["rows"]
+                if r["warehouse_id"] == line.warehouse_id.id
+                and r["product_id"] == line.product_id.id]
+        if len(rows) != 1 or abs(rows[0]["gross"]-line.required_qty) > 1e-7:
+            raise UserError(_("Kebutuhan MO1 berubah. Periksa review MR1."))
+        return rows[0]["transfer"]
 
     def action_mr_open_pick_confirmations(self):
         if self.env.cr.dbname==DB:
@@ -83,6 +99,9 @@ class StockPickingMR1Origin(models.Model):
                 origin = vals.get("origin") or ""
                 if (batch and batch.ya_pp1_design_b_snapshot
                         and origin.startswith("YA-MR-%s-CDC-" % batch.id)):
+                    decision = batch._ya_mr_decision_for_issue("mr1")
                     vals["origin"] = "%s / %s / %s / MR1" % (
                         origin, batch.delivery_date.strftime("%Y-%b-%d"), batch.slot)
+                    vals["note"] = "MR1 | %s Requirement | Tanggal kirim %s | Slot %s | CDC ke Dapur. Demand sesuai keputusan MR1 yang terbit; penuhi transfer sesuai SOP." % (
+                        decision.mode.title(), batch.delivery_date.strftime("%Y-%b-%d"), batch.slot)
         return super().create(vals_list)

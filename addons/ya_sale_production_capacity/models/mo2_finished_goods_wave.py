@@ -102,7 +102,18 @@ class YaMo2FinishedGoodsRelease(models.Model):
         # additional finished output enters Packing. Do not silently treat
         # an unvalidated or partial material transfer as fulfilled.
         materials = self._ya_mr2_pickings()
-        if len(materials) != 1 or materials.state != "done":
+        if not materials:
+            # A matching, issued Shortage decision can require zero transfer.
+            # Native MO still must be DONE with actual finished moves.
+            decision=batch._ya_mr_stage_decision("mr2")
+            kitchen=mo.picking_type_id.warehouse_id
+            rows=[r for r in decision.facts["rows"] if r["warehouse_id"]==kitchen.id] if decision else []
+            if (not decision or decision.mode!="shortage" or not rows
+                    or decision.facts["final_id"]!=self.finalization_id.id
+                    or mo.id not in decision.facts["mo_ids"]
+                    or any(r["transfer"]>0 for r in rows)):
+                raise UserError(_("Selesaikan Material Requirement 2 dan Internal Transfer dahulu."))
+        elif len(materials) != 1 or materials.state != "done":
             raise UserError(_("Complete the native MO2 CDC transfer first."))
         for raw in materials.move_ids:
             if (raw.state != "done" or float_compare(

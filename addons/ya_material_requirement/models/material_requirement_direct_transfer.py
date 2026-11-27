@@ -80,6 +80,11 @@ class YaMrDirectBatch(models.Model):
             'context': {'create': False},
         }
 
+    def _mr_native_demand_qty(self, line):
+        """Fase1 default remains full demand; clone can override."""
+        self.ensure_one()
+        return line.required_qty
+
     def action_mr_generate_native_transfers(self):
         """Generate one standard Internal Transfer per kitchen from confirmed MO.
 
@@ -159,7 +164,7 @@ class YaMrDirectBatch(models.Model):
 
         grouped = defaultdict(list)
         for line in wizard.kitchen_line_ids:
-            qty = line.required_qty
+            qty = self._mr_native_demand_qty(line)
             if float_compare(qty, 0,
                              precision_rounding=line.uom_id.rounding) <= 0:
                 continue
@@ -225,7 +230,7 @@ class YaMrDirectBatch(models.Model):
                 'picking_id': picking.id,
                 'product_id': line.product_id.id,
                 'product_uom': line.uom_id.id,
-                'product_uom_qty': line.required_qty,
+                'product_uom_qty': self._mr_native_demand_qty(line),
                 'location_id': source.id,
                 'location_dest_id': dest.id,
                 'company_id': cdc.company_id.id,
@@ -239,7 +244,7 @@ class YaMrDirectBatch(models.Model):
                 ))
             for line in grouped[wh_id]:
                 product = line.product_id
-                qty = line.required_qty
+                qty = self._mr_native_demand_qty(line)
                 # No FEFO/lot requirement is enabled by this addon.
                 # Tracked/Sublocation material must be reviewed in native UI.
                 if product.tracking != 'none':

@@ -5,6 +5,7 @@ from markupsafe import Markup
 from odoo import fields, models, _
 from odoo.exceptions import UserError
 from .pp1_native_sources import DB
+from .mr_stage_policy import decision_table, MODES
 
 
 def _table(headers, rows):
@@ -28,6 +29,12 @@ class PackingBatchMRStageDisplay(models.Model):
     ya_mr2_ready = fields.Boolean(compute="_compute_ya_mr_stage_display")
     ya_mr2_has_mo = fields.Boolean(compute="_compute_ya_mr_stage_display")
     ya_mr2_transfer_count = fields.Integer(compute="_compute_ya_mr_stage_display")
+    ya_mr1_issued = fields.Boolean(compute="_compute_ya_mr_stage_display")
+    ya_mr2_issued = fields.Boolean(compute="_compute_ya_mr_stage_display")
+    ya_mr1_method_status = fields.Char(compute="_compute_ya_mr_stage_display")
+    ya_mr2_method_status = fields.Char(compute="_compute_ya_mr_stage_display")
+    ya_mr1_decision_html = fields.Html(compute="_compute_ya_mr_stage_display")
+    ya_mr2_decision_html = fields.Html(compute="_compute_ya_mr_stage_display")
 
     def _compute_ya_mr_stage_display(self):
         for batch in self:
@@ -37,6 +44,12 @@ class PackingBatchMRStageDisplay(models.Model):
             batch.ya_mr2_ready = False
             batch.ya_mr2_has_mo = False
             batch.ya_mr2_transfer_count = 0
+            batch.ya_mr1_issued = False
+            batch.ya_mr2_issued = False
+            batch.ya_mr1_method_status = False
+            batch.ya_mr2_method_status = False
+            batch.ya_mr1_decision_html = False
+            batch.ya_mr2_decision_html = False
             if self.env.cr.dbname != DB or not batch.ya_pp1_design_b_snapshot:
                 continue
             if not (self.env.user.has_group("mrp.group_mrp_manager")
@@ -53,6 +66,18 @@ class PackingBatchMRStageDisplay(models.Model):
                     for mo in mos.sorted(key=lambda m:(m.picking_type_id.warehouse_id.id,m.product_id.id,m.id))
                 ])
             batch.ya_mr1_plan_html = plan(batch.line_ids.mapped("mo_id"))
+            for stage,default in (("mr1","Full Requirement"),("mr2","Shortage Requirement")):
+                decision=batch._ya_mr_stage_decision(stage)
+                existing=batch._ya_mr_stage_existing(stage)
+                batch["ya_"+stage+"_issued"]=bool(decision or existing)
+                if decision:
+                    batch["ya_"+stage+"_method_status"]=dict(MODES)[decision.mode]+(
+                        " - Sudah terbit" if existing else " - Tidak perlu transfer")
+                    batch["ya_"+stage+"_decision_html"]=decision_table(decision.facts,self.env)
+                elif existing:
+                    batch["ya_"+stage+"_method_status"]="Full Requirement - Dokumen sudah terbit"
+                else:
+                    batch["ya_"+stage+"_method_status"]=default+" - Default, belum terbit"
             finals = self.env["ya.sale.mo2.finalization"].sudo().search([("batch_id","=",batch.id)])
             if len(finals) != 1 or not finals.ya_pp2_design_b_snapshot:
                 batch.ya_mr2_plan_html = _("MR2 belum tersedia. Selesaikan Closing dan Produksi OK 2.")
@@ -61,10 +86,10 @@ class PackingBatchMRStageDisplay(models.Model):
             batch.ya_mr2_ready = True
             mos = final.line_ids.mapped("mo_id")
             batch.ya_mr2_has_mo = bool(mos)
-            pickings = self.env["stock.picking"].search([
-                ("ya_mr2_finalization_id","=",final.id)])
+            pickings = batch._ya_mr_stage_existing("mr2")
             batch.ya_mr2_transfer_count = len(pickings)
             if not mos:
+                batch.ya_mr2_method_status = _("Tidak perlu MR2 - PP2 tanpa MO2")
                 batch.ya_mr2_plan_html = _("PP2 selesai tanpa tambahan MO2.")
                 continue
             batch.ya_mr2_plan_html = plan(mos)
@@ -89,7 +114,7 @@ class PackingBatchMRStageDisplay(models.Model):
         final = self.env["ya.sale.mo2.finalization"].sudo().search([("batch_id","=",self.id)])
         if len(final) != 1 or not final.ya_pp2_design_b_snapshot:
             raise UserError(_("MR2 membutuhkan Produksi OK 2."))
-        ids = self.env["stock.picking"].search([("ya_mr2_finalization_id","=",final.id)]).ids
+        ids = self._ya_mr_stage_existing("mr2").ids
         return dict(type="ir.actions.act_window", name=_("Internal Transfer MR2"),
                     res_model="stock.picking", view_mode="list,form",
                     domain=[("id","in",ids)], context={"create":False}, target="current")

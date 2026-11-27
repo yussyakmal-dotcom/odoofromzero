@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <template id="ya_picking_full_width_source" inherit_id="stock.report_picking" priority="40">
+    <xpath expr="//div[hasclass('o_stock_report_header_row')]" position="before">
+      <div t-if="o.origin" name="ya_full_width_source" style="width:100%; margin-bottom:12px; white-space:normal; word-wrap:break-word;">
+        <strong>Order: </strong><span t-field="o.origin"/>
+      </div>
+    </xpath>
+    <xpath expr="//div[@name='div_origin']" position="replace"/>
+  </template>
+</odoo>

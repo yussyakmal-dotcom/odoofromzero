@@ -106,8 +106,10 @@ class ManufacturingClosingGate(models.Model):
             return
         for mo in self:
             batch=mo.sudo().ya_packing_batch_line_id.batch_id
+            line=self.env["ya.sale.mo2.release.line"].sudo().browse()
             if not batch:
-                batch=self.env["ya.sale.mo2.release.line"].sudo().search([("mo_id","=",mo.id)],limit=1).finalization_id.batch_id
+                line=self.env["ya.sale.mo2.release.line"].sudo().search([("mo_id","=",mo.id)],limit=1)
+                batch=line.finalization_id.batch_id
             if not batch or not batch.ya_pp1_design_b_snapshot:
                 continue
             lock_ro_slot(self.env.cr,batch.delivery_date,batch.slot)
@@ -120,6 +122,11 @@ class ManufacturingClosingGate(models.Model):
             if len(final)!=1 or not final.ya_pp2_design_b_snapshot:
                 raise UserError(_("PP2 wajib selesai sebelum pelaksanaan produksi MO1."))
             final._ya_pp2_frozen_facts()
+            # A stage decision is issued while MO2 is Confirmed. Prevent
+            # skipping MR2 and discovering an unrecoverable missing decision
+            # only at the finished-goods handoff. Existing legacy MR2 remains valid.
+            if line and not batch._ya_mr_stage_decision("mr2") and not line._ya_mr2_pickings():
+                raise UserError(_("Siapkan dan terbitkan MR2 sebelum menyelesaikan MO2."))
 
     def button_mark_done(self):
         self._ya_check_pp2_before_production()

@@ -7,9 +7,11 @@
     <field name="arch" type="xml">
       <xpath expr="//button[@name='action_mr_refresh']" position="attributes">
         <attribute name="string">Hitung / Refresh MR1</attribute>
+        <attribute name="invisible">ya_pp1_design_b_snapshot and ya_mr1_issued</attribute>
       </xpath>
       <xpath expr="//button[@name='action_mr_generate_native_transfers']" position="attributes">
-        <attribute name="string">Buat Internal Transfer MR1 (Full)</attribute>
+        <attribute name="string">Siapkan MR1</attribute>
+        <attribute name="invisible">ya_pp1_design_b_snapshot and ya_mr1_issued</attribute>
       </xpath>
       <xpath expr="//button[@name='action_mr_open_native_transfers']" position="attributes">
         <attribute name="string">Buka Internal Transfer MR1</attribute>
@@ -19,12 +21,16 @@
         <field name="ya_mr2_ready" invisible="1"/>
         <field name="ya_mr2_has_mo" invisible="1"/>
         <field name="ya_mr2_transfer_count" invisible="1"/>
-        <button name="action_mr2_generate_native_transfers" type="object" string="Buat MR2 (Full)"
+        <field name="ya_mr1_issued" invisible="1"/>
+        <field name="ya_mr2_issued" invisible="1"/>
+        <button name="action_mr2_generate_native_transfers" type="object" string="Siapkan MR2"
                 groups="stock.group_stock_manager"
-                invisible="not ya_mr2_ready or not ya_mr2_has_mo"
-                confirm="Metode existing: Full Requirement MO2 saja. Dokumen MR1 tidak berubah. Shortage belum tersedia."/>
+                invisible="not ya_mr2_ready or not ya_mr2_has_mo or ya_mr2_issued"/>
         <button name="action_mr2_open_native_transfers" type="object" string="Buka Internal Transfer MR2"
                 invisible="not ya_mr2_transfer_count"/>
+      </xpath>
+      <xpath expr="//field[@name='mr_kitchen_line_ids']/list/field[@name='required_qty']" position="attributes">
+        <attribute name="string">Kebutuhan Penuh MO1</attribute>
       </xpath>
       <xpath expr="//page[field[@name='mr_kitchen_line_ids']]" position="attributes">
         <attribute name="string">MR1 - Bahan per Dapur</attribute>
@@ -34,20 +40,58 @@
       </xpath>
       <xpath expr="//page[field[@name='mr_kitchen_line_ids']]" position="before">
         <page string="MR1 - Rencana Produksi" invisible="not ya_pp1_design_b_snapshot">
+          <group><field name="ya_mr1_method_status" string="Metode MR1" readonly="1"/></group>
           <field name="ya_mr1_plan_html" readonly="1" nolabel="1"/>
+          <field name="ya_mr1_decision_html" readonly="1" nolabel="1"/>
         </page>
       </xpath>
       <xpath expr="//page[field[@name='mr_cdc_line_ids']]" position="after">
         <page string="MR2 - Rencana Produksi" invisible="not ya_pp1_design_b_snapshot">
+          <group><field name="ya_mr2_method_status" string="Metode MR2" readonly="1"/></group>
           <field name="ya_mr2_plan_html" readonly="1" nolabel="1"/>
+          <field name="ya_mr2_decision_html" readonly="1" nolabel="1"/>
         </page>
         <page string="MR2 - Kebutuhan Bahan" invisible="not ya_mr2_has_mo">
           <div class="alert alert-info" role="alert">
-            Kebutuhan penuh MO2 saja. Belum dikurangi stok dapur. Jangan hitung ulang MR1 untuk tambahan SO.
+            Kebutuhan penuh MO2 saja. Qty Transfer ditetapkan terpisah menurut metode pada Siapkan MR2.
           </div>
           <field name="ya_mr2_material_html" readonly="1" nolabel="1"/>
         </page>
       </xpath>
+    </field>
+  </record>
+  <record id="view_ya_mr_stage_wizard" model="ir.ui.view">
+    <field name="name">ya.mr.stage.wizard.form</field>
+    <field name="model">ya.mr.stage.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Siapkan Material Requirement" create="false" delete="false">
+        <header>
+          <button name="action_preview" type="object" string="Hitung / Refresh" class="btn-primary"/>
+          <button name="action_issue" type="object" string="Terbitkan Material Requirement" class="btn-primary"
+                  invisible="not digest"
+                  confirm="Terbitkan permintaan bahan sesuai metode dan Qty Transfer? Keputusan tidak dapat diubah. Dokumen tahap lain tetap utuh."/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="batch_id"/>
+              <field name="stage"/>
+              <field name="delivery_date"/>
+              <field name="slot"/>
+            </group>
+            <group>
+              <field name="mode" string="Metode Requirement"/>
+              <field name="digest" invisible="1"/>
+            </group>
+          </group>
+          <div class="alert alert-info" role="alert">
+            Full = kebutuhan penuh MO tahap ini. Shortage = kekurangan setelah stok dan komitmen dapur.
+            Ubah metode sebelum terbit; klik Hitung / Refresh untuk memperbarui hasil.
+            Qty Transfer nol tidak membuat Internal Transfer kosong.
+          </div>
+          <field name="preview_html" readonly="1" nolabel="1"/>
+        </sheet>
+      </form>
     </field>
   </record>
 </odoo>
