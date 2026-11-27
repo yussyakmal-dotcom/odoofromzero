@@ -4,8 +4,9 @@ from odoo.exceptions import UserError
 from ..models.final_packing_review import _TOKEN, GROUP
 from ..models.pp1_native_sources import DB
 from ..models.final_packing_demand import read_final_packing_demand
-from ..models.final_packing_proposal_rules import build_proposal_template, validate_proposal, source_digest
+from ..models.final_packing_proposal_rules import build_proposal_template, validate_proposal, source_digest, auto_allocate, PRORATA_POLICY, key
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
+from odoo.addons.ya_store_ro.models.allocation_rules import allocate_capacity_prorata, allocate_surplus_prorata
 
 
 class FinalPackingReviewWizard(models.TransientModel):
@@ -68,6 +69,34 @@ class FinalPackingReviewWizard(models.TransientModel):
             "supply_ids":[(5,0,0)]+supplies,"result":False,"reason":False})
         return self._reopen()
 
+    def _allocation_error(self, exc):
+        import re
+        msg=str(exc)
+        match=re.search(r"\('(?:KITCHEN|PCK)', (\d+)\)",msg)
+        if match:
+            product=self.env["product.product"].browse(int(match.group(1))).exists()
+            if product:
+                msg=msg[:match.start()]+product.display_name+msg[match.end():]
+        return UserError(msg)
+
+    def action_auto_allocate(self):
+        self._guard()
+        demand=self._read()
+        if self.digest!=source_digest(demand):
+            raise UserError(_("Data sumber/stok berubah. Refresh dahulu."))
+        try:
+            proposal=auto_allocate(demand,allocate_capacity_prorata,allocate_surplus_prorata)
+        except ValueError as exc:
+            raise self._allocation_error(exc) from exc
+        quantities={key(r):r["qty_allocated"] for r in proposal["rows"]}
+        for line in self.line_ids:
+            ident=(line.kind,line.source_id,line.line_id,line.recipient_id,line.product_id.id)
+            if ident not in quantities:
+                raise UserError(_("Baris review berubah. Refresh dahulu."))
+            line.qty_allocated=quantities[ident]
+        self.result=_("Usulan prorata terisi. Periksa dan koreksi sebelum Simpan Review.")
+        return self._reopen()
+
     def action_save_review(self):
         self._guard()
         with self.env.cr.savepoint():
@@ -76,14 +105,14 @@ class FinalPackingReviewWizard(models.TransientModel):
                 raise UserError(_("Data sumber/stok berubah. Refresh review sebelum menyimpan."))
             if not self.reason or not self.reason.strip():
                 raise UserError(_("Isi catatan keputusan review."))
-            proposal=build_proposal_template(demand)
+            proposal=build_proposal_template(demand,policy=PRORATA_POLICY)
             proposal["rows"]=[dict(kind=l.kind,source_id=l.source_id,line_id=l.line_id,
                 recipient_id=l.recipient_id,product_id=l.product_id.id,qty_allocated=l.qty_allocated)
                 for l in self.line_ids]
             try:
                 validated=validate_proposal(demand,proposal)
             except ValueError as exc:
-                raise UserError(str(exc)) from exc
+                raise self._allocation_error(exc) from exc
             evidence=dict(demand=demand,proposal=proposal,validated=validated)
             review=self.env["ya.final.packing.review"].with_context(_ya_final_review_token=_TOKEN).create({
                 "batch_id":self.batch_id.id,"company_id":self.env.company.id,
@@ -111,11 +140,13 @@ class FinalPackingReviewLine(models.TransientModel):
     qty_requested=fields.Integer(readonly=True)
     qty_allocated=fields.Integer(default=-1)
     qty_shortage=fields.Integer(compute="_compute_shortage")
+    qty_surplus=fields.Integer(compute="_compute_shortage")
 
     @api.depends("qty_allocated","qty_requested")
     def _compute_shortage(self):
         for r in self:
             r.qty_shortage=max(r.qty_requested-r.qty_allocated,0) if r.qty_allocated>=0 else 0
+            r.qty_surplus=max(r.qty_allocated-r.qty_requested,0)
 
 
 class FinalPackingSupplyLine(models.TransientModel):

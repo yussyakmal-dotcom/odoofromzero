@@ -45,10 +45,13 @@ def source_digest(demand):
                               allow_nan=False).encode()).hexdigest()
 
 
-def build_proposal_template(demand):
+PRORATA_POLICY = 'ro_prorata_v1'
+
+
+def build_proposal_template(demand, policy=None):
     """Return fixed identities and blank quantity slots, not recommendations."""
     supply = demand["supply"]
-    return {
+    template = {
         "batch_id": supply["batch_id"],
         "delivery_date": supply["delivery_date"], "slot": supply["slot"],
         "source_digest": source_digest(demand),
@@ -57,10 +60,35 @@ def build_proposal_template(demand):
                       product_id=r["product_id"], qty_allocated=None)
                  for r in demand["recipient_rows"]],
     }
+    if policy is not None:
+        check(policy == PRORATA_POLICY, "Unknown allocation policy")
+        template["policy"] = policy
+    return template
+
+
+def available_stock(demand):
+    available = {}
+    for r in demand["supply"]["rows"]:
+        k = ("KITCHEN", r["product_id"])
+        check(k not in available, "Duplicate kitchen supply")
+        available[k] = number(r["slot_supply_upper_bound"])
+        if "claim_preview_cap" in r:
+            available[k] = min(available[k],number(r["claim_preview_cap"]))
+    for r in demand["pck_component_rows"]:
+        k = ("PCK", r["product_id"])
+        check(k not in available and ("KITCHEN", r["product_id"]) not in available,
+              "Duplicate/ambiguous component supply")
+        # Tracked stock cannot be claimed by this untracked-stock preview.
+        available[k] = number(r["free"]) if r["tracking"]=="none" else Decimal(0)
+        if "claim_preview_cap" in r:
+            available[k] = min(available[k],number(r["claim_preview_cap"]))
+
+    return available
 
 
 def validate_proposal(demand, proposal):
-    template = build_proposal_template(demand)
+    policy = proposal.get("policy")
+    template = build_proposal_template(demand, policy=policy)
     check(set(proposal) == set(template), "Unexpected proposal fields")
     for k in ("batch_id", "delivery_date", "slot", "source_digest"):
         check(type(proposal[k]) is type(template[k]) and proposal[k] == template[k],
@@ -81,21 +109,7 @@ def validate_proposal(demand, proposal):
         proposals[k] = integer(r["qty_allocated"])
     check(set(proposals)==set(original), "Missing recipient row; use explicit zero")
 
-    available = {}
-    for r in demand["supply"]["rows"]:
-        k = ("KITCHEN", r["product_id"])
-        check(k not in available, "Duplicate kitchen supply")
-        available[k] = number(r["slot_supply_upper_bound"])
-        if "claim_preview_cap" in r:
-            available[k] = min(available[k],number(r["claim_preview_cap"]))
-    for r in demand["pck_component_rows"]:
-        k = ("PCK", r["product_id"])
-        check(k not in available and ("KITCHEN", r["product_id"]) not in available,
-              "Duplicate/ambiguous component supply")
-        # Tracked stock cannot be claimed by this untracked-stock preview.
-        available[k] = number(r["free"]) if r["tracking"]=="none" else Decimal(0)
-        if "claim_preview_cap" in r:
-            available[k] = min(available[k],number(r["claim_preview_cap"]))
+    available = available_stock(demand)
 
     total = defaultdict(Decimal)
     ordinary = defaultdict(Decimal)
@@ -106,7 +120,8 @@ def validate_proposal(demand, proposal):
         check(requested>0, "Invalid original demand")
         qty = proposals[k]
         check(r["kind"] in ("SO","SO_PAKET","RO_PAKET","RO"), "Unknown demand class")
-        check(qty<=requested, "Allocation exceeds original demand")
+        if policy != PRORATA_POLICY or r["kind"] != "RO":
+            check(qty<=requested, "Allocation exceeds original demand")
         if r["kind"] in ("SO","SO_PAKET"):
             check(qty==requested, "Confirmed SO cannot be partially allocated")
         parts = {}
@@ -126,7 +141,9 @@ def validate_proposal(demand, proposal):
         parts_by_key[k] = parts
         result.append(dict(kind=r["kind"],source_id=r["source_id"],line_id=r["line_id"],
                            recipient_id=r["recipient_id"],product_id=r["product_id"],
-                           qty_requested=requested,qty_allocated=qty,qty_shortage=requested-qty))
+                           qty_requested=requested,qty_allocated=qty,qty_shortage=max(0,requested-qty)))
+        if policy == PRORATA_POLICY:
+            result[-1]["qty_surplus"] = max(0,qty-requested)
     remaining = {}
     for k,supply in available.items():
         check(total[k]<=supply, "Insufficient full component stock: %s" % (k,))
@@ -138,7 +155,7 @@ def validate_proposal(demand, proposal):
     # for review, rather than silently choosing a recipient.
     warnings = []
     for k,r in original.items():
-        if proposals[k]==r["qty"] or r["kind"] not in ("RO","RO_PAKET"):
+        if proposals[k]>=r["qty"] or r["kind"] not in ("RO","RO_PAKET"):
             continue
         parts=parts_by_key[k]
         can_fill=all(remaining[c]>=ratio for c,ratio in parts.items())
@@ -161,3 +178,79 @@ def validate_proposal(demand, proposal):
         "cross_slot_claims_pending":True,
         "recipient_shortage_policy_pending":True,
     }
+
+
+def auto_allocate(demand, prorata_capacity, prorata_surplus):
+    """Use Fase1 integer Hamilton helpers on actual remaining stock.
+    No invented priority between competing different package SKUs.
+    """
+    proposal=build_proposal_template(demand,policy=PRORATA_POLICY)
+    check(not demand["so_paket_confirmation_provenance_missing"],
+          "SO Paket confirmation provenance missing; review required")
+    remaining=available_stock(demand)
+    rows=demand["recipient_rows"]
+    quantities={}
+    def parts(r):
+        return {(c["source_kind"],c["product_id"]):number(c.get("qty_per_package",1))
+                for c in r["components"]}
+    def take(r,qty):
+        for ck,ratio in parts(r).items():
+            check(ck in remaining and ratio>0,"Missing or invalid component supply")
+            check(remaining[ck]>=ratio*qty,"Insufficient full component stock: %s"%(ck,))
+            remaining[ck]-=ratio*qty
+        quantities[key(r)]=qty
+    def distribute(group,budget):
+        # Aggregate by store, then split duplicate source lines within store.
+        def split(requests,limit):
+            total=sum(requests.values())
+            if limit>=total:
+                if limit==0:
+                    return {k:0 for k in requests}
+                _,result=prorata_surplus(requests,limit)
+            else:
+                _,result,_=prorata_capacity(requests,1,limit)
+            return {k:v["allocated"] for k,v in result.items()}
+        stores=defaultdict(list)
+        for row in group:
+            stores[row["recipient_id"]].append(row)
+        totals={sid:sum(r["qty"] for r in rs) for sid,rs in stores.items()}
+        store_qty=split(totals,budget)
+        for sid,rs in sorted(stores.items()):
+            ordered=sorted(rs,key=key)
+            line_qty=split({i+1:r["qty"] for i,r in enumerate(ordered)},store_qty[sid])
+            for i,r in enumerate(ordered):
+                take(r,line_qty[i+1])
+    for r in rows:
+        if r["kind"] in ("SO","SO_PAKET"):
+            take(r,r["qty"])
+    packages=defaultdict(list)
+    ordinary=defaultdict(list)
+    for r in rows:
+        if r["kind"]=="RO_PAKET":
+            packages[r["product_id"]].append(r)
+        elif r["kind"]=="RO":
+            ordinary[r["product_id"]].append(r)
+    package_need=defaultdict(Decimal)
+    users=defaultdict(set)
+    for pid,group in packages.items():
+        ratios=parts(group[0])
+        check(bool(ratios) and all(parts(r)==ratios for r in group),"Conflicting Paket component ratios")
+        for ck,ratio in ratios.items():
+            check(ck in remaining and ratio>0,"Missing or invalid Paket component")
+            package_need[ck]+=ratio*sum(r["qty"] for r in group)
+            users[ck].add(pid)
+    check(not any(package_need[ck]>remaining[ck] and len(users[ck])>1 for ck in package_need),
+          "RO Paket berbeda berebut komponen terbatas. Tentukan alokasi Paket secara manual; aturan prioritas antar Paket belum ditetapkan.")
+    for pid,group in sorted(packages.items()):
+        ratios=parts(group[0])
+        budget=min([sum(r["qty"] for r in group)]+[int(remaining[ck]//ratio) for ck,ratio in ratios.items()])
+        distribute(group,budget)
+    for pid,group in sorted(ordinary.items()):
+        ck=("KITCHEN",pid)
+        check(ck in remaining and all(parts(r)=={ck:Decimal(1)} for r in group),
+              "Invalid ordinary RO component")
+        distribute(group,int(remaining[ck]))
+    for row in proposal["rows"]:
+        row["qty_allocated"]=quantities[key(row)]
+    validate_proposal(demand,proposal)
+    return proposal

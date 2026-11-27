@@ -33,9 +33,9 @@ class FinalPackingReview(models.Model):
                 product=self.env["product.product"].browse(row["product_id"])
                 is_so=row["kind"] in ("SO","SO_PAKET")
                 recipient=self.env["res.partner" if is_so else "stock.warehouse"].sudo().browse(row["recipient_id"])
-                rows.append("%s | %s | %s | Demand %s | Alokasi %s | Kurang %s | Sumber #%s/%s" % (
+                rows.append("%s | %s | %s | Demand %s | Alokasi %s | Kurang %s | Surplus %s | Sumber #%s/%s" % (
                     row["kind"],recipient.display_name,product.display_name,row["qty_requested"],
-                    row["qty_allocated"],row["qty_shortage"],row["source_id"],row["line_id"]))
+                    row["qty_allocated"],row["qty_shortage"],row.get("qty_surplus",0),row["source_id"],row["line_id"]))
             for warning in result.get("review_warnings",[]):
                 rows.append("PERHATIAN: %s #%s/%s — %s" % (warning["kind"],warning["source_id"],warning["line_id"],warning["reason"]))
             rec.detail="\n".join(rows)

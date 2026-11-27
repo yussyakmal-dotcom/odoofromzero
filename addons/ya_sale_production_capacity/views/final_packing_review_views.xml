@@ -8,13 +8,15 @@
         <header>
           <button name="action_refresh" type="object" string="Refresh Stok dan Demand"
                   confirm="Refresh akan menghapus usulan Qty saat ini."/>
+          <button name="action_auto_allocate" type="object" string="Auto Allocation" class="btn-primary"
+                  confirm="Hitung ulang usulan RO dengan prorata? Koreksi manual sebelumnya akan diganti."/>
           <button name="action_save_review" type="object" string="Simpan Review" class="btn-primary"
                   confirm="Simpan hasil review saja? Belum membuat reservasi, MO Paket atau DO."/>
         </header>
         <sheet>
           <div class="alert alert-info" role="alert">
-            SO wajib penuh. Isi Qty RO Paket dan RO biasa secara eksplisit; -1 berarti belum diisi.
-            Nol berarti tidak dialokasikan. Surplus tidak dibagikan otomatis.
+            SO wajib penuh. Klik Auto Allocation: SO, RO Paket, lalu RO Toko prorata shortage/surplus.
+            Usulan RO dapat diedit; -1 belum diisi, nol tidak dialokasikan.
             Hasil review bukan persetujuan release atau hak atas stok.
           </div>
           <group>
@@ -32,7 +34,8 @@
                   <field name="product_id"/>
                   <field name="qty_requested" string="Demand"/>
                   <field name="qty_allocated" string="Usulan Qty" readonly="kind in ('SO','SO_PAKET')"/>
-                  <field name="qty_shortage" string="Kurang"/>
+                  <field name="qty_shortage" string="Kurang" decoration-danger="qty_shortage &gt; 0"/>
+                  <field name="qty_surplus" string="Surplus" decoration-success="qty_surplus &gt; 0"/>
                 </list>
               </field>
             </page>
