@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.21.7"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.21.8"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src
@@ -47,5 +47,12 @@ print("SO_STATUS_RED_SOURCE_PREFLIGHT_PASS")
 assert '"text-success fw-bold" if headers[i]=="Status" and v=="Tanpa tambah produksi"' in display
 assert '"text-warning fw-bold" if headers[i]=="Status" and v=="Tambah produksi"' in display
 print("SO_STATUS_GREEN_YELLOW_SOURCE_PREFLIGHT_PASS")
+mr_view=(root/"views/mo2_material_views.xml").read_text()
+assert "MR1 - Rencana Produksi" in mr_view and "MR2 - Rencana Produksi" in mr_view
+assert "MR2 - Kebutuhan Bahan" in mr_view
+assert "Shortage belum tersedia" in mr_view
+assert "MR1" in (root/"models/mo1_material_integration.py").read_text()
+assert "Pengurangan RO Paket" in (root/"views/consolidation_review_views.xml").read_text()
+print("MR_STAGE_DISPLAY_ORIGIN_SOURCE_PREFLIGHT_PASS")
 print("FASE2_CLOSING_SOURCE_PREFLIGHT_PASS")
 print("SOURCE_ONLY_NO_DATABASE_NO_DEPLOY")

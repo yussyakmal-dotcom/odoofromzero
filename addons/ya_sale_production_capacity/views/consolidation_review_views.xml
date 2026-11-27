@@ -50,8 +50,8 @@
               <field name="published_max" string="Max"/>
               <field name="qty_mo1" string="MO1"/>
               <field name="qty_mo2" string="MO2"/>
-              <field name="shortage_ro_paket" string="Kurang RO Paket" decoration-danger="shortage_ro_paket &gt; 0"/>
-              <field name="shortage_ro" string="Kurang RO" decoration-danger="shortage_ro &gt; 0"/>
+              <field name="shortage_ro_paket" string="Pengurangan RO Paket" decoration-danger="shortage_ro_paket &gt; 0"/>
+              <field name="shortage_ro" string="Pengurangan RO" decoration-danger="shortage_ro &gt; 0"/>
               <field name="surplus" string="Sisa"/>
             </list>
           </field>

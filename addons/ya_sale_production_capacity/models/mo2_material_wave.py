@@ -196,8 +196,9 @@ class YaMo2MaterialReleaseLine(models.Model):
                     products[mat.id]=mat
         if not requirements:
             raise UserError(_("No positive MO2 material demand."))
-        origin="YA-MR2-%s-CDC-%s"%(session.id,kitchen.code)
-        if Picking.search_count([("origin","=",origin)]):
+        origin_prefix="YA-MR2-%s-CDC-%s"%(session.id,kitchen.code)
+        origin="%s / %s / %s / MR2"%(origin_prefix,batch.delivery_date.strftime("%Y-%b-%d"),batch.slot)
+        if Picking.search_count(["|",("origin","=",origin_prefix),("origin","=like",origin_prefix+" / %")]):
             raise UserError(_("Unlinked MR2 document; reconcile."))
         picking=Picking.with_context(_ya_mr2_token=_TOKEN).create({
             "ya_mr2_finalization_id":session.id,"ya_mr2_kitchen_id":kitchen.id,

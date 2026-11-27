@@ -5,14 +5,48 @@
     <field name="model">ya.packing.batch</field>
     <field name="inherit_id" ref="ya_material_requirement.view_ya_material_batch_form"/>
     <field name="arch" type="xml">
+      <xpath expr="//button[@name='action_mr_refresh']" position="attributes">
+        <attribute name="string">Hitung / Refresh MR1</attribute>
+      </xpath>
       <xpath expr="//button[@name='action_mr_generate_native_transfers']" position="attributes">
-        <attribute name="string">Buat Internal Transfer MR1</attribute>
+        <attribute name="string">Buat Internal Transfer MR1 (Full)</attribute>
+      </xpath>
+      <xpath expr="//button[@name='action_mr_open_native_transfers']" position="attributes">
+        <attribute name="string">Buka Internal Transfer MR1</attribute>
       </xpath>
       <xpath expr="//button[@name='action_mr_open_native_transfers']" position="after">
         <field name="ya_pp1_design_b_snapshot" invisible="1"/>
-        <button name="action_mr2_generate_native_transfers" type="object" string="Buat / Buka MR2"
-                groups="stock.group_stock_manager" invisible="not ya_pp1_design_b_snapshot"
-                confirm="Buat Internal Transfer per dapur untuk MO2 saja? Dokumen MR1 tidak berubah."/>
+        <field name="ya_mr2_ready" invisible="1"/>
+        <field name="ya_mr2_has_mo" invisible="1"/>
+        <field name="ya_mr2_transfer_count" invisible="1"/>
+        <button name="action_mr2_generate_native_transfers" type="object" string="Buat MR2 (Full)"
+                groups="stock.group_stock_manager"
+                invisible="not ya_mr2_ready or not ya_mr2_has_mo"
+                confirm="Metode existing: Full Requirement MO2 saja. Dokumen MR1 tidak berubah. Shortage belum tersedia."/>
+        <button name="action_mr2_open_native_transfers" type="object" string="Buka Internal Transfer MR2"
+                invisible="not ya_mr2_transfer_count"/>
+      </xpath>
+      <xpath expr="//page[field[@name='mr_kitchen_line_ids']]" position="attributes">
+        <attribute name="string">MR1 - Bahan per Dapur</attribute>
+      </xpath>
+      <xpath expr="//page[field[@name='mr_cdc_line_ids']]" position="attributes">
+        <attribute name="string">MR1 - Ringkasan CDC</attribute>
+      </xpath>
+      <xpath expr="//page[field[@name='mr_kitchen_line_ids']]" position="before">
+        <page string="MR1 - Rencana Produksi" invisible="not ya_pp1_design_b_snapshot">
+          <field name="ya_mr1_plan_html" readonly="1" nolabel="1"/>
+        </page>
+      </xpath>
+      <xpath expr="//page[field[@name='mr_cdc_line_ids']]" position="after">
+        <page string="MR2 - Rencana Produksi" invisible="not ya_pp1_design_b_snapshot">
+          <field name="ya_mr2_plan_html" readonly="1" nolabel="1"/>
+        </page>
+        <page string="MR2 - Kebutuhan Bahan" invisible="not ya_mr2_has_mo">
+          <div class="alert alert-info" role="alert">
+            Kebutuhan penuh MO2 saja. Belum dikurangi stok dapur. Jangan hitung ulang MR1 untuk tambahan SO.
+          </div>
+          <field name="ya_mr2_material_html" readonly="1" nolabel="1"/>
+        </page>
       </xpath>
     </field>
   </record>

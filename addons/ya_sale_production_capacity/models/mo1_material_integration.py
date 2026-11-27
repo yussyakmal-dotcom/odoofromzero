@@ -4,7 +4,7 @@ Requires isolated ya_material_requirement source with default-preserving
 authorization hooks. Never patch module globals or permit legacy batch
 generation in clone. Original Fase1 runtime remains unchanged.
 """
-from odoo import models, _
+from odoo import api, models, _
 from odoo.exceptions import UserError
 from odoo.addons.ya_store_ro.models.packing_lock import lock_ro_slot
 from .pp1_native_sources import DB
@@ -68,3 +68,21 @@ class MaterialRequirementMo1Wizard(models.TransientModel):
                 raise UserError(_("MR1 membutuhkan batch PP1 Design B."))
             batch._mr_guard()
         return super().action_calculate()
+
+
+class StockPickingMR1Origin(models.Model):
+    _inherit = "stock.picking"
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        # Keep the old prefix: Fase1 duplicate detection searches that prefix.
+        if self.env.cr.dbname == DB:
+            vals_list = [dict(vals) for vals in vals_list]
+            for vals in vals_list:
+                batch = self.env["ya.packing.batch"].sudo().browse(vals.get("ya_mr_batch_id")).exists()
+                origin = vals.get("origin") or ""
+                if (batch and batch.ya_pp1_design_b_snapshot
+                        and origin.startswith("YA-MR-%s-CDC-" % batch.id)):
+                    vals["origin"] = "%s / %s / %s / MR1" % (
+                        origin, batch.delivery_date.strftime("%Y-%b-%d"), batch.slot)
+        return super().create(vals_list)
