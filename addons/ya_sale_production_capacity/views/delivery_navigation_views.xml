@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Legacy actions and data retained; only remove redundant menu entries. -->
+  <record id="ya_store_ro.menu_ya_packing_preview" model="ir.ui.menu">
+    <field name="active" eval="False"/>
+  </record>
+  <record id="ya_store_ro.menu_ya_packing_preproduction" model="ir.ui.menu">
+    <field name="active" eval="False"/>
+  </record>
+  <record id="action_ya_customer_store_deliveries" model="ir.actions.server">
+    <field name="name">DO Cust &amp; Toko</field>
+    <field name="model_id" ref="stock.model_stock_picking"/>
+    <field name="state">code</field>
+    <field name="code">action = model.action_ya_open_customer_store_deliveries()</field>
+    <field name="group_ids" eval="[(6,0,[ref('mrp.group_mrp_manager'),ref('ya_store_ro.group_ya_packing_admin'),ref('stock.group_stock_manager')])]"/>
+  </record>
+  <record id="ya_packing_store_delivery.menu_ya_store_distribution_batches" model="ir.ui.menu">
+    <field name="name">DO Cust &amp; Toko</field>
+    <field name="action" ref="action_ya_customer_store_deliveries"/>
+  </record>
+</odoo>

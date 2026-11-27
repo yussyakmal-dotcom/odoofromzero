@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.5"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.6"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src

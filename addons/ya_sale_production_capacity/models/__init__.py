@@ -43,3 +43,5 @@ from . import mr_stage_register
 from . import mo_production_navigation
 
 from . import finished_packing_display
+
+from . import delivery_navigation
