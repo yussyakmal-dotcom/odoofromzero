@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="action_ya_mo_production_all_stages" model="ir.actions.server">
+    <field name="name">MO Produksi</field>
+    <field name="model_id" ref="mrp.model_mrp_production"/>
+    <field name="state">code</field>
+    <field name="code">action = model.action_ya_open_production_mos()</field>
+    <field name="group_ids" eval="[(6,0,[ref('mrp.group_mrp_user'),ref('mrp.group_mrp_manager')])]"/>
+  </record>
+  <record id="ya_workflow_navigation.menu_ya_mo_production" model="ir.ui.menu">
+    <field name="action" ref="action_ya_mo_production_all_stages"/>
+  </record>
+</odoo>

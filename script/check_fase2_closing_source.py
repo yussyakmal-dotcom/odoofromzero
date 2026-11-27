@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.3"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.4"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src
@@ -87,5 +87,11 @@ cls=next(n for n in ast.parse(mr2).body if isinstance(n,ast.ClassDef) and n.name
 done=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=="_action_done")
 assert "self._ya_check_grouped_mr2()" in ast.unparse(done)
 print("MR2_NATIVE_VALIDATE_PICKED_PREFLIGHT_PASS")
+mo_nav=(root/"models/mo_production_navigation.py").read_text()
+assert '("ya_packing_batch_line_id", "!=", False)' in mo_nav
+assert '("id", "in", lines.mapped("mo_id").ids)' in mo_nav
+assert 'if self.env.cr.dbname != DB:' in mo_nav
+assert "ya_workflow_navigation.menu_ya_mo_production" in (root/"views/mo_production_navigation_views.xml").read_text()
+print("MO_PRODUCTION_MENU_MO1_MO2_PREFLIGHT_PASS")
 print("FASE2_CLOSING_SOURCE_PREFLIGHT_PASS")
 print("SOURCE_ONLY_NO_DATABASE_NO_DEPLOY")
