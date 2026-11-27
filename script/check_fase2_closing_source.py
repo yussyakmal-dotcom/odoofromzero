@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.4"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.5"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src
@@ -93,5 +93,14 @@ assert '("id", "in", lines.mapped("mo_id").ids)' in mo_nav
 assert 'if self.env.cr.dbname != DB:' in mo_nav
 assert "ya_workflow_navigation.menu_ya_mo_production" in (root/"views/mo_production_navigation_views.xml").read_text()
 print("MO_PRODUCTION_MENU_MO1_MO2_PREFLIGHT_PASS")
+fg_display=(root/"models/finished_packing_display.py").read_text()
+fg_view=(root/"views/finished_packing_display_views.xml").read_text()
+assert "mos=mo1|mo2" in fg_display and "ya_fg_total_kitchen_count" in fg_display
+assert "move_finished_ids" in fg_display and "ya_mo2_fg_picking_ids" in fg_display
+assert "action_open_packing_queue" not in fg_view and "action_open_packing_preproduction" not in fg_view
+assert "action_ya_fg_move_to_packing" in fg_view and "action_ya_final_packing_review" in fg_view
+assert "def action_ya_fg_move_to_packing" not in fg_display
+assert "ya_finished_packing_transfer.ya_fg_packing_batch_action" in fg_display
+print("FG_MO1_MO2_DISPLAY_SOURCE_PREFLIGHT_PASS")
 print("FASE2_CLOSING_SOURCE_PREFLIGHT_PASS")
 print("SOURCE_ONLY_NO_DATABASE_NO_DEPLOY")

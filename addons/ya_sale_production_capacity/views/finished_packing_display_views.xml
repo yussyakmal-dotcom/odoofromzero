@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_ya_fg_display_list" model="ir.ui.view">
+    <field name="name">ya.packing.batch.fg.display.list</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="arch" type="xml">
+      <list string="Produk Jadi ke Packing" create="false" edit="false" delete="false"
+            default_order="delivery_date desc,slot">
+        <field name="name" string="Batch Produksi"/>
+        <field name="delivery_date_label" string="Tgl Kirim"/>
+        <field name="slot"/>
+        <field name="ya_fg_total_kitchen_count" string="Dapur"/>
+        <field name="ya_fg_mo1_count" string="MO1"/>
+        <field name="ya_fg_mo2_count" string="MO2"/>
+        <field name="ya_fg_total_mo_count" string="Total MO"/>
+        <field name="ya_fg_all_transfer_count" string="Transfer"/>
+        <field name="ya_fg_display_status" string="Status" widget="badge"
+               decoration-success="ya_fg_display_status in ('ready','transferred')"
+               decoration-warning="ya_fg_display_status in ('waiting_pp2','waiting_mo')"
+               decoration-danger="ya_fg_display_status in ('review','expired')"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_ya_fg_display_form" model="ir.ui.view">
+    <field name="name">ya.packing.batch.fg.display.form</field>
+    <field name="model">ya.packing.batch</field>
+    <field name="arch" type="xml">
+      <form string="Produk Jadi ke Packing" create="false" edit="false" delete="false">
+        <header>
+          <button name="action_ya_fg_display_open_mos" type="object" string="Lihat MO1 dan MO2"/>
+          <button name="action_ya_fg_move_to_packing" type="object" string="Pindahkan ke Packing"
+                  class="btn-primary" groups="ya_store_ro.group_ya_packing_admin"
+                  invisible="ya_fg_display_status != 'ready'"
+                  confirm="Pindahkan seluruh hasil MO1 dan MO2 Done ke Packing? Mutasi stok langsung divalidasi."/>
+          <button name="action_ya_fg_open_transfers" type="object" string="Lihat Mutasi ke Packing"
+                  invisible="ya_fg_all_transfer_count == 0"/>
+          <button name="action_ya_final_packing_review" type="object" string="Post Produksi"
+                  groups="ya_store_ro.group_ya_packing_admin"
+                  invisible="ya_fg_display_status != 'transferred'"/>
+          <button name="action_ya_final_packing_review_history" type="object" string="Riwayat Review Alokasi"
+                  groups="ya_store_ro.group_ya_packing_admin"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="name" string="Batch Produksi"/>
+              <field name="delivery_date_label" string="Tgl Kirim"/>
+              <field name="slot"/>
+              <field name="ya_fg_display_status" string="Status"/>
+            </group>
+            <group>
+              <field name="ya_fg_total_kitchen_count" string="Jumlah Dapur"/>
+              <field name="ya_fg_mo1_count" string="MO1"/>
+              <field name="ya_fg_mo2_count" string="MO2"/>
+              <field name="ya_fg_total_mo_count" string="Total MO"/>
+              <field name="ya_fg_all_transfer_count" string="Internal Transfer"/>
+            </group>
+          </group>
+          <div class="alert alert-info" role="alert">
+            Hasil Aktual berasal dari finished stock move Done. Qty Terkirim hanya dari transfer terkait yang Done, bukan stok bebas Packing. Pindahkan ke Packing menjalankan kontrol native yang sudah ada.
+          </div>
+          <field name="ya_fg_detail_html" readonly="1" nolabel="1"/>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_ya_fg_display" model="ir.actions.act_window">
+    <field name="name">Produk Jadi ke Packing</field>
+    <field name="res_model">ya.packing.batch</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_id" ref="view_ya_fg_display_list"/>
+  </record>
+  <record id="action_ya_fg_display_form" model="ir.actions.act_window.view">
+    <field name="sequence" eval="2"/>
+    <field name="view_mode">form</field>
+    <field name="view_id" ref="view_ya_fg_display_form"/>
+    <field name="act_window_id" ref="action_ya_fg_display"/>
+  </record>
+  <record id="action_ya_fg_display_list" model="ir.actions.act_window.view">
+    <field name="sequence" eval="1"/>
+    <field name="view_mode">list</field>
+    <field name="view_id" ref="view_ya_fg_display_list"/>
+    <field name="act_window_id" ref="action_ya_fg_display"/>
+  </record>
+  <record id="action_ya_fg_display_menu" model="ir.actions.server">
+    <field name="name">Produk Jadi ke Packing</field>
+    <field name="model_id" ref="ya_store_ro.model_ya_packing_batch"/>
+    <field name="state">code</field>
+    <field name="code">action = model.action_ya_open_fg_display()</field>
+    <field name="group_ids" eval="[(6,0,[ref('ya_store_ro.group_ya_packing_admin'),ref('stock.group_stock_manager'),ref('mrp.group_mrp_manager')])]"/>
+  </record>
+  <record id="ya_finished_packing_transfer.ya_fg_packing_batch_menu" model="ir.ui.menu">
+    <field name="action" ref="action_ya_fg_display_menu"/>
+  </record>
+</odoo>
