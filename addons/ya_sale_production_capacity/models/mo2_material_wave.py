@@ -50,7 +50,7 @@ class StockPickingMo2Material(models.Model):
         if any(p.ya_mr2_finalization_id for p in self):
             raise UserError(_("MR2 yang telah terbit tidak boleh dihapus."))
 
-    def _ya_check_grouped_mr2(self):
+    def _ya_check_grouped_mr2(self, require_picked=True):
         self.ensure_one()
         if self.env.cr.dbname!=CLONE_DB:
             raise UserError(_("MR2 hanya di clone RO_SO."))
@@ -86,9 +86,13 @@ class StockPickingMo2Material(models.Model):
         if self.state!="assigned" or any(m.state!="assigned" for m in self.move_ids):
             raise UserError(_("Reserve seluruh bahan MR2 sebelum Validate."))
         for m in self.move_ids:
-            if not m.picked or not m.move_line_ids or any(l.location_id!=self.location_id
+            if not m.move_line_ids or any(l.location_id!=self.location_id
                     or l.location_dest_id!=self.location_dest_id for l in m.move_line_ids):
-                raise UserError(_("Konfirmasi Picked dan lokasi aktual MR2 terlebih dahulu."))
+                raise UserError(_("Periksa lokasi aktual bahan MR2 terlebih dahulu."))
+            if require_picked and (not m.picked or float_compare(
+                    m._get_picked_quantity(), m.product_uom_qty,
+                    precision_rounding=m.product_uom.rounding)!=0):
+                raise UserError(_("Qty Picked MR2 harus sama dengan Demand sebelum stok dipindahkan."))
         self._ya_check_mr2_physical()
 
     def _ya_check_mr2_physical(self):
@@ -114,7 +118,14 @@ class StockPickingMo2Material(models.Model):
         if grouped:
             if len(self)!=1:
                 raise UserError(_("Validate MR2 satu dokumen per dapur."))
-            self._ya_check_grouped_mr2()
+            # Before native Validate, all demand/quantity/route/reservation
+            # and physical-stock checks still run. For the normal untouched
+            # Ready picking, let Odoo 19 _pre_action_done_hook mark Picked.
+            # A mixed manual Picked state is an exception, not permission
+            # to silently override the operator's partial confirmation.
+            self._ya_check_grouped_mr2(require_picked=False)
+            if any(self.move_ids.mapped("picked")):
+                self._ya_check_grouped_mr2()
         return super().button_validate()
 
     def _action_done(self):

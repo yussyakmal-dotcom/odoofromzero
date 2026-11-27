@@ -8,7 +8,7 @@ for p in root.rglob("*.py"):
     ast.parse(p.read_text(),filename=str(p))
 for p in root.rglob("*.xml"):
     ET.parse(p)
-assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.2"
+assert ast.literal_eval((root/"__manifest__.py").read_text())["version"]=="19.0.1.22.3"
 src=(root/"models/closing_lifecycle.py").read_text()
 assert 'DEFAULT = {"pp1": "scheduled", "pp2": "manual"}' in src
 assert "def button_mark_done" in src and "def _post_inventory" in src
@@ -78,5 +78,14 @@ assert 'Tanggal Kirim (YYYY-Mon-DD)' not in register_view
 assert 'widget="radio" readonly="0"' in mr_view
 assert 'return wiz._reopen()' in policy
 print("MR_METHOD_SELECTOR_SOURCE_PREFLIGHT_PASS")
+mr2=(root/"models/mo2_material_wave.py").read_text()
+assert "def _ya_check_grouped_mr2(self, require_picked=True)" in mr2
+assert "self._ya_check_grouped_mr2(require_picked=False)" in mr2
+assert "if any(self.move_ids.mapped(\"picked\")):" in mr2
+assert "m._get_picked_quantity()" in mr2
+cls=next(n for n in ast.parse(mr2).body if isinstance(n,ast.ClassDef) and n.name=="StockPickingMo2Material")
+done=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=="_action_done")
+assert "self._ya_check_grouped_mr2()" in ast.unparse(done)
+print("MR2_NATIVE_VALIDATE_PICKED_PREFLIGHT_PASS")
 print("FASE2_CLOSING_SOURCE_PREFLIGHT_PASS")
 print("SOURCE_ONLY_NO_DATABASE_NO_DEPLOY")
